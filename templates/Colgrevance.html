@@ -1,0 +1,15 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>
+        You see the following members of the evil council:
+    <ul>
+        {% for player in info['evil_roles'] %}
+        <li>
+            {{ player }} as {{ info['evil_roles'][player] }}
+        </li>
+        {% endfor %}
+    </ul>
+    </li>
+</ul>
+{% endblock %}

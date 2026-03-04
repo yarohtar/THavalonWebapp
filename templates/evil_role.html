@@ -1,0 +1,22 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>
+        The following players are fellow members of the evil council:
+        <ul>
+        {% for player in info['other_evils'] %}
+            <li>
+                {{ player }}
+            </li>
+        {% endfor %}
+        {% if info['oberon'] %}
+            <li>Oberon, lurking in the shadows.</li>
+        {% endif %}
+        </ul>
+    </li>
+</ul>
+
+{% block other_content %}
+{% endblock %}
+
+{% endblock %}

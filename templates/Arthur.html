@@ -1,0 +1,18 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>The following good roles are in the game:
+        <ul>
+    {% for role in info['good_roles'] %}
+    <li>
+        {{ role }}
+    </li>
+    {% endfor %}
+        </ul>
+    </li>
+</ul>
+
+<h3>Ability: Proclamation</h3>
+<p>If two missions have failed, you may formally Proclaim yourself as Arthur.
+You can still vote and go on missions normally.</p>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>You see the following players as evil:
+        <ul>
+    {% for player in info['seen'] %}
+    <li>
+        {{ player }}
+    </li>
+    {% endfor %}
+        </ul>
+    </li>
+</ul>
+<p>If Mordred is present, you don't see them as evil.</p>
+<p>If Lancelot is present, you see them as evil.</p>
+{% endblock %}

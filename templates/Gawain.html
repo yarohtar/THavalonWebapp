@@ -1,0 +1,29 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>
+        At least one of these players is good:
+        <ul>
+            <li>
+                {{ info['seen'][0] }}
+            </li>
+            <li>
+                {{ info['seen'][1] }}
+            </li>
+            <li>
+                {{ info['seen'][2] }}
+            </li>
+        </ul>
+    </li>
+</ul>
+<h3>Ability: Inquisition</h3>
+<p>After a mission without you has been selected,
+and players have selected their cards,
+but before the cards have been shuffled,
+you may formally declare yourself as Gawain.
+You then select a player on the mission, and that player has to reveal their mission card.
+If by doing so you reveal a "Success", you become Exiled.
+While Exiled, you cannot go on missions, and cannot use this ability. 
+You may use this ability multiple times, as long as you are not Exiled.
+</p>
+{% endblock %}

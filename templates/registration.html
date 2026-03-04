@@ -1,0 +1,14 @@
+{% extends "template.html" %}
+{% block title %}
+Registration
+{% endblock %}
+{% block body %}
+<div>
+    <h1>Enter Your Name</h1>
+
+    <form method="POST" action="{{ url_for('register') }}">
+        <input type="text" name="player" placeholder="Your name" required autofocus>
+        <button type="submit">Submit</button>
+    </form>
+</div>
+{% endblock %}

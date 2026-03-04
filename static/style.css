@@ -1,0 +1,311 @@
+/* ====== Google Font Import (Medieval + Readable) ====== */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Crimson+Text:wght@400;600&display=swap');
+
+/* ====== Base Reset ====== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+html, body {
+    /*height: 100%;*/
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 17px;
+}
+
+/* ====== Page Background ====== */
+body {
+    font-family: 'Crimson Text', serif;
+    background: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
+    color: #f4f1e6;
+    min-height: 100vh;
+    padding: 2rem 1.2rem;
+    display: flex;
+    justify-content: center;
+}
+
+/* ====== Main Content Container ====== */
+body > * {
+    /*max-width: 520px;           /* Mobile-friendly width */
+    width: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 2rem 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    text-align: center;         /* Center everything by default */
+}
+
+/* ====== Headings ====== */
+h1, h2, h3 {
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+h1 {
+    font-size: 2.0rem;
+    text-transform: uppercase;
+    color: #e6c36f;             /* Gold accent */
+}
+
+h2 {
+    font-size: 1.7rem;
+    margin-top: 1.5rem;
+    color: #caa84a;
+}
+
+h3 {
+    font-size: 1.5rem;
+    margin-top: 1.2rem;
+    color: #caa84a;
+}
+
+/* ====== Paragraphs ====== */
+p {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 0rem;
+}
+
+/* ===== Lists ===== */
+
+ul, ol {
+    text-align: left;              /* override global center */
+    margin: 1.2rem 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+/* Top-level list items */
+ul > li, 
+ol > li {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    line-height: 1.5;
+}
+
+/* Nested list container */
+li ul,
+li ol {
+    margin-top: 0.6rem;
+    margin-bottom: 0.3rem;
+    padding-left: 1rem;
+}
+
+/* Nested list items */
+li ul > li,
+li ol > li {
+    margin-top: 0rem;
+    list-style-type: "◆";
+    background: none;
+    padding: 0.3rem 0.3;
+    opacity: 0.85;
+}
+li ul > li::marker,
+li ol > li::marker {
+    color: #caa84a;
+}
+
+/* ====== Role Highlighting (Optional Classes) ====== */
+.role-good {
+    color: #7fd4ff;
+    font-weight: 600;
+}
+
+.role-evil {
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+/* ====== Subtle Divider ====== */
+hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #caa84a, transparent);
+    margin: 1.5rem 0;
+}
+
+/* ====== Slightly Larger on Wider Screens ====== */
+@media (min-width: 768px) {
+    body > * {
+        max-width: 600px;
+        padding: 3rem 2.5rem;
+    }
+
+    h1 {
+        font-size: 2.4rem;
+    }
+
+    p, li {
+        font-size: 1.15rem;
+    }
+}
+
+/* ===== Form Layout ===== */
+
+form {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: left;   /* forms should not be center-aligned */
+}
+
+/* ===== Text Input ===== */
+
+input[type="text"] {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    font-family: 'Crimson Text', serif;
+
+    color: #f4f1e6;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(202, 168, 74, 0.4);
+    border-radius: 10px;
+
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+/* Placeholder styling */
+input[type="text"]::placeholder {
+    color: rgba(244, 241, 230, 0.6);
+}
+
+/* Focus state */
+input[type="text"]:focus {
+    border-color: #caa84a;
+    box-shadow: 0 0 0 3px rgba(202, 168, 74, 0.2);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ===== Button Styling ===== */
+
+button {
+    padding: 0.9rem 1rem;
+    font-size: 1.05rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+
+    background: linear-gradient(145deg, #caa84a, #a3842f);
+    color: #14121c;
+
+    border: none;
+    border-radius: 10px;
+
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Hover (desktop only effectively) */
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+/* Active press effect */
+button:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Full-width on mobile */
+button {
+    width: 100%;
+}
+
+/* Disabled state */
+button:disabled {
+    background: #555;
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+/* Each player row */
+.player-list li {
+    display: list-item;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0rem;
+    list-style-type: "◆";
+    background: none;
+    padding: 0.3rem 0.3;
+    opacity: 0.85;
+}
+.player-list li::marker,
+.player-list li::marker {
+    color: #caa84a;
+}
+/* Remove default form spacing inside list row */
+.player-list li form {
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* Ensure button has no weird baseline alignment */
+.remove-btn {
+    line-height: 1;
+}
+
+/* Remove button (small, circular, subtle) */
+.remove-btn {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 1rem;
+    font-weight: bold;
+
+    background: rgba(255, 80, 80, 0);
+    color: #ff6b6b;
+
+    border: 1px solid rgba(255, 80, 80, 0);
+    border-radius: 50%;
+
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+/* Hover */
+.remove-btn:hover {
+    background: rgba(255, 80, 80, 0);
+    transform: scale(1.05);
+}
+
+/* Press */
+.remove-btn:active {
+    transform: scale(0.95);
+}
+
+/* Container for the image, ensures spacing from text */
+.role-image-container {
+    margin-top: 2rem;          /* space above image */
+    text-align: center;         /* center horizontally */
+}
+
+/* The image itself */
+.role-image {
+    max-width: 100%;            /* responsive: never wider than card */
+    height: auto;               /* maintain aspect ratio */
+    border-radius: 12px;        /* rounded corners */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); /* soft shadow */
+    border: 2px solid rgba(202, 168, 74, 0.3); /* optional gold accent */
+    transition: transform 0.3s ease;
+}
+
+/* Optional: hover zoom effect for desktop */
+.role-image:hover {
+    transform: scale(1.03);
+}

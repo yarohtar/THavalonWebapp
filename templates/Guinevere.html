@@ -1,0 +1,19 @@
+{% extends "role.html" %}
+{% block content %}
+<ul>
+    <li>You see the following players:
+        <ul>
+    {% for player in info['seen'] %}
+    <li>
+        {{ player }}
+    </li>
+    {% endfor %}
+        </ul>
+    </li>
+</ul>
+<p>
+Each of them is either your luscious Lancelot, 
+your lawfully wedded Arthur,
+or your kidnapper Maelegant.
+</p>
+{% endblock %}

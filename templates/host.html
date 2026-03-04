@@ -1,0 +1,41 @@
+{% extends "template.html" %}
+{% block title %}Host{% endblock %}
+{% block body %}
+<div>
+    <h1>Player List</h1>
+
+    <ul>
+        <li>
+            <ul class="player-list">
+    {% for player in players %}
+        <li>
+            <div style="display:flex; justify-content: space-between;">
+                {{ player }}
+            <form method="POST"
+                  action="{{ url_for('delete_player') }}"
+                  style="display:inline;">
+                  
+                <input type="hidden" name="player" value="{{ player }}">
+                <button type="submit" class="remove-btn">❌</button>
+            </form>
+            </div>
+        </li>
+    {% endfor %}
+            </ul>
+        </li>
+    </ul>
+
+    <form method="POST"
+          action="{{ url_for('restart') }}"
+          style="display:inline;">
+        <button type="submit">Start New Game</button>
+    </form>
+</div>
+    <script>
+        const source = new EventSource("/events");
+        source.addEventListener('new-player', function(e){
+            location.reload()
+        }, false);
+        
+    </script>
+{% endblock %}

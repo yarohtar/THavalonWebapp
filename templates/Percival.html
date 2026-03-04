@@ -1,0 +1,17 @@
+{% extends "role.html" %}
+{% block content %}
+{% if (info['seen']|length) == 0 %}
+<p>Merlin and Morgana are not in this game.</p>
+{% else %}
+<ul>
+    <li>
+        You see the following players as Merlin or Morgana:
+        <ul>
+        {% for player in info['seen'] %}
+            <li>{{ player }}</li>
+        {% endfor %}
+        </ul>
+    </li>
+</ul>
+{% endif %}
+{% endblock %}

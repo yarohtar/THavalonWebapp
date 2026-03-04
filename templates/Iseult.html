@@ -1,0 +1,8 @@
+{% extends "role.html" %}
+{% block content %}
+{% if info['lover'] == 'unloved' %}
+<p>Nobody loves you. Tristan is not in this game.</p>
+{% else %}
+<p>{{ info['lover'] }} is Tristan, your lover.</p>
+{% endif %}
+{% endblock %}

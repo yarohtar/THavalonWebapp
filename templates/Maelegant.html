@@ -1,0 +1,32 @@
+{% extends "evil_role.html" %}
+{% block other_content %}
+<p>You may play Reversal cards when sent on missions.</p>
+<ul>
+    <li>
+        A mission with one Reversal card is evaluated as follows:
+        <ul>
+            <li>
+                If one Fail is required for the mission to fail, the mission outcome is reversed
+            </li>
+            <li>
+                If two Fails are required for the mission to fail then:
+                <ul>
+                    <li>
+                        If no Fail cards were played, the mission succeeds.
+                    </li>
+                    <li>
+                        If a single Fail card was played, the mission fails.
+                    </li>
+                    <li>
+                        If two or more Fail cards were played, the mission succeeds.
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+    <li>
+        A mission with two Reversal cards is evaluated as usual, 
+        with both Reversals being counted as Success.
+    </li>
+</ul>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "template.html" %}
+{% block title %}Avalon{% endblock %}
+{% block body %}
+<p>{{ message }}</p>
+    <script>
+        const source = new EventSource("/events");
+        source.addEventListener('new-game', function(e){
+            console.log("new game")
+            location.reload()
+        }, false);
+    </script>
+{% endblock %}

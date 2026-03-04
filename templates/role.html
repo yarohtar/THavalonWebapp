@@ -1,0 +1,24 @@
+{% extends "template.html" %}
+{% block title %}Avalon{% endblock %}
+{% block body %}
+    <div class="card">
+    <h1>You are {{ name }}</h1>
+
+    {% block content %}
+    {% endblock %}
+        <!--<div class="role-image-container">
+            <img src="{{ url_for('static', filename=image) }}" 
+                 alt="Arthur" 
+                 class="role-image">
+        </div>
+        -->
+    </div>
+    <script>
+        const source = new EventSource("/events");
+        source.addEventListener('new-game', function(e){
+            console.log("new game")
+            location.reload()
+        }, false);
+        
+    </script>
+{% endblock %}
