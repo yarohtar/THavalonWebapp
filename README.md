@@ -8,7 +8,7 @@ python webapp.py
 The game will be run locally, and users connected to the same wifi network should be able to connect.
 
 If you are on eduroam (or similar), you can use [ngrok](https://ngrok.com) to get a url address that can be accessed by anyone. 
-Simply open a new terminal and run:
+After setting up you account, simply open a new terminal and run:
 ```
 ngrok http 5000 
 ```
