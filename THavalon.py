@@ -233,7 +233,7 @@ class Gawain(GoodRole):
         return f"The players {self.get_info(game)['seen']} are not all evil.\n"
 
     def can_appear(self, num_players: int) -> bool:
-        return num_players == 10
+        return num_players >= 10
 
 class EvilRole(Role):
     def allegiance(self)-> str:
@@ -392,11 +392,11 @@ def generate_roles(num_players : int) -> list[Role]:
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
-    num_evils = 2 if num_players <= 6 else 3 if num_players <= 9 else 4
+    num_evils = 2 if num_players <= 6 else 3 if num_players <= 9 else 4 
     num_goods = num_players - num_evils
 
     roles_in_play : list[Role] = []
-    if num_players == 9:
+    if num_players == 9 or num_players == 12:
         num_goods -= 2
         roles_in_play.append(pellinore)
         roles_in_play.append(beast)
@@ -417,7 +417,7 @@ class Avalon:
         random.shuffle(players)
         self.players = players
         self.num_of_players = len(players)
-        assert(5 <= self.num_of_players <= 10)
+        assert(5 <= self.num_of_players <= 12)
         roles = generate_roles(self.num_of_players)
         self.role_to_player = {}
 
@@ -472,7 +472,7 @@ if __name__ == "__main__":
 
 
 def main():
-	if not (6 <= len(sys.argv) <= 11):
+	if not (6 <= len(sys.argv) <= 13):
 		print("Invalid number of players")
 		exit(1)
 

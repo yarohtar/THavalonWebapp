@@ -1,17 +1,91 @@
 {% extends "template.html" %}
 {% block title %}Avalon{% endblock %}
 {% block body %}
-    <div class="card">
-    <h1>You are {{ name }}</h1>
+    <div class="card" id="role-card">
+        <div id="role-info">
+            <h1>You are {{ info['role'] }}</h1>
 
-    {% block content %}
-    {% endblock %}
-        <!--<div class="role-image-container">
-            <img src="{{ url_for('static', filename=image) }}" 
-                 alt="Arthur" 
-                 class="role-image">
-        </div>
+            {% block content %}
+            {% endblock %}
+        <!--
+            <div class="role-image-container">
+                <img src="{{ url_for('static', filename=image) }}" 
+                     alt="Arthur" 
+                     class="role-image">
+            </div>
         -->
+        </div>
+
+        <div class="overlay-text" id="reveal">
+            <p>Tap to reveal</p>
+        </div>
+    </div>
+    <script>
+        role_info = document.getElementById("role-info");
+        role_displayed = false;
+        function displayRole() {
+            if (!role_displayed)
+            {
+                role_info.classList.add("visible")
+                document.getElementById("reveal").style.display = "none";
+                role_displayed = true;
+            }
+            else
+            {
+                role_info.classList.remove("visible")
+                document.getElementById("reveal").style.display = "flex";
+                role_displayed = false;
+            }
+        }
+        document.getElementById('role-card').addEventListener('click', displayRole);
+
+    </script>
+    <div class="card">
+        <h3>Start of Game</h3>
+        <p>{{ proposers[0] }} and {{ proposers[1] }} are proposing the first mission.</p>
+        <p>{{ proposers[2] }} is proposing the second mission.</p>
+
+        <h3>Mission Proposals</h3>
+        <ul>
+            {% if num_players < 7 %}
+            <li>Third mission proposal is Hammer.</li>
+            <li>There is neither Weak nor Strong Inquisition</li>
+            {% elif num_players < 10 %}
+            <li>Fourth mission proposal is Hammer.</li>
+            <li>Weak Inquisition is granted on the first round 
+                in which the first mission proposal was successful.
+                When granted, the mission leader chooses a quest card to reveal, 
+                but not remove.
+            </li>
+            <li>There is no Strong Inquisition</li>
+            {% else %}
+            <li>Fifth mission proposal is Hammer.</li>
+            <li>Weak Inquisition is granted on the first round 
+                in which the second mission proposal was successful.
+                When granted, the mission leader chooses a quest card to reveal, 
+                but not remove.
+            </li>
+            <li>
+                Strong Inquisition is granted on the first round 
+                in which the first mission proposal was successful.
+                When granted, the mission leader chooses to either:
+                <ul>
+                    <li>
+                        choose a quest card to remove, but not reveal OR 
+                    </li>
+                    <li>
+                        choose a quest card to reveal, but not remove.
+                    </li>
+                </ul>
+            </li>
+            <li>
+                If Strong Inquisition has already been used this game,
+                and the first team proposal of a round is successful,
+                the Weak Inquisition ability is granted instead.
+            </li>
+            {% endif %}
+        </ul>
+
     </div>
     <script>
         const source = new EventSource("/events");
@@ -19,6 +93,5 @@
             console.log("new game")
             location.reload()
         }, false);
-        
     </script>
 {% endblock %}

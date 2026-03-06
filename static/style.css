@@ -15,6 +15,17 @@ html, body {
 
 html {
     font-size: 17px;
+    
+  &::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
+    z-index: -1;
+  }
 }
 
 /* ====== Page Background ====== */
@@ -22,22 +33,50 @@ body {
     font-family: 'Crimson Text', serif;
     background: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
     color: #f4f1e6;
-    min-height: 100vh;
+    /*min-height: 100vh;*/
     padding: 2rem 1.2rem;
     display: flex;
+    flex-direction: column;
     justify-content: center;
+    align-items: center;
 }
 
 /* ====== Main Content Container ====== */
 body > * {
     /*max-width: 520px;           /* Mobile-friendly width */
     width: 100%;
-    background: rgba(0, 0, 0, 0.35);
     padding: 2rem 1.5rem;
+    text-align: center;         /* Center everything by default */
+}
+
+.card {
+    background: rgba(0, 0, 0, 0.35);
     border-radius: 16px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(6px);
-    text-align: center;         /* Center everything by default */
+    margin-bottom: 2rem;
+
+}
+
+#role-info {
+    opacity: 0;
+    transition: none;
+    user-select: none;
+}
+#role-info.visible{
+    opacity: 1;
+    transition: opacity 0.6s ease;
+}
+
+.overlay-text {
+    position: absolute;
+    
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 }
 
 /* ====== Headings ====== */

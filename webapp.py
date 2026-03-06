@@ -4,17 +4,21 @@ from flask_sse import sse
 import threading
 from THavalon import Avalon, Role
 import queue
+from dotenv import load_dotenv
+load_dotenv()
 
 class ThreadSafeList:
-    def __init__(self):
+    max_capacity : int
+    def __init__(self, max_capacity):
         self._data = []
         self._lock = threading.Lock()
+        self.max_capacity=max_capacity
 
     def append(self, item):
         with self._lock:
             if item in self._data:
                 return True
-            if len(self._data) < 10:
+            if len(self._data) < self.max_capacity:
                 self._data.append(item)
                 return True
             return False
@@ -30,27 +34,20 @@ class ThreadSafeList:
     def __contains__(self, player : str):
         return player in self.snapshot()
 
-players = ThreadSafeList()
+players = ThreadSafeList(10)
 
 class RoleInfo:
-    name : str
-    game_infos : list[str]
     info : dict
     def __init__(self, role : Role, game : Avalon):
-        self.name = str(role)
-        self.game_infos = role.get_info_str(game).split('\n')
         self.info = role.get_info(game)
-
-    def render_html_info(self):
-        filename = self.name + '.html' if self.name != "The Questing Beast" else "Beast.html"
-        return render_template(filename, 
-                               name = self.name, 
-                               info = self.info,
-                               image = 'round_table.jpg')
+        self.info['role'] = str(role)
+    def __getitem__(self, key : str):
+        return self.info[key]
 
 class ThreadSafeGame:
     active : bool = False
     player_info : dict[str, RoleInfo] = {}
+    proposers : list[str] = []
     def __init__(self):
         self._lock = threading.Lock()
     def restart(self):
@@ -60,6 +57,9 @@ class ThreadSafeGame:
             new_game = Avalon(players.snapshot())
             for role in new_game:
                 self.player_info[new_game[role]] = RoleInfo(role, new_game)
+            proposers = new_game.get_first_mission_proposers()
+            proposers.append(new_game.get_second_mission_starter())
+            self.proposers = proposers
     def is_active(self):
         with self._lock:
             return self.active
@@ -69,10 +69,21 @@ class ThreadSafeGame:
     def __contains__(self, player : str):
         with self._lock:
             return player in self.player_info
+    def render_html_info(self, player : str):
+        with self._lock:
+            player_info = self.player_info[player]
+            filename = player_info['role'] + '.html'
+            return render_template(filename, 
+                                   info = player_info.info,
+                                   proposers = self.proposers,
+                                   image = 'round_table.jpg',
+                                   num_players = len(self.player_info))
+
 
 game = ThreadSafeGame()
 app = Flask(__name__)
 app.secret_key = "secret"
+
 app.config["REDIS_URL"] = "redis://localhost:6379/0"
 app.register_blueprint(sse, url_prefix='/events')
 
@@ -87,7 +98,7 @@ def index():
         return flask.render_template('wait.html', 
                                      message="Wait for host to start the game, then refresh.")
 
-    return game[player].render_html_info()
+    return game.render_html_info(player)
 
 @app.route("/register", methods=["POST"])
 def register():
@@ -118,7 +129,6 @@ def host():
 
 if __name__ == "__main__":
     # Development server only
-    test_players = [f"p{i+1}" for i in range(6)]
-    for p in test_players:
-        players.append(p)
+    for i in range(9):
+        players.append(f"p{i}")
     app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
