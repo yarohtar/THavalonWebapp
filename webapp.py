@@ -3,9 +3,24 @@ from flask import Flask, Response, render_template, request, session, url_for
 from flask_sse import sse
 import threading
 from THavalon import Avalon, Role
-import queue
+import os
 from dotenv import load_dotenv
 load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = "secret"
+
+# auto refresh enabled by default
+auto_refresh ='DISABLE_AUTO_REFRESH' not in os.environ
+
+if auto_refresh:
+    app.config["REDIS_URL"] = "redis://localhost:6379/0"
+    app.register_blueprint(sse, url_prefix='/events')
+
+def new_event(event_name, data = None):
+    if auto_refresh:
+        sse.publish(data, type=event_name)
+
 
 class ThreadSafeList:
     max_capacity : int
@@ -77,15 +92,11 @@ class ThreadSafeGame:
                                    info = player_info.info,
                                    proposers = self.proposers,
                                    image = 'round_table.jpg',
-                                   num_players = len(self.player_info))
+                                   num_players = len(self.player_info),
+                                   auto_refresh = auto_refresh)
 
 
 game = ThreadSafeGame()
-app = Flask(__name__)
-app.secret_key = "secret"
-
-app.config["REDIS_URL"] = "redis://localhost:6379/0"
-app.register_blueprint(sse, url_prefix='/events')
 
 @app.route("/")
 def index():
@@ -105,13 +116,13 @@ def register():
     player = request.form["player"]
     if players.append(player):
         session['name'] = player.strip()
-        sse.publish(True, type='new-player')
+        new_event('new-player')
     return flask.redirect(url_for('index'))
 
 @app.route("/restart", methods=["POST"])
 def restart():
     game.restart()
-    sse.publish(True, type= 'new-game')
+    new_event('new-game')
     return flask.redirect(url_for('host'))
 
 @app.route("/delete_player", methods=["POST"])
@@ -123,7 +134,9 @@ def delete_player():
 
 @app.route("/host")
 def host():
-    return flask.render_template('host.html', players = players.snapshot())
+    return flask.render_template('host.html', 
+                                 players = players.snapshot(),
+                                 auto_refresh = auto_refresh)
 
 
 
@@ -131,4 +144,4 @@ if __name__ == "__main__":
     # Development server only
     for i in range(9):
         players.append(f"p{i}")
-    app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

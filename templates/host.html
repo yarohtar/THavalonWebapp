@@ -1,7 +1,7 @@
 {% extends "template.html" %}
 {% block title %}Host{% endblock %}
 {% block body %}
-<div>
+<div class="card">
     <h1>Player List</h1>
 
     <ul>
@@ -31,11 +31,14 @@
         <button type="submit">Start New Game</button>
     </form>
 </div>
-    <script>
-        const source = new EventSource("/events");
-        source.addEventListener('new-player', function(e){
-            location.reload()
-        }, false);
-        
-    </script>
+    
+{% if auto_refresh %}
+<script>
+    const source = new EventSource("/events");
+    source.addEventListener('new-player', function(e){
+        location.reload()
+    }, false);
+    
+</script>
+{% endif %}
 {% endblock %}

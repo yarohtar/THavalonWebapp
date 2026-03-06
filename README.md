@@ -13,10 +13,13 @@ After setting up you account, simply open a new terminal and run:
 ngrok http 5000 
 ```
 
-Note that you will have to have Redis installed and running. This is just to enable automatic refresh on client side whenever a new game is started.
-
-## TODO
-- optionally disable Redis with env variable
+Note that you will have to have Redis installed and running.
+This is just to enable automatic refresh on client side whenever a new game is started. 
+If you don't have redis, or wish to disable this feature for other reasons, 
+you should create a `.env` file with this line:
+```
+DISABLE_AUTO_REFRESH=""
+```
 
 
 # THavalon

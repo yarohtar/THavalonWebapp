@@ -87,11 +87,12 @@
         </ul>
 
     </div>
+    {% if auto_refresh %}
     <script>
         const source = new EventSource("/events");
         source.addEventListener('new-game', function(e){
-            console.log("new game")
             location.reload()
         }, false);
     </script>
+    {% endif %}
 {% endblock %}
