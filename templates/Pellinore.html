@@ -1,0 +1,27 @@
+{% extends "role.html" %}
+{% block content %}
+<p>
+Your goal is to hunt down The Questing Beast.<br/>
+You may vote both Success and Fail.
+</p>
+<ul>
+    <li>You win if any of the following conditions are met:
+        <ul>
+            <li>
+                No "The Questing Beast Was Here" cards are played;
+            </li>
+            <li>
+                You are on a mission where "The Questing Beast Was Here" card is played,
+                and three missions succeed; or
+            </li>
+            <li>
+                You correctly name The Questing Beast prior to the possible Assassination Phase.
+                You are told if you are correct after the Assassination Phase.
+                You may only attempt this if the only "The Questing Beast Was Here" card
+                has been played on the last mission of the game, 
+                and no other "The Questing Beast Was Here" cards were played.
+            </li>
+        </ul>
+    </li>
+</ul>
+{% endblock %}

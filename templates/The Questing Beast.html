@@ -1,0 +1,24 @@
+{% extends "role.html" %}
+{% block content %}
+<p>{{ info['pelinor'] }} is Pellinore.<br/>
+You must avoid them, while being on at least one mission.
+</p>
+<p>You must play "The Questing Beast Was Here" card on any missions you go to.</p>
+<ul>
+    <li>You win if all of the following conditions are met:
+        <ul>
+            <li>
+                You played at least one "The Questing Beast Was Here" card;
+            </li>
+            <li>
+                Either a) Pelinor never went on a mission with you or b) 3 missions failed; and
+            </li>
+            <li>
+                Pelinor fails to identify you at the conclusion of the game. 
+                They may only attempt this if you were on the last mission of the game,
+                and no other missions.
+            </li>
+        </ul>
+    </li>
+</ul>
+{% endblock %}

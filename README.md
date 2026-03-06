@@ -3,7 +3,7 @@ Added functionality for simple self hosted games of THavalon.
 
 After installing the python packages from requirements.txt, run the app by:
 ```
-python webapp.py
+flask run
 ```
 The game will be run locally, and users connected to the same wifi network should be able to connect.
 
