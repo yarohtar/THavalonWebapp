@@ -1,3 +1,24 @@
+# This fork
+Added functionality for simple self hosted games of THavalon. 
+
+After installing the python packages from requirements.txt, run the app by:
+```
+python webapp.py
+```
+The game will be run locally, and users connected to the same wifi network should be able to connect.
+
+If you are on eduroam (or similar), you can use [ngrok](https://ngrok.com) to get a url address that can be accessed by anyone. 
+Simply open a new terminal and run:
+```
+ngrok http 5000 
+```
+
+Note that you will have to have Redis installed and running. This is just to enable automatic refresh on client side whenever a new game is started.
+
+## TODO
+- optionally disable Redis with env variable
+
+
 # THavalon
 An extended ruleset for the Resistance: Avalon, primarily developed by me (Andrew Hitt/aquadrizzt), with help and extensive play-testing from Technology House, Inc. 
 
