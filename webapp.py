@@ -14,7 +14,7 @@ app.secret_key = "secret"
 auto_refresh ='DISABLE_AUTO_REFRESH' not in os.environ
 
 if auto_refresh:
-    app.config["REDIS_URL"] = "redis://localhost:6379/0"
+    app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     app.register_blueprint(sse, url_prefix='/events')
 
 def new_event(event_name, data = None):
