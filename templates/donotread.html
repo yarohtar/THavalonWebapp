@@ -1,0 +1,62 @@
+{% extends "template.html" %}
+{% block body %}
+<div class="card">
+<h1>Blue Team</h1>
+{% for player in game: %}
+{% if game[player]['allegiance'] == 'Good' %}
+
+<h3>{{ player }} is {{ game[player]['role'] }}</h3>
+{% if 'seen' in game[player] %}
+<ul>
+    <li>They saw:
+        <ul>
+            {% for p in game[player]['seen'] %}
+            <li>
+                {{ p }}
+            </li>
+            {% endfor %}
+        </ul>
+    </li>
+</ul>
+{% endif %}
+
+{% if 'lover' in game[player] %}
+{{ game[player]['lover'] }} was their lover.
+{% endif %}
+
+{% if 'stalked_good' in game[player] %}
+They stalked {{ game[player]['stalked_good'] }} as another good player.
+{% endif %}
+
+{% if 'stalked_evil' in game[player] %}
+They stalked {{ game[player]['stalked_evil'] }} as an evil player.
+{% endif %}
+
+{% endif %}
+{% endfor %}
+</div>
+
+<div class="card">
+<h1>Red Team</h1>
+{% for player in game: %}
+{% if game[player]['allegiance'] == 'Evil' %}
+
+<h3>{{ player }} is {{ game[player]['role'] }}</h3>
+
+{% endif %}
+{% endfor %}
+</div>
+
+{% if num_players == 9 %}
+<div class="card">
+    <h1>Neutrals</h1>
+    {% for player in game: %}
+    {% if game[player]['allegiance'] == 'Neutral' %}
+
+    <h3>{{ player }} is {{ game[player]['role'] }}</h3>
+
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

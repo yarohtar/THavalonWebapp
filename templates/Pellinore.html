@@ -1,25 +1,36 @@
 {% extends "role.html" %}
 {% block content %}
 <p>
-Your goal is to hunt down The Questing Beast.<br/>
-You may vote both Success and Fail.
+Your goal is to hunt down The Questing Beast before it drives you insane.<br/>
+At the start of the game, you may only vote Success.
+If two "The Questing Beast Was Here" cards were played, 
+you become enraged and may only vote Fail.
 </p>
 <ul>
-    <li>You win if any of the following conditions are met:
+    <li>You start the game paranoid, with 0 sanity points.
+        You win if either 
+        a) no "The Questing Beast Was Here" cards were played 
+        or b) you become sane, with at least 2 sanity points 
+        at the end of the game.
         <ul>
             <li>
-                No "The Questing Beast Was Here" cards are played;
+                Every time you see "The Questing Beast Was Here" card
+                you lose 1 sanity point;
             </li>
             <li>
-                You are on a mission where "The Questing Beast Was Here" card is played,
-                and three missions succeed; or
+                The first time you go on a mission with The Questing Beast,
+                you gain 1 sanity point
+                (cancelling out with the previous effect);
             </li>
             <li>
-                You correctly name The Questing Beast prior to the possible Assassination Phase.
-                You are told if you are correct after the Assassination Phase.
-                You may only attempt this if the only "The Questing Beast Was Here" card
-                has been played on the last mission of the game, 
-                and no other "The Questing Beast Was Here" cards were played.
+                If there are 3 failed missions,
+                you gain 2 sanity points;
+            </li>
+            <li>
+                If you correctly identify The Questing Beast at the end of the game
+                you gain 3 sanity points. 
+                You should attempt this before the Assassination phase,
+                and you will be told if you are correct after Assassination.
             </li>
         </ul>
     </li>

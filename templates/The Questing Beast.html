@@ -1,22 +1,32 @@
 {% extends "role.html" %}
 {% block content %}
-<p>{{ info['pelinor'] }} is Pellinore.<br/>
-You must avoid them, while being on at least one mission.
+<p>
+{{ info['pellinore'] }} is your hunter, Pellinore.
 </p>
-<p>You must play "The Questing Beast Was Here" card on any missions you go to.</p>
+<p>
+You must play "The Questing Beast Was Here" card on any missions you go to.</br>
+If two missions have Failed 
+or two "The Questing Beast Was Here" cards have been played already,
+this card counts as Success. 
+Otherwise, it counts as Fail.
+</p>
 <ul>
-    <li>You win if all of the following conditions are met:
+    <li>You win if you are on at least one mission 
+        and you collect at least 5 points from your objectives. 
+        Your objectives are:
         <ul>
             <li>
-                You played at least one "The Questing Beast Was Here" card;
+                Be on missions (each mission is 1 point);
             </li>
             <li>
-                Either a) Pelinor never went on a mission with you or b) 3 missions failed; and
+                Don't be on a mission with Pellinore (1 point);
             </li>
             <li>
-                Pelinor fails to identify you at the conclusion of the game. 
-                They may only attempt this if you were on the last mission of the game,
-                and no other missions.
+                Have 3 successful missions (2 points);
+            </li>
+            <li>
+                Don't be assassinated by Pellinore at the end of the game 
+                (3 points).
             </li>
         </ul>
     </li>

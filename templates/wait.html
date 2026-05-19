@@ -3,7 +3,7 @@
 {% block body %}
 <p>{{ message }}</p>
     <script>
-        const source = new EventSource("/events");
+        const source = new EventSource("{{ events_url }}");
         source.addEventListener('new-game', function(e){
             console.log("new game")
             location.reload()

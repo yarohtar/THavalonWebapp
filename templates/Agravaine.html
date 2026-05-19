@@ -1,6 +1,9 @@
-{% extends "evil_role.html" %}
-{% block other_content %}
+{% extends "role.html" %}
+{% block content %}
 <p>You have to play Fail cards if you are on a mission.</p>
+{% if 'balin' in info %}
+<p>Beware of {{ info['balin'] }}, Balin the Savage.</p>
+{% endif %}
 <h3>Ability: Betrayal</h3>
 <p>If you have been on a mission that succeeded,
 you may formally reveal yourself as Agravaine and cause the mission to fail.</p>

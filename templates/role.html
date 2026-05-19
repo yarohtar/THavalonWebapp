@@ -5,6 +5,33 @@
         <div id="role-info">
             <h1>You are {{ info['role'] }}</h1>
 
+            {% if info['allegiance'] == 'Evil'
+                and info['role'] != 'Colgrevance' %}
+            <ul>
+                <li>
+                    The following players are fellow members of the evil council:
+                    <ul>
+                    {% for player in info['other_evils'] %}
+                        <li>
+                            {{ player }}
+                        </li>
+                    {% endfor %}
+                    {% if info['oberon'] %}
+                        <li>Oberon, lurking in the shadows.</li>
+                    {% endif %}
+                    </ul>
+                </li>
+            </ul>
+            {% endif %}
+
+            {% if info['allegiance'] == 'Good' and 'nilrem' in info %}
+            {% if 'nilrem' in info %}
+            <p>{{ info['nilrem'] }} is Nilrem. Merlin and Percival are not in this game.</p>
+            {% else %}
+            <p>Nilrem is not in this game.</p>
+            {% endif %}
+            {% endif %}
+
             {% block content %}
             {% endblock %}
         <!--
@@ -89,7 +116,7 @@
     </div>
     {% if auto_refresh %}
     <script>
-        const source = new EventSource("/events");
+        const source = new EventSource("{{ events_url }}");
         source.addEventListener('new-game', function(e){
             location.reload()
         }, false);

@@ -1,8 +1,8 @@
 import flask
-from flask import Flask, Response, render_template, request, session, url_for
+from flask import Flask, render_template, request, session, url_for, g
 from flask_sse import sse
 import threading
-from THavalon import Avalon, Role
+from THavalon import Avalon, Role, convert_strings_to_roles, all_roles
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -61,18 +61,24 @@ class RoleInfo:
         self.info['role'] = str(role)
     def __getitem__(self, key : str):
         return self.info[key]
+    def __contains__(self, key : str):
+        return key in self.info
 
 class ThreadSafeGame:
     active : bool = False
     player_info : dict[str, RoleInfo] = {}
+    roles_in_game : list[Role]
     proposers : list[str] = []
+
     def __init__(self):
         self._lock = threading.Lock()
-    def restart(self):
+        self.roles_in_game = all_roles[:]
+    def restart(self, roles_in_game : list[str]):
         with self._lock:
             self.active = True
             self.player_info = {}
-            new_game = Avalon(players.snapshot())
+            self.roles_in_game = convert_strings_to_roles(roles_in_game)
+            new_game = Avalon(players.snapshot(), self.roles_in_game)
             for role in new_game:
                 self.player_info[new_game[role]] = RoleInfo(role, new_game)
             proposers = new_game.get_first_mission_proposers()
@@ -97,17 +103,28 @@ class ThreadSafeGame:
                                    image = 'round_table.jpg',
                                    num_players = len(self.player_info),
                                    auto_refresh = auto_refresh)
+    def snapshot(self):
+        with self._lock:
+            return dict(self.player_info)
+    def get_current_roles(self):
+        with self._lock:
+            return self.roles_in_game[:]
+
 
 
 game = ThreadSafeGame()
 
+
 @app.route("/")
 def index():
-    player = session.get('name', "")
-    if player == "":
+    import uuid
+    session.permanent = True
+    if 'player_id' not in session:
+        session['player_id'] = str(uuid.uuid4())
+    if 'name' not in session:
         return render_template("registration.html")
-    if player not in players:
-        return render_template("registration.html")
+    player = session['name']
+
     if player not in game or not game.is_active():
         return flask.render_template('wait.html', 
                                      message="Wait for host to start the game, then refresh.")
@@ -125,7 +142,8 @@ def register():
 
 @app.route("/restart", methods=["POST"])
 def restart():
-    game.restart()
+    roles = request.form.getlist('items')
+    game.restart(roles)
     new_event('new-game')
     return flask.redirect(url_for('host'))
 
@@ -135,12 +153,24 @@ def delete_player():
     players.remove(player)
     return flask.redirect(url_for('host'))
 
-
 @app.route("/host")
 def host():
     return flask.render_template('host.html', 
                                  players = players.snapshot(),
-                                 auto_refresh = auto_refresh)
+                                 auto_refresh = auto_refresh,
+                                 current_roles = game.get_current_roles(),
+                                 all_roles = all_roles)
+
+@app.route("/donotread")
+def all_info():
+    if game.is_active():
+        current_game = game.snapshot()
+        return flask.render_template('donotread.html', 
+                                     game = current_game,
+                                     num_players = len(current_game))
+    else:
+        return flask.redirect(url_for('host'))
+
 
 
 

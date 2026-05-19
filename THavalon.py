@@ -9,7 +9,7 @@ class Role:
         assert(False)
 
     def get_info(self, game : Avalon) -> dict:
-        return {}
+        return {'allegiance': self.allegiance()}
 
     def allegiance(self) -> str:
         return "none"
@@ -21,22 +21,45 @@ class Role:
     def __eq__(self, other) -> bool:
         return str(self) == str(other)
     def __ne__(self, other) -> bool:
-        return str(self) != str(other)
+        return not (self == other)
 
     def __hash__(self):
         return hash(str(self))
 
+    def is_base_role(self) -> bool:
+        return True
+
 class GoodRole(Role):
     def allegiance(self)->str:
         return "Good"
+    def get_info(self, game : Avalon) -> dict:
+        info = super().get_info(game)
+        if nilrem in game:
+            info['nilrem'] = game[nilrem]
+        return info
+
+class SoC(GoodRole):
+    index : int
+    def __init__(self, index):
+        self.index = index
+    def __str__(self) -> str:
+        return "Servant of Camelot"
+    def __eq__(self, other) -> bool:
+        return str(self) == str(other) and self.index==other.index
+    def __ne__(self, other) -> bool:
+        return not (self == other)
+    def __hash__(self):
+        return hash(str(self) + str(self.index))
 
 class Percival(GoodRole):
     def __str__(self) -> str:
         return "Percival"
 
     def get_info(self, game : Avalon) -> dict:
+        info = super().get_info(game)
         seen = game.get_players_with_roles([merlin,morgana])
-        return {'seen' : seen }
+        info['seen'] = seen
+        return info
 
     def transform_if_lonely(self, game : Avalon) -> Role:
         n = game.num_of_players
@@ -50,25 +73,43 @@ class Galahad(GoodRole):
     def __str__(self) -> str:
         return "Galahad"
     def get_info(self, game : Avalon) -> dict:
-        return {'evil_roles' : [role for role in game if role.allegiance()=="Evil"]}
+        info = super().get_info(game)
+        info['evil_roles'] = [role for role in game if role.allegiance()=="Evil"]
+        return info
+    def is_base_role(self) -> bool:
+        return False
 
 class Merlin(GoodRole):
     def __str__(self) -> str:
         return "Merlin"
     def get_info(self, game: Avalon) -> dict:
-        evils = [game[role] for role in game if role.allegiance() == "Evil" and role != mordred]
+        info = super().get_info(game)
+        evils = [game[role] for role in game 
+                if role.allegiance() == "Evil" and role != mordred]
         if lancelot in game:
             evils.append(game[lancelot])
+        if balin in game:
+            evils.append(game[balin])
         random.shuffle(evils)
-        return {'seen' : evils}
+        info['seen'] = evils
+        return info
+    def transform_if_lonely(self, game: Avalon) -> Role:
+        if game.num_of_players < 7:
+            return self
+        if percival not in game:
+            return nilrem
+        return self
 
 class Tristan(GoodRole):
     def __str__(self)->str:
         return "Tristan"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         if iseult not in game:
-            return {'lover': 'unloved'}
-        return {'lover': game[iseult]}
+            info['lover'] = 'unloved'
+            return info
+        info['lover'] = game[iseult]
+        return info
 
     def transform_if_lonely(self, game: Avalon) -> Role:
         if game.num_of_players < 7: 
@@ -81,9 +122,12 @@ class Iseult(GoodRole):
     def __str__(self) -> str:
         return "Iseult"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         if tristan not in game:
-            return {'lover': 'unloved'}
-        return {'lover': game[tristan]}
+            info['lover'] = 'unloved'
+            return info
+        info['lover'] = game[tristan]
+        return info
 
     def transform_if_lonely(self, game: Avalon) -> Role:
         if game.num_of_players < 7: 
@@ -96,15 +140,21 @@ class Uther(GoodRole):
     def __str__(self) -> str:
         return "Uther"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         other_goods = [role for role in game if role.allegiance() == "Good" and role != uther]
         stalked_role = random.sample(other_goods, 1)[0]
-        return {'stalked_good' : game[stalked_role]}
+        info['stalked_good'] = game[stalked_role]
+        return info
+    def is_base_role(self) -> bool:
+        return False
 
 class Arthur(GoodRole):
     def __str__(self) -> str:
         return "Arthur"
     def get_info(self, game: Avalon) -> dict:
-        return {'good_roles': [role for role in game if role.allegiance()=="Good"]}
+        info = super().get_info(game)
+        info['good_roles'] = [role for role in game if role.allegiance()=="Good"]
+        return info
 
 class Lancelot(GoodRole):
     def __str__(self) -> str:
@@ -115,8 +165,10 @@ class Guinevere(GoodRole):
         return "Guinevere"
 
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         seen = game.get_players_with_roles([lancelot, arthur, maelegant])
-        return {'seen': seen}
+        info['seen'] = seen
+        return info
 
     def transform_if_lonely(self, game: Avalon) -> Role:
         if lancelot in game or arthur in game or maelegant in game:
@@ -130,14 +182,19 @@ class Ygraine(GoodRole):
     def __str__(self) -> str:
         return "Ygraine"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         evils = [role for role in game if role.allegiance() == "Evil"]
         stalked_role = random.sample(evils, 1)[0]
-        return {'stalked_evil' : game[stalked_role]}
+        info['stalked_evil'] = game[stalked_role]
+        return info
+    def is_base_role(self) -> bool:
+        return False
 
 class Gawain(GoodRole):
     def __str__(self) -> str:
         return "Gawain"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         goods = [role for role in game if role.allegiance() == "Good" and role != gawain]
         good_role_seen = random.sample(goods,1)[0]
         everyone_else = [role for role in game if role != gawain and role != good_role_seen]
@@ -145,10 +202,34 @@ class Gawain(GoodRole):
         seen.append(good_role_seen)
         random.shuffle(seen)
         seen_players = [game[role] for role in seen]
-        return {'seen' : seen_players }
+        info['seen'] = seen_players
+        return info
 
     def can_appear(self, num_players: int) -> bool:
         return num_players >= 10
+
+class Nilrem(GoodRole):
+    def __str__(self) -> str:
+        return "Nilrem"
+    def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
+        info.pop('nilrem', None)
+        return info
+    def can_appear(self, num_players: int) -> bool:
+        return num_players >= 7
+    def is_base_role(self) -> bool:
+        return False
+
+class Balin(GoodRole):
+    def __str__(self) -> str:
+        return "Balin the Savage"
+    def get_info(self, game : Avalon) -> dict:
+        info = super().get_info(game)
+        if agravaine in game:
+            info['agravaine'] = game[agravaine]
+        return info
+    def can_appear(self, num_players: int) -> bool:
+        return num_players == 6 or num_players == 9
 
 class EvilRole(Role):
     def allegiance(self)-> str:
@@ -160,8 +241,23 @@ class EvilRole(Role):
         return game.get_players_with_roles(evil_roles)
 
     def get_info(self, game: Avalon) -> dict:
-        return {'other_evils' : self.get_visible_evils(game), 
-                'oberon' : oberon in game }
+        info = super().get_info(game)
+        info['other_evils'] = self.get_visible_evils(game)
+        info['oberon'] = oberon in game
+        return info
+
+class MoM(EvilRole):
+    index : int
+    def __init__(self, index : int):
+        self.index = index
+    def __str__(self) -> str:
+        return "Minion of Mordred"
+    def __eq__(self, other) -> bool:
+        return str(self) == str(other) and self.index == other.index
+    def __ne__(self, other) -> bool:
+        return not (self == other)
+    def __hash__(self):
+        return hash(str(self) + str(self.index))
 
 class Mordred(EvilRole):
     def __str__(self) -> str:
@@ -178,6 +274,11 @@ class Maelegant(EvilRole):
 class Agravaine(EvilRole):
     def __str__(self) -> str:
         return "Agravaine"
+    def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
+        if balin in game:
+            info['balin'] = game[balin]
+        return info
 
     def can_appear(self, num_players: int) -> bool:
         return num_players >= 7
@@ -186,15 +287,17 @@ class Colgrevance(EvilRole):
     def __str__(self) -> str:
         return "Colgrevance"
     def get_info(self, game: Avalon) -> dict:
+        info = super().get_info(game)
         evil_roles = [role for role in game if role.allegiance() == "Evil" and role != colgrevance]
         player_roles = {}
         for role in evil_roles:
             player_roles[game[role]] = role
 
-        return {'evil_roles' : player_roles }
+        info['evil_roles'] = player_roles
+        return info
 
     def can_appear(self, num_players: int) -> bool:
-        return num_players >= 7
+        return num_players >= 10
 
 class Oberon(EvilRole):
     def __str__(self) -> str:
@@ -221,7 +324,9 @@ class TheBeast(NeutralRole):
         return "The Questing Beast"
 
     def get_info(self, game: Avalon) -> dict:
-        return { 'pelinor' : game[pellinore] }
+        info = super().get_info(game)
+        info['pellinore'] = game[pellinore]
+        return info
 
     def can_appear(self, num_players: int) -> bool:
         return num_players == 9
@@ -238,6 +343,8 @@ lancelot = Lancelot()
 guinevere = Guinevere()
 ygraine = Ygraine()
 gawain = Gawain()
+nilrem = Nilrem()
+balin = Balin()
 
 mordred = Mordred()
 morgana = Morgana()
@@ -249,24 +356,63 @@ oberon = Oberon()
 pellinore = Pellinore()
 beast = TheBeast()
 
-base_roles : list[Role] = [percival, merlin, tristan, iseult, arthur, lancelot, guinevere, gawain, mordred, morgana, maelegant, agravaine, colgrevance, oberon]
+all_roles = [
+            percival, 
+            galahad, 
+            merlin, 
+            tristan, 
+            iseult, 
+            uther, 
+            arthur, 
+            lancelot, 
+            guinevere, 
+            ygraine, 
+            gawain, 
+            nilrem, 
+            balin,
+            
+            mordred, 
+            morgana, 
+            maelegant, 
+            agravaine, 
+            colgrevance, 
+            oberon, 
+            
+            pellinore, 
+            beast, 
+        ]
 
-def generate_roles(num_players : int) -> list[Role]:
+string_to_role : dict[str, Role] = { str(role): role for role in all_roles }
+
+def convert_strings_to_roles(str_roles : list[str]):
+    return [string_to_role[str_role] for str_role in str_roles]
+
+def generate_roles(num_players : int, base_roles : list[Role]) -> list[Role]:
+    base_roles = [role for role in base_roles if role.is_base_role()]
     possible_roles = [role for role in base_roles if role.can_appear(num_players)]
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
     num_evils = (2 if num_players <= 6 
-                 else 3 if num_players <= 9 
+                 else 3 if num_players <= 8
                  else 4 if num_players <= 11
                  else 5)
     num_goods = num_players - num_evils
 
     roles_in_play : list[Role] = []
-    if num_players == 9:
+    if pellinore in possible_roles and beast in possible_roles:
         num_goods -= 2
         roles_in_play.append(pellinore)
         roles_in_play.append(beast)
+
+    if balin in possible_roles:
+        num_goods -= 1
+        roles_in_play.append(balin)
+
+    if len(goods) < num_goods:
+        goods.extend([SoC(i) for i in range(num_goods - len(goods))])
+    if len(evils) < num_evils:
+        evils.extend([MoM(i) for i in range(num_evils - len(evils))])
 
     roles_in_play.extend(random.sample(goods, num_goods))
     roles_in_play.extend(random.sample(evils, num_evils))
@@ -279,13 +425,13 @@ class Avalon:
     num_of_players : int
     role_to_player : dict[Role,str]
 
-    def __init__(self, players: list[str]):
+    def __init__(self, players: list[str], roles_in_play : list[Role]):
         players = list(set(players))
         random.shuffle(players)
         self.players = players
         self.num_of_players = len(players)
         assert(5 <= self.num_of_players <= 12)
-        roles = generate_roles(self.num_of_players)
+        roles = generate_roles(self.num_of_players, roles_in_play)
         self.role_to_player = {}
 
         for (player, role) in zip(players, roles):
@@ -321,6 +467,6 @@ class Avalon:
 
 if __name__ == "__main__":
     players = sys.argv[1:]
-    game = Avalon(players)
+    game = Avalon(players, all_roles)
     exit(0)
 

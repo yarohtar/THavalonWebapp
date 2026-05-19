@@ -25,16 +25,37 @@
         </li>
     </ul>
 
+
     <form method="POST"
           action="{{ url_for('restart') }}"
           style="display:inline;">
+        <ul>
+            <li>
+                <div class="role-list">
+                    {% for role in all_roles %}
+                    <input type="checkbox" 
+                           name="items" 
+                           id="{{ role }}"
+                           value="{{ role }}"
+                           {% if role in current_roles %}
+                           checked
+                           {% endif %}
+                           >
+                    <label class="role-card"
+                           for="{{ role }}">
+                    {{ role }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </li>
+        </ul>
         <button type="submit">Start New Game</button>
     </form>
 </div>
     
 {% if auto_refresh %}
 <script>
-    const source = new EventSource("/events");
+    const source = new EventSource("{{ events_url }}");
     source.addEventListener('new-player', function(e){
         location.reload()
     }, false);
