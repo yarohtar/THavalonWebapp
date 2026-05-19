@@ -23,7 +23,10 @@ def new_event(event_name, data = None):
 
 @app.context_processor
 def inject_events_url():
-    return dict(events_url = url_for('sse.stream', channel = session['game_id']))
+    if not auto_refresh:
+        return dict(auto_refresh = False)
+    return dict(auto_refresh = True, 
+                events_url = url_for('sse.stream', channel = session['game_id']))
 
 class ThreadSafeList:
     max_capacity : int
@@ -101,8 +104,7 @@ class ThreadSafeGame:
                                    info = player_info.info,
                                    proposers = self.proposers,
                                    image = 'round_table.jpg',
-                                   num_players = len(self.player_info),
-                                   auto_refresh = auto_refresh)
+                                   num_players = len(self.player_info))
     def snapshot(self):
         with self._lock:
             return dict(self.player_info)
@@ -157,7 +159,6 @@ def delete_player():
 def host():
     return flask.render_template('host.html', 
                                  players = players.snapshot(),
-                                 auto_refresh = auto_refresh,
                                  current_roles = game.get_current_roles(),
                                  all_roles = all_roles)
 

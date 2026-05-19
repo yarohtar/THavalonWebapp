@@ -24,9 +24,10 @@
             </ul>
             {% endif %}
 
-            {% if info['allegiance'] == 'Good' and 'nilrem' in info %}
+            {% if info['allegiance'] == 'Good' %}
             {% if 'nilrem' in info %}
-            <p>{{ info['nilrem'] }} is Nilrem. Merlin and Percival are not in this game.</p>
+            <p>{{ info['nilrem'] }} is Nilrem. 
+            Merlin and Percival are not in this game.</p>
             {% else %}
             <p>Nilrem is not in this game.</p>
             {% endif %}
