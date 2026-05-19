@@ -19,8 +19,11 @@ if auto_refresh:
 
 def new_event(event_name, data = None):
     if auto_refresh:
-        sse.publish(data, type=event_name)
+        sse.publish(data, type=event_name, channel = session['game_id'])
 
+@app.context_processor
+def inject_events_url():
+    return dict(events_url = url_for('sse.stream', channel = session['game_id']))
 
 class ThreadSafeList:
     max_capacity : int
@@ -116,6 +119,7 @@ def register():
     player = request.form["player"]
     if players.append(player):
         session['name'] = player.strip()
+        session['game_id'] = "1"
         new_event('new-player')
     return flask.redirect(url_for('index'))
 
