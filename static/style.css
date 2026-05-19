@@ -348,3 +348,50 @@ button:disabled {
 .role-image:hover {
     transform: scale(1.03);
 }
+
+.role-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+/* hide default checkbox */
+.role-list input[type="checkbox"] {
+    display: none;
+}
+
+/* card appearance */
+.role-card {
+  width: 220px;
+  padding: 12px 16px;
+
+  text-align: center;
+  font-weight: 600;
+
+  background: #1f1f1f;
+  color: #f0f0f0;
+
+  border: 2px solid #444;
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+/* hover effect */
+.role-card:hover {
+  border-color: #c9a44c;
+  transform: translateY(-2px);
+}
+
+/* checked state */
+.role-list input[type="checkbox"]:checked + .role-card {
+  background: #2c2416;
+  border-color: #c9a44c;
+  color: #ffd86b;
+  box-shadow: 0 0 10px rgba(201,164,76,0.4);
+}
+
