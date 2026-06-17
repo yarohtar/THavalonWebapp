@@ -2,7 +2,7 @@ import flask
 from flask import Flask, render_template, request, session, url_for, g
 from flask_sse import sse
 import threading
-from THavalon import Avalon, Role, convert_strings_to_roles, all_roles
+from THavalon import AvalonBuilder, Role, convert_strings_to_roles, all_roles
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -59,7 +59,7 @@ players = ThreadSafeList(10)
 
 class RoleInfo:
     info : dict
-    def __init__(self, role : Role, game : Avalon):
+    def __init__(self, role : Role, game : AvalonBuilder):
         self.info = role.get_info(game)
         self.info['role'] = str(role)
     def __getitem__(self, key : str):
@@ -81,7 +81,7 @@ class ThreadSafeGame:
             self.active = True
             self.player_info = {}
             self.roles_in_game = convert_strings_to_roles(roles_in_game)
-            new_game = Avalon(players.snapshot(), self.roles_in_game)
+            new_game = AvalonBuilder(players.snapshot(), self.roles_in_game)
             for role in new_game:
                 self.player_info[new_game[role]] = RoleInfo(role, new_game)
             proposers = new_game.get_first_mission_proposers()
