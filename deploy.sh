@@ -4,13 +4,9 @@ set -euo pipefail
 ### CONFIG ###
 REMOTE_DIR="/var/www/avalon/THavalonWebapp"
 SERVICE_NAME="avalon"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-### SAFETY CHECK ###
-if [ ! -d ".git" ]; then
-  echo "Warning: this does not look like a git repo root"
-fi
-
-echo "🚀 Starting deployment..."
+echo "Starting deployment..."
 
 ### 1. Sync files ###
 rsync -avz \
@@ -19,11 +15,11 @@ rsync -avz \
   --exclude ".env" \
   --exclude "__pycache__" \
   --exclude ".DS_Store" \
-  ./ merlin:${REMOTE_DIR}/
+  ${SCRIPT_DIR}/ merlin-cf:${REMOTE_DIR}/
 
-echo "📦 Sync complete"
+echo "Sync complete"
 
-ssh merlin << EOF
+ssh merlin-cf << EOF
 set -e
 
 echo "Restarting service: ${SERVICE_NAME}"
