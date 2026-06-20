@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
-from _typeshed import SupportsItemAccess
 from enum import Enum
 import random
 import sys

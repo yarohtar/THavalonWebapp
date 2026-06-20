@@ -126,7 +126,9 @@ def index():
     if 'name' not in session:
         return render_template("registration.html")
     player = session['name']
-
+    if player not in players:
+        players.append(player)
+        new_event('new-player')
     if player not in game or not game.is_active():
         return flask.render_template('wait.html', 
                                      message="Wait for host to start the game, then refresh.")
