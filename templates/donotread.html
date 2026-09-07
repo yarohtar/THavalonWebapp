@@ -5,7 +5,7 @@
 {% for player in game: %}
 {% if game[player]['allegiance'] == 'Good' %}
 
-<h3>{{ player }} is {{ game[player]['role'] }}</h3>
+<h3>{{ names[player] }} is {{ game[player]['role'] }}</h3>
 {% if 'seen' in game[player] %}
 <ul>
     <li>They saw:
@@ -41,7 +41,7 @@ They stalked {{ game[player]['stalked_evil'] }} as an evil player.
 {% for player in game: %}
 {% if game[player]['allegiance'] == 'Evil' %}
 
-<h3>{{ player }} is {{ game[player]['role'] }}</h3>
+<h3>{{ names[player] }} is {{ game[player]['role'] }}</h3>
 
 {% endif %}
 {% endfor %}
@@ -53,7 +53,7 @@ They stalked {{ game[player]['stalked_evil'] }} as an evil player.
     {% for player in game: %}
     {% if game[player]['allegiance'] == 'Neutral' %}
 
-    <h3>{{ player }} is {{ game[player]['role'] }}</h3>
+    <h3>{{ names[player] }} is {{ game[player]['role'] }}</h3>
 
     {% endif %}
     {% endfor %}

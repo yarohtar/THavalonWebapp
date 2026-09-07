@@ -1,7 +1,21 @@
 {% extends "template.html" %}
 {% block title %}Avalon{% endblock %}
 {% block body %}
-    <p>{{ message }}</p>
+    <p>Welcome {{ name }}!</p>
+    {% if in_lobby %}
+    <p>Wait for host to start the game, then refresh.</p>
+    {% else %}
+    <form method="POST" action="{{ url_for('join_lobby') }}">
+        <button type="submit">
+            Join Lobby
+        </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('register_api') }}">
+        <button>
+            Change Your Name
+        </button>
+    </a>
     {% if auto_refresh %}
     <script>
         const source = new EventSource("{{ events_url }}");

@@ -143,7 +143,10 @@ class Uther(GoodRole):
         return "Uther"
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
-        other_goods = [role for role in game if role.allegiance() == "Good" and role != uther]
+        other_goods = [role for role in game 
+                       if role.allegiance() == "Good" 
+                       and role != uther 
+                       and role != nilrem]
         stalked_role = random.sample(other_goods, 1)[0]
         info['stalked_good'] = game[stalked_role]
         return info
@@ -246,6 +249,7 @@ class EvilRole(Role):
         info = super().get_info(game)
         info['other_evils'] = self.get_visible_evils(game)
         info['oberon'] = oberon in game
+        print(info)
         return info
 
 class MoM(EvilRole):
@@ -253,8 +257,10 @@ class MoM(EvilRole):
     def __init__(self, index : int):
         self.index = index
     def __str__(self) -> str:
-        return "Minion of Mordred"
+        return f"Minion of Mordred"
     def __eq__(self, other) -> bool:
+        if not isinstance(other, MoM):
+            return False
         return str(self) == str(other) and self.index == other.index
     def __ne__(self, other) -> bool:
         return not (self == other)
@@ -420,6 +426,7 @@ def generate_roles(num_players : int, base_roles : list[Role]) -> list[Role]:
     roles_in_play.extend(random.sample(evils, num_evils))
 
     random.shuffle(roles_in_play)
+    print(roles_in_play)
     return roles_in_play
 
 class RoleInfo:
@@ -455,48 +462,142 @@ class Vote[VotingType]:
         self.votes[voter] = vote
     def voting_finished(self):
         return len(self.voters) == len(self.votes)
+    def get_votes(self):
+        if not self.voting_finished():
+            raise RuntimeError(f"Voting has not yet concluded.")
+        res = {}
+        for voter in self.votes:
+            v = self.votes[voter] 
+            if v not in res[v]:
+                res[v] = 0
+            res[v] += 1
+        return res
+
 
 class MissionVote(Vote[VotingCards]):
     fails_needed : Literal[1, 2]
+    betrayal : bool
     def __init__(self, 
                  voters : list[str], 
                  fails_needed : Literal[1, 2]):
         super().__init__(voters)
         self.fails_needed = fails_needed
+        self.betrayal = False
 
-    def mission_votes(self) -> dict[VotingCards, int]:
-        if not self.voting_finished():
-            raise RuntimeError(f"Voting has not yet concluded.")
-        res = {}
-        for voter in self.votes:
-            res[self.votes[voter]] += 1
-        return res
 
-    def mission_result(self) -> Literal[VotingCards.Success, VotingCards.Fail]:
-        votes = self.mission_votes()
+    def result(self) -> Literal[VotingCards.Success, VotingCards.Fail]:
+        votes = self.get_votes()
         Fail = VotingCards.Fail
         Reverse = VotingCards.Reverse
         Success = VotingCards.Success
 
-        reverse = votes[Reverse] % 2
+        if self.betrayal:
+            return Fail
 
-        if votes[Fail] >= self.fails_needed:
-            return Fail if not reverse else Success
-        if votes[Fail] + reverse >= self.fails_needed:
+        reverse = votes[Reverse] % 2
+        fails = votes[Fail]
+        if fails >= self.fails_needed:
+            fails -= reverse
+        else:
+            fails += reverse
+
+        if fails >= self.fails_needed:
             return Fail
         return Success
+
+    def activate_betrayal(self):
+        self.betrayal = True
+
 
 class Mission:
     proposal : Vote[bool]
     mission : MissionVote
+    wins_tiebreakers : bool
 
     def __init__(self, 
                  team : list[str],
                  players : list[str], 
-                 fails_needed : Literal[1, 2]):
+                 fails_needed : Literal[1, 2],
+                 wins_tiebreakers : bool = False):
         self.proposal = Vote[bool](players)
         self.mission = MissionVote(team, fails_needed)
+        self.wins_tiebreakers = wins_tiebreakers
 
+    def proposal_vote(self, player : str, vote : bool):
+        self.proposal.add_vote(player, vote)
+    def proposal_successful(self) -> bool:
+        votes = self.proposal.get_votes()
+        if votes[True] > votes[False]:
+            return True
+        if votes[True] == votes[False] and self.wins_tiebreakers:
+            return True
+        return False
+
+    def mission_vote(self, player : str, vote : VotingCards):
+        if not self.proposal_successful():
+            raise RuntimeError("Mission proposal was unsuccessful - you cannot vote.")
+        self.mission.add_vote(player, vote)
+    def vote(self, player : str, vote : bool | VotingCards):
+        if isinstance(vote, bool):
+            self.proposal.add_vote(player, vote)
+            return
+        if not self.proposal_successful():
+            raise RuntimeError("Mission proposal was unsuccessful - you cannot vote.")
+        self.mission.add_vote(player, vote)
+
+class FirstRound:
+    missions : list[Mission | None]
+    players : list[str]
+    proposers : list[str]
+
+    chosen_mission : Mission
+
+    def __init__(self,
+                 players : list[str],
+                 proposers : list[str]):
+        self.players = players
+        self.proposers = proposers
+        self.missions = [None, None]
+
+    def propose(self, 
+                player : str, 
+                team : list[str]):
+        i = self.proposers.index(player)
+        if self.missions[i] is not None:
+            raise RuntimeError("Mission has already been proposed.")
+        self.missions[i] = Mission(team, self.players, 1, i==0)
+
+    def vote(self, player : str, vote : str | VotingCards):
+        if None in self.missions:
+            raise RuntimeError("Missions not proposed yet.")
+        if isinstance(vote, str):
+            i = self.proposers.index(vote)
+            self.missions[i].vote(player, True)
+            self.missions[1-i].vote(player, False)
+
+            if self.missions[0].proposal.voting_finished():
+                if self.missions[0].proposal_successful():
+                    self.chosen_mission = self.missions[0]
+                else:
+                    self.chosen_mission = self.missions[1]
+        elif isinstance(vote, VotingCards):
+            self.chosen_mission.vote(player, vote)
+
+class Round:
+    missions : list[Mission]
+    def __init__(self, 
+                 players : list[str],
+                 ):
+        ...
+
+    def finished(self):
+        return (len(self.missions) > 0 
+                and self.missions[-1].proposal_successful() 
+                and self.missions[-1].mission.voting_finished())
+    def result(self):
+        if not self.finished():
+            raise RuntimeError("Round not finished yet.")
+        return self.missions[-1].mission.result()
 
 
 
@@ -524,7 +625,7 @@ class Avalon:
         self.round_number = 1
         self.proposal_number = 1
 
-        past_proposals = []
+        self.past_proposals = []
 
     def current_proposer(self) -> str | list[str]:
         return self.proposal_order[self.current_proposer_index]
@@ -551,7 +652,7 @@ class AvalonBuilder:
             self.transform_lonely(role)
 
     def __contains__(self, role : Role) -> bool:
-        return str(role) in self.role_to_player
+        return role in self.role_to_player
 
     def __iter__(self):
         return iter(self.role_to_player)

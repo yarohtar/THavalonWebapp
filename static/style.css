@@ -15,7 +15,6 @@ html, body {
 
 html {
     font-size: 17px;
-    
   &::after {
     content: "";
     position: fixed;
@@ -34,7 +33,7 @@ body {
     background: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
     color: #f4f1e6;
     /*min-height: 100vh;*/
-    padding: 2rem 1.2rem;
+    /*padding: 2rem 1.2rem;*/
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -54,9 +53,42 @@ body > * {
     border-radius: 16px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(6px);
-    margin-bottom: 2rem;
+    /*margin-bottom: 2rem;*/
 
+    flex: 0 0 100%;
+    width: 100%;
+
+    scroll-snap-align: start;
+
+    /*box-sizing: border-box;*/
+    padding: 20px;
 }
+
+.carousel-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.carousel {
+    --gap: 1rem;
+    display: flex;
+    overflow-x: auto;
+    border-radius: 16px;
+    gap: var(--gap);
+
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+
+    /* Hide scrollbar */
+    scrollbar-width: none;
+
+    /*background: transparent;*/
+}
+
+.carousel::-webkit-scrollbar {
+    display: none;
+}
+
 
 #role-info {
     opacity: 0;
@@ -89,6 +121,7 @@ h1, h2, h3 {
 h1 {
     font-size: 2.0rem;
     text-transform: uppercase;
+    margin-top: 1.8rem;
     color: #e6c36f;             /* Gold accent */
 }
 
@@ -395,3 +428,22 @@ button:disabled {
   box-shadow: 0 0 10px rgba(201,164,76,0.4);
 }
 
+footer {
+    margin-top: auto;
+    padding: 24px;
+
+    display: flex;
+    justify-content: center;
+
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+}
+
+footer a {
+    color: inherit;
+    transition: color 0.2s ease;
+}
+
+footer a:hover {
+    color: white;
+}

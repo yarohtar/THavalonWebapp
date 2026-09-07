@@ -10,9 +10,9 @@
     {% for player in players %}
         <li>
             <div style="display:flex; justify-content: space-between;">
-                {{ player }}
+                {{ players[player] }}
             <form method="POST"
-                  action="{{ url_for('delete_player') }}"
+                  action="{{ url_for('lobby_api') }}"
                   style="display:inline;">
                   
                 <input type="hidden" name="player" value="{{ player }}">
