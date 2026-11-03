@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:  # allows a manual "Run workflow" button on GitHub
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update app on iammerlin.fyi
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ec2-18-132-172-121.eu-west-2.compute.amazonaws.com
+          HOST_KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG2sb5DjMuSXBlOnaGPq+IQLiOrSGaM84AvlEWF8S0Jm
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$HOST $HOST_KEY" > ~/.ssh/known_hosts
+          # The key is restricted on the server to running server-update.sh.
+          ssh -T -i ~/.ssh/deploy_key -o IdentitiesOnly=yes ec2-user@"$HOST"
