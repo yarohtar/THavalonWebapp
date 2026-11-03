@@ -648,3 +648,79 @@ select {
     color: #ff6b6b;
     font-weight: 600;
 }
+
+/* Per-quest team size boxes */
+.quest-boxes {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+.quest-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+.quest-label {
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+.quest-box input[type="number"] {
+    width: 100%;
+    padding: 0.6rem 0;
+    text-align: center;
+    font-size: 1.2rem;
+    font-family: 'Crimson Text', serif;
+    color: #f4f1e6;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(202, 168, 74, 0.4);
+    border-radius: 10px;
+    -moz-appearance: textfield;
+}
+.quest-box input[type="number"]::-webkit-inner-spin-button,
+.quest-box input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+.quest-box input[type="radio"] {
+    display: none;
+}
+.df-toggle {
+    width: 2.2rem;
+    height: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid #444;
+    color: #666;
+    cursor: pointer;
+}
+.quest-box input[type="radio"]:checked + .df-toggle {
+    border-color: #c9a44c;
+    color: #ffd86b;
+    background: #2c2416;
+}
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    font-size: 0.95rem;
+}
+button.link-btn {
+    width: auto;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.9rem;
+    background: none;
+    color: #e6c36f;
+    text-decoration: underline;
+}
+.game-list > li {
+    background: none;
+    padding: 0;
+}
+.game-list form {
+    margin: 0;
+}

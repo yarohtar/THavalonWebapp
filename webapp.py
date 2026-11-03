@@ -1,8 +1,12 @@
 import flask
 from flask import Flask, render_template, request, session, url_for, g
 from flask_sse import sse
+import secrets
 import threading
+import time
+import uuid as uuid_lib
 from THavalon import (AvalonBuilder, Role, convert_strings_to_roles, all_roles,
+                      balin, pellinore, beast,
                       default_num_evils, DEFAULT_TEAM_SIZES, default_double_fail_quest)
 import os
 from dotenv import load_dotenv
@@ -21,16 +25,20 @@ if auto_refresh:
     app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     app.register_blueprint(sse, url_prefix='/events')
 
-def new_event(event_name, data = None):
-    if auto_refresh and 'game_id' in session:
-        sse.publish(data, type=event_name, channel = session['game_id'])
+# Channel for "a game was opened" events, for players not in any game yet.
+LOBBIES_CHANNEL = 'lobbies'
+
+def new_event(event_name, channel, data = None):
+    if auto_refresh:
+        sse.publish(data, type=event_name, channel = channel)
 
 @app.context_processor
 def inject_events_url():
-    if not auto_refresh or 'game_id' not in session:
+    channel = g.get('channel')
+    if not auto_refresh or channel is None:
         return dict(auto_refresh = False)
-    return dict(auto_refresh = True, 
-                events_url = url_for('sse.stream', channel = session['game_id']))
+    return dict(auto_refresh = True,
+                events_url = url_for('sse.stream', channel = channel))
 
 class GameSettings:
     """What the host chose. None means "use the default for the player count"."""
@@ -45,14 +53,12 @@ class GameSettings:
         evils = form.get('evils', 'default')
         if evils != 'default':
             settings.num_evils = int(evils)
-        sizes = form.get('team_sizes', '').replace(',', ' ').split()
-        if sizes:
+        sizes = [form.get(f'size{i}', '').strip() for i in range(1, 6)]
+        if any(sizes):
             try:
                 settings.team_sizes = [int(x) for x in sizes]
             except ValueError:
-                raise ValueError("Team sizes must be numbers, e.g. 3 4 4 5 4.")
-            if len(settings.team_sizes) != 5:
-                raise ValueError("Enter exactly 5 team sizes, e.g. 3 4 4 5 4.")
+                raise ValueError("Fill in a team size for every quest.")
         double_fail = form.get('double_fail', 'default')
         if double_fail != 'default':
             settings.double_fail = int(double_fail)
@@ -127,12 +133,16 @@ class AvalonGame:
 class Lobby:
     max_capacity : int = 10
     current_game : AvalonGame
-    def __init__(self):
+    def __init__(self, host_uuid : str, host_name : str):
+        self.id = secrets.token_urlsafe(6)
+        self.host_uuid = host_uuid
+        self.host_name = host_name
+        self.last_active = time.time()
         self._players : dict[str,str] = {}
-        self._roles : list[Role] = []
-        self.settings = GameSettings()
         self._lock = threading.Lock()
         self.current_game = AvalonGame()
+    def touch(self):
+        self.last_active = time.time()
     def __setitem__(self, uuid : str, name : str):
         with self._lock:
             if uuid in self._players:
@@ -148,27 +158,64 @@ class Lobby:
             return self._players.get(uuid, default)
     def pop(self, uuid : str):
         with self._lock:
-            self._players.pop(uuid)
-
-    def remove(self, uuid : str):
-        with self._lock:
-            self._players.pop(uuid)
-
+            self._players.pop(uuid, None)
     def snapshot(self):
         with self._lock:
             return dict(self._players)
+    def __len__(self):
+        with self._lock:
+            return len(self._players)
     def __contains__(self, uuid : str):
         with self._lock:
             return uuid in self._players
-    def set_roles(self, roles : list[str]):
+    def restart_game(self, roles : list[Role], settings : GameSettings):
         with self._lock:
-            self._roles = convert_strings_to_roles(roles)
-    def get_roles(self):
+            self.current_game.restart(roles, self._players, settings)
+        self.touch()
+
+class Lobbies:
+    """All open games. Each host (browser session) has at most one."""
+    max_idle_seconds = 12 * 60 * 60
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._by_id : dict[str, Lobby] = {}
+    def _prune(self):
+        cutoff = time.time() - self.max_idle_seconds
+        for lobby_id in [i for i, l in self._by_id.items() if l.last_active < cutoff]:
+            del self._by_id[lobby_id]
+    def get(self, lobby_id : str | None) -> Lobby | None:
         with self._lock:
-            return self._roles[:]
-    def restart_game(self):
+            self._prune()
+            return self._by_id.get(lobby_id) if lobby_id else None
+    def hosted_by(self, host_uuid : str) -> Lobby | None:
         with self._lock:
-            self.current_game.restart(self._roles, self._players, self.settings)
+            self._prune()
+            return next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
+    def open(self, host_uuid : str, host_name : str) -> tuple[Lobby, bool]:
+        """The host's lobby, created if needed. Returns (lobby, created)."""
+        with self._lock:
+            self._prune()
+            lobby = next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
+            if lobby is not None:
+                lobby.host_name = host_name
+                lobby.touch()
+                return lobby, False
+            lobby = Lobby(host_uuid, host_name)
+            self._by_id[lobby.id] = lobby
+        for i in range(app.config.get('DEV_FAKE_PLAYERS', 0)):
+            lobby[f'fake{i}'] = f'p{i}'
+        return lobby, True
+    def active(self) -> list[Lobby]:
+        with self._lock:
+            self._prune()
+            return sorted(self._by_id.values(), key=lambda l: l.host_name.casefold())
+    def leave_all(self, uuid : str, except_id : str | None = None):
+        for lobby in self.active():
+            if lobby.id != except_id:
+                lobby.pop(uuid)
+
+LOBBIES = Lobbies()
 
 class RoleInfo:
     info : dict
@@ -180,89 +227,184 @@ class RoleInfo:
     def __contains__(self, key : str):
         return key in self.info
 
-def get_lobby(lobby = Lobby()):
-    return lobby
+# ---- host preferences (stored in the host's session) ----
 
-@app.before_request
-def set_lobby():
-    session['game_id'] = '1'
-    g.lobby = get_lobby()
+DEFAULT_ROLE_NAMES = [str(r) for r in all_roles if r not in (balin, pellinore, beast)]
+
+def _prefs() -> dict:
+    return session.get('host_prefs', {})
+
+def pref_roles() -> list[str]:
+    return _prefs().get('roles', DEFAULT_ROLE_NAMES)
+
+def default_quests(n : int) -> dict:
+    return dict(sizes = DEFAULT_TEAM_SIZES[n],
+                double_fail = default_double_fail_quest(n) or 0)
+
+def pref_evils(n : int) -> int:
+    return _prefs().get('evils', {}).get(str(n), default_num_evils(n))
+
+def pref_quests(n : int, evils : int) -> dict:
+    return _prefs().get('quests', {}).get(f'{n}-{evils}') or default_quests(n)
+
+def save_prefs(roles : list[str], rules_used : dict):
+    n, evils = rules_used['num_players'], rules_used['num_evils']
+    prefs = _prefs()
+    prefs['roles'] = roles
+    prefs.setdefault('evils', {})[str(n)] = evils
+    prefs.setdefault('quests', {})[f'{n}-{evils}'] = dict(
+        sizes = rules_used['team_sizes'], double_fail = rules_used['double_fail'] or 0)
+    session['host_prefs'] = prefs
+    session.modified = True
+
+# ---- request setup ----
 
 @app.before_request
 def assign_uuid():
-    import uuid
     session.permanent = True
     if 'player_id' not in session:
-        session['player_id'] = str(uuid.uuid4())
+        session['player_id'] = str(uuid_lib.uuid4())
     g.uuid = session['player_id']
 
 @app.before_request
 def require_registration():
-    allowed_paths = ['/host', '/register', '/static', '/rules']
+    allowed_paths = ['/register', '/static', '/rules', '/events']
     if any(request.path.startswith(p) for p in allowed_paths):
         return  # allow through
     if 'name' not in session:
-        return flask.redirect(url_for('register_api'))
+        next_page = request.full_path.rstrip('?') if request.method == 'GET' else None
+        return flask.redirect(url_for('register_api', next = next_page))
     g.name = session['name']
 
-@app.route("/join-lobby", methods=["GET", "POST"])
-def join_lobby():
-    if g.lobby.get(g.uuid, "") != g.name:
-        g.lobby[g.uuid] = g.name
-        new_event('new-player')
-    return flask.redirect(url_for('index'))
+def joined_lobby() -> Lobby | None:
+    """The game this player has joined (or was last in)."""
+    return LOBBIES.get(session.get('game_id'))
 
+def join(lobby : Lobby):
+    LOBBIES.leave_all(g.uuid, except_id = lobby.id)
+    session['game_id'] = lobby.id
+    if lobby.get(g.uuid) != g.name:
+        lobby[g.uuid] = g.name
+        lobby.touch()
+        new_event('new-player', lobby.id)
+
+# ---- player pages ----
 
 @app.route("/")
 def index():
-    if g.uuid not in g.lobby.current_game:
-        return flask.render_template('wait.html', 
-                                     name = g.name,
-                                     in_lobby = g.uuid in g.lobby)
+    lobby = joined_lobby()
+    if lobby is None:
+        active = LOBBIES.active()
+        if len(active) == 1:
+            join(active[0])
+            lobby = active[0]
+        else:
+            g.channel = LOBBIES_CHANNEL
+            return flask.render_template('games.html', name = g.name, lobbies = active)
 
-    return g.lobby.current_game.render_html_info(g.uuid)
+    g.channel = lobby.id
+    if g.uuid not in lobby.current_game:
+        return flask.render_template('wait.html',
+                                     name = g.name,
+                                     lobby = lobby,
+                                     in_lobby = g.uuid in lobby,
+                                     other_games = len(LOBBIES.active()) > 1)
+    return lobby.current_game.render_html_info(g.uuid)
+
+@app.route("/games")
+def games():
+    g.channel = LOBBIES_CHANNEL
+    return flask.render_template('games.html', name = g.name,
+                                 lobbies = LOBBIES.active(),
+                                 current = joined_lobby())
+
+@app.route("/join-lobby", methods=["GET", "POST"])
+@app.route("/join/<lobby_id>", methods=["GET", "POST"])
+def join_lobby(lobby_id = None):
+    lobby = LOBBIES.get(lobby_id) if lobby_id else joined_lobby()
+    if lobby is not None:
+        join(lobby)
+    return flask.redirect(url_for('index'))
+
+def safe_next(target : str | None) -> str | None:
+    if target and target.startswith('/') and not target.startswith('//'):
+        return target
+    return None
 
 class RegisterView(MethodView):
     def get(self):
-        return flask.render_template('registration.html')
+        return flask.render_template('registration.html',
+                                     next = safe_next(request.args.get('next')))
     def post(self):
         player_name = request.form['player'].strip()
         if len(player_name) == 0:
             return flask.redirect(url_for('register_api'))
         session['name'] = player_name
-        return flask.redirect(url_for('join_lobby'))
+        g.name = player_name
+        lobby = joined_lobby()
+        if lobby is not None and g.uuid in lobby:
+            join(lobby)  # update name in the lobby
+        return flask.redirect(safe_next(request.form.get('next')) or url_for('index'))
 
 app.add_url_rule('/register', view_func=RegisterView.as_view('register_api'))
 
-def render_host(error = None):
-    return flask.render_template('host.html',
-                                 players = g.lobby.snapshot(),
-                                 current_roles = g.lobby.get_roles(),
-                                 all_roles = all_roles,
-                                 settings = g.lobby.settings,
-                                 game_rules = g.lobby.current_game.rules,
-                                 error = error)
+# ---- host pages ----
+
+def render_host(lobby : Lobby, error = None, form = None):
+    players = lobby.snapshot()
+    n = len(players)
+    ctx = dict(lobby = lobby,
+               players = players,
+               all_roles = all_roles,
+               game_rules = lobby.current_game.rules,
+               error = error,
+               num_players = n,
+               valid_count = n in DEFAULT_TEAM_SIZES)
+    if form is not None:  # re-show what the host just submitted
+        ctx['active_roles'] = form.getlist('items')
+    else:
+        ctx['active_roles'] = pref_roles()
+    if ctx['valid_count']:
+        evil_options = list(range(1, min(5, n - 1) + 1))
+        quests = {e: pref_quests(n, e) for e in evil_options}
+        evils = pref_evils(n)
+        shown = quests.get(evils, default_quests(n))
+        if form is not None:
+            evils = form.get('evils', type=int, default=evils)
+            shown = dict(sizes = [form.get(f'size{i}', '') for i in range(1, 6)],
+                         double_fail = form.get('double_fail', type=int, default=0))
+        ctx.update(evil_options = evil_options,
+                   evils = evils,
+                   shown = shown,
+                   quest_prefs = quests,
+                   defaults = dict(evils = default_num_evils(n), **default_quests(n)))
+    g.channel = lobby.id
+    return flask.render_template('host.html', **ctx)
 
 class LobbyView(MethodView):
     def get(self):
-        return render_host()
+        lobby, created = LOBBIES.open(g.uuid, g.name)
+        if created:
+            new_event('new-lobby', LOBBIES_CHANNEL)
+        return render_host(lobby)
     def post(self):
-        player = request.form['player']
-        g.lobby.pop(player)
+        lobby, _ = LOBBIES.open(g.uuid, g.name)
+        lobby.pop(request.form['player'])
         return flask.redirect(url_for('lobby_api'))
 
 app.add_url_rule('/host', view_func=LobbyView.as_view('lobby_api'))
 
 @app.route("/restart", methods=["POST"])
 def restart():
-    roles = request.form.getlist('items')
-    g.lobby.set_roles(roles)
+    lobby, _ = LOBBIES.open(g.uuid, g.name)
+    role_names = request.form.getlist('items')
     try:
-        g.lobby.settings = GameSettings.from_form(request.form)
-        g.lobby.restart_game()
+        settings = GameSettings.from_form(request.form)
+        lobby.restart_game(convert_strings_to_roles(role_names), settings)
     except ValueError as e:
-        return render_host(error = str(e)), 400
-    new_event('new-game')
+        return render_host(lobby, error = str(e), form = request.form), 400
+    save_prefs(role_names, lobby.current_game.rules)
+    new_event('new-game', lobby.id)
     return flask.redirect(url_for('lobby_api'))
 
 @app.route("/rules/")
@@ -276,19 +418,16 @@ def rules_page(slug = "overview"):
 
 @app.route("/donotread")
 def all_info():
-    current_game = g.lobby.current_game.snapshot()
+    lobby = LOBBIES.hosted_by(g.uuid) or joined_lobby()
+    if lobby is None:
+        return flask.redirect(url_for('index'))
+    current_game = lobby.current_game.snapshot()
     return flask.render_template('donotread.html', 
                                  game = current_game,
-                                 names = g.lobby.snapshot(),
+                                 names = lobby.snapshot(),
                                  num_players = len(current_game))
 
 if __name__ == "__main__":
-    # Development server only
-    lobby = get_lobby()
-    for i in range(9):
-        lobby[f'p{i}'] = f'p{i}'
+    # Development server only: every new lobby starts with 9 fake players.
+    app.config['DEV_FAKE_PLAYERS'] = 9
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
-

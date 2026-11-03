@@ -7,7 +7,8 @@ Registration
     <h1>Enter Your Name</h1>
 
     <form method="POST" action="{{ url_for('register_api') }}">
-        <input type="text" name="player" placeholder="Your name" required autofocus>
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <input type="text" name="player" placeholder="Your name" value="{{ session.get('name', '') }}" required autofocus>
         <button type="submit">Submit</button>
     </form>
 </div>

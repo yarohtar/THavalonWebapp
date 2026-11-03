@@ -10,8 +10,9 @@
         teams {{ team_sizes(game_rules) }}
     </p>
     {% endif %}
-    <h1>Player List</h1>
+    <h1>{{ lobby.host_name }}'s Game</h1>
 
+    <h2>Players ({{ num_players }})</h2>
     <ul>
         <li>
             <ul class="player-list">
@@ -22,12 +23,14 @@
             <form method="POST"
                   action="{{ url_for('lobby_api') }}"
                   style="display:inline;">
-                  
+
                 <input type="hidden" name="player" value="{{ player }}">
                 <button type="submit" class="remove-btn">❌</button>
             </form>
             </div>
         </li>
+    {% else %}
+        <li>Nobody has joined yet.</li>
     {% endfor %}
             </ul>
         </li>
@@ -37,15 +40,16 @@
     <form method="POST"
           action="{{ url_for('restart') }}"
           style="display:inline;">
+        <h2>Roles</h2>
         <ul>
             <li>
                 <div class="role-list">
                     {% for role in all_roles %}
-                    <input type="checkbox" 
-                           name="items" 
+                    <input type="checkbox"
+                           name="items"
                            id="{{ role }}"
                            value="{{ role }}"
-                           {% if role in current_roles %}
+                           {% if role|string in active_roles %}
                            checked
                            {% endif %}
                            >
@@ -57,45 +61,83 @@
                 </div>
             </li>
         </ul>
+
         <h2>Game Settings</h2>
         {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+        {% if valid_count %}
         <label class="setting">
             Evil players
-            <select name="evils">
-                <option value="default">Default (2 for 5–6, 3 for 7–8, 4 for 9–10)</option>
-                {% for k in range(1, 6) %}
-                <option value="{{ k }}" {% if settings.num_evils == k %}selected{% endif %}>{{ k }}</option>
+            <select name="evils" id="evils">
+                {% for k in evil_options %}
+                <option value="{{ k }}" {% if k == evils %}selected{% endif %}>
+                    {{ k }} Evil v {{ num_players - k }}{% if k == defaults.evils %} (default){% endif %}
+                </option>
                 {% endfor %}
             </select>
         </label>
-        <label class="setting">
-            Team sizes for quests 1–5
-            <input type="text" name="team_sizes" inputmode="numeric"
-                   placeholder="Default, e.g. 3 4 4 5 5"
-                   value="{{ settings.team_sizes|join(' ') if settings.team_sizes else '' }}">
-        </label>
-        <label class="setting">
-            Quest needing 2 Fails
-            <select name="double_fail">
-                <option value="default">Default (4th with 7+ players)</option>
-                <option value="0" {% if settings.double_fail == 0 %}selected{% endif %}>None</option>
-                {% for k in range(1, 6) %}
-                <option value="{{ k }}" {% if settings.double_fail == k %}selected{% endif %}>Quest {{ k }}</option>
+
+        <div class="setting">
+            Team sizes (✦ = needs 2 Fails)
+            <div class="quest-boxes">
+                {% for i in range(1, 6) %}
+                <div class="quest-box">
+                    <span class="quest-label">Quest {{ i }}</span>
+                    <input type="number" name="size{{ i }}" id="size{{ i }}"
+                           min="2" max="{{ num_players }}" inputmode="numeric" required
+                           value="{{ shown.sizes[i - 1] }}">
+                    <input type="radio" name="double_fail" value="{{ i }}" id="df{{ i }}"
+                           {% if shown.double_fail == i %}checked{% endif %}>
+                    <label class="df-toggle" for="df{{ i }}" title="Needs 2 Fails">✦</label>
+                </div>
                 {% endfor %}
-            </select>
-        </label>
-        <p class="setting-note">Leave everything on default for the standard rules. Proposals per round and [[Inquisition]] follow the number of Evil players.</p>
+            </div>
+            <div class="setting-row">
+                <span>
+                    <input type="radio" name="double_fail" value="0" id="df0"
+                           {% if not shown.double_fail %}checked{% endif %}>
+                    <label for="df0">No quest needs 2 Fails</label>
+                </span>
+                <button type="button" class="link-btn" id="reset-defaults">Reset to default</button>
+            </div>
+        </div>
+        <p class="setting-note">Your choices are remembered for each player count and Evil count.
+            Proposals per round and [[Inquisition]] follow the number of Evil players.</p>
         <button type="submit">Start New Game</button>
+        {% else %}
+        <p class="setting-note">A game needs 5 to 10 players. Settings appear once enough players have joined.</p>
+        <button type="submit" disabled>Start New Game</button>
+        {% endif %}
     </form>
 </div>
-    
+
+{% if valid_count %}
+<script>
+(function () {
+    const PREFS = {{ quest_prefs|tojson }};   // per Evil count: {sizes, double_fail}
+    const DEFAULTS = {{ defaults|tojson }};
+    const evils = document.getElementById('evils');
+    function fill(q) {
+        for (let i = 1; i <= 5; i++) {
+            document.getElementById('size' + i).value = q.sizes[i - 1];
+        }
+        document.getElementById('df' + (q.double_fail || 0)).checked = true;
+    }
+    evils.addEventListener('change', function () { fill(PREFS[evils.value]); });
+    document.getElementById('reset-defaults').addEventListener('click', function () {
+        evils.value = DEFAULTS.evils;
+        fill(DEFAULTS);
+    });
+})();
+</script>
+{% endif %}
+
 {% if auto_refresh %}
 <script>
     const source = new EventSource("{{ events_url }}");
     source.addEventListener('new-player', function(e){
         location.reload()
     }, false);
-    
+
 </script>
 {% endif %}
 {% endblock %}

@@ -3,11 +3,11 @@
 {% block body %}
     <p>Welcome {{ name }}!</p>
     {% if in_lobby %}
-    <p>Wait for host to start the game, then refresh.</p>
+    <p>You're in {{ lobby.host_name }}'s game. Wait for the host to start it.</p>
     {% else %}
-    <form method="POST" action="{{ url_for('join_lobby') }}">
+    <form method="POST" action="{{ url_for('join_lobby', lobby_id = lobby.id) }}">
         <button type="submit">
-            Join Lobby
+            Join {{ lobby.host_name }}'s game
         </button>
     </form>
     {% endif %}
@@ -16,11 +16,13 @@
             Change Your Name
         </button>
     </a>
+    {% if other_games %}
+    <p><a href="{{ url_for('games') }}">Switch to another game</a></p>
+    {% endif %}
     {% if auto_refresh %}
     <script>
         const source = new EventSource("{{ events_url }}");
         source.addEventListener('new-game', function(e){
-            console.log("new game")
             location.reload()
         }, false);
     </script>
