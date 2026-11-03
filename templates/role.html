@@ -68,29 +68,32 @@
         document.getElementById('role-card').addEventListener('click', displayRole);
 
     </script>
+    {% from "_game_rules.html" import team_sizes %}
+    {% set ordinal = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'] %}
     <div class="card">
         <h3>Start of Game</h3>
-        <p>{{ proposers[0] }} and {{ proposers[1] }} are proposing the [[First Round|first mission]].</p>
+        <p>{{ game_rules.num_evils }} Evil v {{ game_rules.num_others }}.
+           Teams: {{ team_sizes(game_rules) }}</p>
+        <p>{{ proposers[0] }} and {{ proposers[1] }} are proposing the [[First Round|first mission]]
+           ({{ game_rules.team_sizes[0] }} players).</p>
         <p>{{ proposers[2] }} is proposing the second mission.</p>
 
         <h3>[[Proposals|Mission Proposals]]</h3>
         <ul>
-            {% if num_players < 7 %}
-            <li>The third proposal is the [[Hammer]].</li>
+            <li>The {{ ordinal[game_rules.proposals - 1] }} proposal is the [[Hammer]].</li>
+            {% if game_rules.inquisition == 'none' %}
             <li>There is no [[Inquisition]].</li>
-            {% elif num_players < 9 %}
-            <li>The fourth proposal is the [[Hammer]].</li>
+            {% elif game_rules.inquisition == 'weak' %}
             <li>[[Weak Inquisition]] is granted the first time the first proposal of a round (from round 2) is approved.</li>
             <li>There is no [[Strong Inquisition]].</li>
             {% else %}
-            <li>The fifth proposal is the [[Hammer]].</li>
             <li>[[Strong Inquisition]] is granted the first time the first proposal of a round (from round 2) is approved.</li>
             <li>[[Weak Inquisition]] is granted the first time the second proposal is approved,
                 or the first proposal once Strong Inquisition has been used.</li>
             {% endif %}
         </ul>
-        {% if num_players >= 7 %}
-        <p>The 4th [[Quest]] needs 2 [[Fail|Fails]] to fail.</p>
+        {% if game_rules.double_fail %}
+        <p>The {{ ordinal[game_rules.double_fail - 1] }} [[Quest]] needs 2 [[Fail|Fails]] to fail.</p>
         {% endif %}
         <p><a href="{{ url_for('rules_page') }}">All rules →</a></p>
     </div>

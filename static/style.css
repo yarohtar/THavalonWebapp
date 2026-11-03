@@ -622,3 +622,29 @@ body > .term-sheet[hidden] {
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
 }
+
+/* ====== Host game settings ====== */
+label.setting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 1.05rem;
+}
+select {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    font-family: 'Crimson Text', serif;
+    color: #f4f1e6;
+    background: #2a2635;
+    border: 1px solid rgba(202, 168, 74, 0.4);
+    border-radius: 10px;
+}
+.setting-note, .game-summary {
+    font-size: 0.95rem !important;
+    opacity: 0.75;
+}
+.form-error {
+    color: #ff6b6b;
+    font-weight: 600;
+}

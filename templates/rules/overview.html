@@ -19,13 +19,15 @@
     <li>If Good wins 3 Quests, Evil gets the [[Assassination]].</li>
 </ol>
 
-<h2 id="sizes">By player count</h2>
+<h2 id="sizes">Defaults by player count</h2>
+<p>The host can change the number of Evil players and the team sizes. Proposals per round and Inquisition follow the number of Evil players.</p>
 <table>
     <tr><th>Players</th><th>Evil</th><th>Proposals</th><th>Inquisition</th></tr>
     <tr><td>5–6</td><td>2</td><td>3</td><td>none</td></tr>
     <tr><td>7–8</td><td>3</td><td>4</td><td>Weak</td></tr>
     <tr><td>9–10</td><td>4</td><td>5</td><td>Strong + Weak</td></tr>
 </table>
+<p>For example, a 9-player game can also be played as 3 Evil v 6 others (4 proposals, Weak Inquisition only).</p>
 
 <h2 id="roles">Roles</h2>
 {% set listed = terms|selectattr('kind', 'equalto', 'role')|rejectattr('retired')|rejectattr('slug', 'equalto', 'lovers')|list %}

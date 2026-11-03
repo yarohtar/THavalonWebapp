@@ -395,16 +395,34 @@ string_to_role : dict[str, Role] = { str(role): role for role in all_roles }
 def convert_strings_to_roles(str_roles : list[str]):
     return [string_to_role[str_role] for str_role in str_roles]
 
-def generate_roles(num_players : int, base_roles : list[Role]) -> list[Role]:
+def default_num_evils(num_players : int) -> int:
+    return (2 if num_players <= 6
+            else 3 if num_players <= 8
+            else 4 if num_players <= 11
+            else 5)
+
+DEFAULT_TEAM_SIZES : dict[int, list[int]] = {
+    5:  [2, 3, 2, 3, 3],
+    6:  [2, 3, 4, 3, 4],
+    7:  [2, 3, 3, 4, 4],
+    8:  [3, 4, 4, 5, 5],
+    9:  [3, 4, 4, 5, 5],
+    10: [3, 4, 4, 5, 5],
+}
+
+def default_double_fail_quest(num_players : int) -> int | None:
+    """1-based index of the quest needing 2 Fails, or None."""
+    return 4 if num_players >= 7 else None
+
+def generate_roles(num_players : int, base_roles : list[Role],
+                   num_evils : int | None = None) -> list[Role]:
     base_roles = [role for role in base_roles if role.is_base_role()]
     possible_roles = [role for role in base_roles if role.can_appear(num_players)]
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
-    num_evils = (2 if num_players <= 6 
-                 else 3 if num_players <= 8
-                 else 4 if num_players <= 11
-                 else 5)
+    if num_evils is None:
+        num_evils = default_num_evils(num_players)
     num_goods = num_players - num_evils
 
     roles_in_play : list[Role] = []
@@ -416,6 +434,11 @@ def generate_roles(num_players : int, base_roles : list[Role]) -> list[Role]:
     if balin in possible_roles:
         num_goods -= 1
         roles_in_play.append(balin)
+        goods.remove(balin)  # already placed; don't deal it a second time
+
+    if num_evils < 1 or num_goods < 1:
+        raise ValueError(f"{num_evils} Evil players doesn't work with "
+                         f"{num_players} players and the selected roles.")
 
     if len(goods) < num_goods:
         goods.extend([SoC(i) for i in range(num_goods - len(goods))])
@@ -636,14 +659,15 @@ class AvalonBuilder:
     players : list[str]
     role_to_player : dict[Role,str]
 
-    def __init__(self, players: list[str], roles_in_play : list[Role]):
+    def __init__(self, players: list[str], roles_in_play : list[Role],
+                 num_evils : int | None = None):
         players = list(set(players))
         random.shuffle(players)
         self.players = players
 
         n = len(players)
         assert(5 <= n <= 12)
-        roles = generate_roles(n, roles_in_play)
+        roles = generate_roles(n, roles_in_play, num_evils)
         self.role_to_player = {}
 
         for (player, role) in zip(players, roles):

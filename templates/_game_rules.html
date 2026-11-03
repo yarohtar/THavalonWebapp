@@ -1,0 +1,4 @@
+{# Team sizes like "3 · 4 · 4 · 5* · 5"; * = needs 2 Fails. #}
+{% macro team_sizes(rules) -%}
+{% for k in rules.team_sizes %}{{ k }}{% if loop.index == rules.double_fail %}*{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+{%- endmacro %}
