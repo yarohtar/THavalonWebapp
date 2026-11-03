@@ -1,12 +1,13 @@
 {% extends "role.html" %}
 {% block content %}
-<p>Merlin and Morgana are not in this game.</p>
-<p>The evil roles in the game are:</p>
+<p>[[Merlin]] and [[Morgana]] are not in this game.</p>
 <ul>
-{% for role in info['evil_roles'] %}
-    <li>
-        {{ role }}
-    </li>  
-{% endfor %}
+    <li>The evil roles in the game are:
+        <ul>
+        {% for role in info['evil_roles'] %}
+            <li>{{ term(role|string) }}</li>
+        {% endfor %}
+        </ul>
+    </li>
 </ul>
 {% endblock %}

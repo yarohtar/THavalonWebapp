@@ -1,34 +1,4 @@
 {% extends "role.html" %}
 {% block content %}
-<p>
-{{ info['pellinore'] }} is your hunter, Pellinore.
-</p>
-<p>
-You must play "The Questing Beast Was Here" card on any missions you go to.</br>
-If two missions have Failed 
-or two "The Questing Beast Was Here" cards have been played already,
-this card counts as Success. 
-Otherwise, it counts as Fail.
-</p>
-<ul>
-    <li>You win if you are on at least one mission 
-        and you collect at least 5 points from your objectives. 
-        Your objectives are:
-        <ul>
-            <li>
-                Be on missions (each mission is 1 point);
-            </li>
-            <li>
-                Don't be on a mission with Pellinore (1 point);
-            </li>
-            <li>
-                Have 3 successful missions (2 points);
-            </li>
-            <li>
-                Don't be assassinated by Pellinore at the end of the game 
-                (3 points).
-            </li>
-        </ul>
-    </li>
-</ul>
+<p>{{ info['pellinore'] }} is your hunter, [[Pellinore]].</p>
 {% endblock %}

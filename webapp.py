@@ -7,9 +7,11 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 from flask.views import MethodView
+import rules
 
 app = Flask(__name__)
 app.secret_key = "secret"
+rules.init_app(app)
 
 # auto refresh enabled by default
 auto_refresh ='DISABLE_AUTO_REFRESH' not in os.environ
@@ -140,7 +142,7 @@ def assign_uuid():
 
 @app.before_request
 def require_registration():
-    allowed_paths = ['/host', '/register', '/static']
+    allowed_paths = ['/host', '/register', '/static', '/rules']
     if any(request.path.startswith(p) for p in allowed_paths):
         return  # allow through
     if 'name' not in session:
@@ -196,6 +198,15 @@ def restart():
     g.lobby.restart_game()
     new_event('new-game')
     return flask.redirect(url_for('lobby_api'))
+
+@app.route("/rules/")
+@app.route("/rules/<slug>")
+def rules_page(slug = "overview"):
+    if slug not in rules.PAGES:
+        flask.abort(404)
+    return flask.render_template('rules/page.html',
+                                 page = rules.BY_SLUG[slug],
+                                 terms = rules.TERMS)
 
 @app.route("/donotread")
 def all_info():

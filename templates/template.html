@@ -9,7 +9,56 @@
     {% block body %}
     {% endblock %}
     <footer>
-        <p>Visit my <a href="iammerlin.co.uk" target=_blank>homepage</a>.</p>
+        <p><a href="{{ url_for('rules_page') }}">Rules</a> · Visit my <a href="https://iammerlin.fyi" target=_blank>homepage</a>.</p>
     </footer>
-<body/>
-<html/>
+
+    <div class="term-sheet" id="term-sheet" hidden>
+        <div class="term-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="term-sheet-title">
+            <h3 id="term-sheet-title"></h3>
+            <p id="term-sheet-summary"></p>
+            <a id="term-sheet-link" class="term-sheet-more" href="#">Full rules →</a>
+        </div>
+    </div>
+    <script>
+    (function () {
+        const TERMS = {{ terms_json() }};
+        const sheet = document.getElementById('term-sheet');
+        const title = document.getElementById('term-sheet-title');
+        const summary = document.getElementById('term-sheet-summary');
+        const more = document.getElementById('term-sheet-link');
+
+        function open(t, href) {
+            title.textContent = t.title;
+            title.className = t.team ? 'term-' + t.team : '';
+            summary.textContent = t.summary;
+            more.href = href;
+            sheet.hidden = false;
+        }
+        function close() { sheet.hidden = true; }
+
+        // Capture phase, so taps on a term never reach other handlers
+        // (e.g. the role card's tap-to-hide).
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.term-sheet-panel')) return;
+            if (!sheet.hidden) {
+                close();
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            const a = e.target.closest('a.term');
+            // Modifier clicks keep normal link behaviour (open in new tab etc.)
+            if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+            const t = TERMS[a.dataset.term];
+            if (!t) return;
+            e.preventDefault();
+            e.stopPropagation();
+            open(t, a.getAttribute('href'));
+        }, true);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+    })();
+    </script>
+</body>
+</html>

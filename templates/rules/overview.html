@@ -1,0 +1,40 @@
+<p>THavalon extends Avalon so that every player has a role.</p>
+
+<h2 id="teams">Teams</h2>
+<ul>
+    <li><b class="term-good">Good</b> wins if 3 [[Quests]] succeed, unless Evil then wins the [[Assassination]].</li>
+    <li><b class="term-evil">Evil</b> wins if 3 Quests fail, or with a correct Assassination.</li>
+    <li><b class="term-neutral">Neutral</b> roles ([[Pellinore]] and [[The Questing Beast]], 9 players only) have their own goals.</li>
+</ul>
+<ul>
+    <li>Evil players see each other, except [[Oberon]]. They are told if Oberon is in the game.</li>
+    <li>Good players are told who [[Nilrem]] is, if Nilrem is in the game.</li>
+</ul>
+
+<h2 id="flow">How a game goes</h2>
+<ol class="steps">
+    <li>[[First Round]]: two proposals at once and a single vote.</li>
+    <li>Later rounds: players take turns making [[Proposals]]. The last one is the [[Hammer]]. Approving an early proposal can grant an [[Inquisition]].</li>
+    <li>The team plays [[Quest cards]]: [[Success]], [[Fail]] or [[Reversal]].</li>
+    <li>If Good wins 3 Quests, Evil gets the [[Assassination]].</li>
+</ol>
+
+<h2 id="sizes">By player count</h2>
+<table>
+    <tr><th>Players</th><th>Evil</th><th>Proposals</th><th>Inquisition</th></tr>
+    <tr><td>5–6</td><td>2</td><td>3</td><td>none</td></tr>
+    <tr><td>7–8</td><td>3</td><td>4</td><td>Weak</td></tr>
+    <tr><td>9–10</td><td>4</td><td>5</td><td>Strong + Weak</td></tr>
+</table>
+
+<h2 id="roles">Roles</h2>
+{% set listed = terms|selectattr('kind', 'equalto', 'role')|rejectattr('retired')|rejectattr('slug', 'equalto', 'lovers')|list %}
+<h3 class="term-good">Good</h3>
+<ul class="chips">{% for t in listed if t.team == 'good' %}<li>{{ term(t.title) }}</li>{% endfor %}</ul>
+<h3 class="term-evil">Evil</h3>
+<ul class="chips">{% for t in listed if t.team == 'evil' %}<li>{{ term(t.title) }}</li>{% endfor %}</ul>
+<h3 class="term-neutral">Neutral</h3>
+<ul class="chips">{% for t in listed if t.team == 'neutral' %}<li>{{ term(t.title) }}</li>{% endfor %}</ul>
+<p>Some roles change when their partners are missing: see [[Lonely Roles]].</p>
+<p class="rules-note">Not currently played:
+{% for t in terms if t.retired %}{{ term(t.title) }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>

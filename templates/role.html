@@ -1,10 +1,11 @@
 {% extends "carousel_template.html" %}
 {% block title %}Avalon{% endblock %}
 {% block cards %}
+    {% set role_term = get_term(info['role']) %}
     <div class="card" 
          id="role-card">
         <div id="role-info">
-            <h1>You are {{ info['role'] }}</h1>
+            <h1>You are {{ term(info['role']) }}</h1>
 
             {% if info['allegiance'] == 'Evil'
                 and info['role'] != 'Colgrevance' %}
@@ -18,7 +19,7 @@
                         </li>
                     {% endfor %}
                     {% if info['oberon'] %}
-                        <li>Oberon, lurking in the shadows.</li>
+                        <li>[[Oberon]], lurking in the shadows.</li>
                     {% endif %}
                     </ul>
                 </li>
@@ -27,22 +28,20 @@
 
             {% if info['allegiance'] == 'Good' %}
                 {% if 'nilrem' in info %}
-                    <p>{{ info['nilrem'] }} is Nilrem. 
-                    Merlin and Percival are not in this game.</p>
+                    <p>{{ info['nilrem'] }} is [[Nilrem]]. 
+                    [[Merlin]] and [[Percival]] are not in this game.</p>
                 {% elif info['role'] != 'Nilrem' %}
-                    <p>Nilrem is not in this game.</p>
+                    <p>[[Nilrem]] is not in this game.</p>
                 {% endif %}
             {% endif %}
 
             {% block content %}
             {% endblock %}
-        <!--
-            <div class="role-image-container">
-                <img src="{{ url_for('static', filename=image) }}" 
-                     alt="Arthur" 
-                     class="role-image">
+
+            <hr/>
+            <div class="role-rules">
+                {% include "rules/" ~ role_term.page_slug ~ ".html" %}
             </div>
-        -->
         </div>
 
         <div class="overlay-text" id="reveal">
@@ -71,50 +70,29 @@
     </script>
     <div class="card">
         <h3>Start of Game</h3>
-        <p>{{ proposers[0] }} and {{ proposers[1] }} are proposing the first mission.</p>
+        <p>{{ proposers[0] }} and {{ proposers[1] }} are proposing the [[First Round|first mission]].</p>
         <p>{{ proposers[2] }} is proposing the second mission.</p>
 
-        <h3>Mission Proposals</h3>
+        <h3>[[Proposals|Mission Proposals]]</h3>
         <ul>
             {% if num_players < 7 %}
-            <li>Third mission proposal is Hammer.</li>
-            <li>There is neither Weak nor Strong Inquisition</li>
+            <li>The third proposal is the [[Hammer]].</li>
+            <li>There is no [[Inquisition]].</li>
             {% elif num_players < 9 %}
-            <li>Fourth mission proposal is Hammer.</li>
-            <li>Weak Inquisition is granted on the first round 
-                in which the first mission proposal was successful.
-                When granted, the mission leader chooses a quest card to reveal, 
-                but not remove.
-            </li>
-            <li>There is no Strong Inquisition</li>
+            <li>The fourth proposal is the [[Hammer]].</li>
+            <li>[[Weak Inquisition]] is granted the first time the first proposal of a round (from round 2) is approved.</li>
+            <li>There is no [[Strong Inquisition]].</li>
             {% else %}
-            <li>Fifth mission proposal is Hammer.</li>
-            <li>Weak Inquisition is granted on the first round 
-                in which the second mission proposal was successful.
-                When granted, the mission leader chooses a quest card to reveal, 
-                but not remove.
-            </li>
-            <li>
-                Strong Inquisition is granted on the first round 
-                in which the first mission proposal was successful.
-                When granted, the mission leader chooses to either:
-                <ul>
-                    <li>
-                        choose a quest card to remove, but not reveal OR 
-                    </li>
-                    <li>
-                        choose a quest card to reveal, but not remove.
-                    </li>
-                </ul>
-            </li>
-            <li>
-                If Strong Inquisition has already been used this game,
-                and the first team proposal of a round is successful,
-                the Weak Inquisition ability is granted instead.
-            </li>
+            <li>The fifth proposal is the [[Hammer]].</li>
+            <li>[[Strong Inquisition]] is granted the first time the first proposal of a round (from round 2) is approved.</li>
+            <li>[[Weak Inquisition]] is granted the first time the second proposal is approved,
+                or the first proposal once Strong Inquisition has been used.</li>
             {% endif %}
         </ul>
-
+        {% if num_players >= 7 %}
+        <p>The 4th [[Quest]] needs 2 [[Fail|Fails]] to fail.</p>
+        {% endif %}
+        <p><a href="{{ url_for('rules_page') }}">All rules →</a></p>
     </div>
     {% block extra_info %}
     {% endblock %}

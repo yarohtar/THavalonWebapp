@@ -188,7 +188,7 @@ class Ygraine(GoodRole):
         return "Ygraine"
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
-        evils = [role for role in game if role.allegiance() == "Evil"]
+        evils = [role for role in game if role.allegiance() == "Evil" and role != mordred]
         stalked_role = random.sample(evils, 1)[0]
         info['stalked_evil'] = game[stalked_role]
         return info

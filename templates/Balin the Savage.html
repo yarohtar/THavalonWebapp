@@ -1,9 +1,8 @@
 {% extends "role.html" %}
 {% block content %}
 {% if 'agravaine' in info %}
-<p>Beware of {{ info['agravaine'] }}, the traitor Agravaine.</p>
+<p>Beware of {{ info['agravaine'] }}, the traitor [[Agravaine]].</p>
 {% else %}
-<p>Agravaine is not in the game.</p>
+<p>[[Agravaine]] is not in the game.</p>
 {% endif %}
-<p>If Merlin is in the game, they see you as evil.</p>
 {% endblock %}

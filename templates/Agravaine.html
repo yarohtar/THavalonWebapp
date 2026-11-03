@@ -1,8 +1,6 @@
 {% extends "role.html" %}
 {% block content %}
-<p>You have to play Fail cards if you are on a mission.</p>
 {% if 'balin' in info %}
-<p>Beware of {{ info['balin'] }}, Balin the Savage.</p>
+<p>Beware of {{ info['balin'] }}, [[Balin the Savage]].</p>
 {% endif %}
-{% include "rules/betrayal.html" %}
 {% endblock %}

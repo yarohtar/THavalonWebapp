@@ -447,3 +447,178 @@ footer a {
 footer a:hover {
     color: white;
 }
+
+/* ====== Rules pages ====== */
+.rules {
+    text-align: left;
+}
+.rules h1 {
+    margin-top: 0.5rem;
+    text-align: center;
+}
+.rules h2 {
+    font-size: 1.3rem;
+    margin-top: 1.6rem;
+    margin-bottom: 0.4rem;
+}
+.rules h3 {
+    font-size: 1.1rem;
+    margin-top: 1.2rem;
+    margin-bottom: 0.3rem;
+}
+.rules p, .role-rules p {
+    margin-bottom: 0.6rem;
+}
+.rules ul, .rules ol {
+    margin: 0.6rem 0;
+}
+.role-rules {
+    text-align: left;
+}
+.role-rules h2 {
+    font-size: 1.3rem;
+}
+.rules-back {
+    font-size: 0.95rem;
+    color: rgba(244, 241, 230, 0.7);
+    text-decoration: none;
+}
+.rules-meta {
+    text-align: center;
+    margin-bottom: 1rem !important;
+}
+.rules-note {
+    opacity: 0.7;
+    font-size: 0.95rem !important;
+    margin-top: 1rem;
+}
+.badge {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    margin: 0.15rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(202, 168, 74, 0.5);
+    color: #e6c36f;
+}
+.badge-good    { border-color: #7fd4ff; color: #7fd4ff; }
+.badge-evil    { border-color: #ff6b6b; color: #ff6b6b; }
+.badge-neutral { border-color: #c9b6ff; color: #c9b6ff; }
+
+/* Numbered steps */
+ol.steps {
+    counter-reset: step;
+}
+ol.steps > li {
+    counter-increment: step;
+    padding-left: 2.6rem;
+    position: relative;
+}
+ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0.8rem;
+    top: 0.75rem;
+    font-family: 'Cinzel', serif;
+    color: #caa84a;
+}
+
+/* Compact tables that fit a phone */
+.rules table, .role-rules table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.6rem 0 1rem;
+    font-size: 1rem;
+    line-height: 1.35;
+}
+.rules th, .rules td, .role-rules th, .role-rules td {
+    padding: 0.4rem 0.45rem;
+    border-bottom: 1px solid rgba(202, 168, 74, 0.2);
+    vertical-align: top;
+    text-align: left;
+}
+.rules th, .role-rules th {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    color: #caa84a;
+    font-weight: 600;
+}
+
+/* Role chips on the overview */
+ul.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.4rem 0 0.8rem;
+}
+ul.chips > li {
+    margin: 0;
+    padding: 0;
+    background: none;
+}
+ul.chips > li > a.term {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* ====== Rule term links ====== */
+a.term {
+    color: #e6c36f;
+    text-decoration: underline dotted;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    font-weight: 600;
+    -webkit-tap-highlight-color: rgba(202, 168, 74, 0.25);
+}
+.term-good    { color: #7fd4ff !important; }
+.term-evil    { color: #ff6b6b !important; }
+.term-neutral { color: #c9b6ff !important; }
+
+/* Bottom sheet showing a term's summary */
+body > .term-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    max-width: none;
+    padding: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+body > .term-sheet[hidden] {
+    display: none;
+}
+.term-sheet-panel {
+    width: 100%;
+    max-width: 600px;
+    padding: 1.2rem 1.4rem calc(1.4rem + env(safe-area-inset-bottom));
+    background: #221e2c;
+    border-top: 2px solid #caa84a;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.6);
+    text-align: left;
+    animation: sheet-up 0.18s ease-out;
+}
+.term-sheet-panel h3 {
+    margin: 0 0 0.4rem;
+}
+.term-sheet-more {
+    display: block;
+    margin-top: 0.9rem;
+    padding: 0.7rem;
+    text-align: center;
+    border-radius: 10px;
+    font-family: 'Cinzel', serif;
+    text-decoration: none;
+    background: linear-gradient(145deg, #caa84a, #a3842f);
+    color: #14121c;
+}
+@keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}

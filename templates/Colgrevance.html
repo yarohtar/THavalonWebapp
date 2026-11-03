@@ -6,7 +6,7 @@
     <ul>
         {% for player in info['evil_roles'] %}
         <li>
-            {{ player }} as {{ info['evil_roles'][player] }}
+            {{ player }} as {{ term(info['evil_roles'][player]|string) }}
         </li>
         {% endfor %}
     </ul>
