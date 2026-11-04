@@ -2,6 +2,12 @@
 {% block title %}Host{% endblock %}
 {% block body %}
 {% from "_game_rules.html" import team_sizes %}
+{% if host_panel %}
+<div class="card game-card" data-panels-url="{{ url_for('host_game_panels') }}">
+    <h2>Game in progress</h2>
+    <div data-panel="host">{{ host_panel|safe }}</div>
+</div>
+{% endif %}
 <div class="card">
     {% if game_rules %}
     <p class="game-summary">
@@ -141,6 +147,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
+<script src="{{ url_for('static', filename='game.js') }}"></script>
 <script>
 (function () {
     // Reload to show new players, unless the host is halfway through editing

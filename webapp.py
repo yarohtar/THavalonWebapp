@@ -14,6 +14,8 @@ load_dotenv()
 from flask.views import MethodView
 import rules
 import events
+from game import GameState, RuleError
+from actions import GameController
 
 app = Flask(__name__)
 app.secret_key = "secret"
@@ -87,10 +89,13 @@ class AvalonGame:
     roles_in_game : list[Role]
     proposers : list[str]
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.roles_in_game = all_roles[:]
         self.player_info = {}
     rules : dict | None = None
+    controller : GameController | None = None
+    names : dict[str, str]          # uuid -> player name (names are the game's ids)
+
     def restart(self, roles_in_game : list[Role], players : dict[str,str],
                 settings : GameSettings):
         # Build everything first, so a bad setting leaves the old game intact.
@@ -106,6 +111,10 @@ class AvalonGame:
             proposers = builder.get_first_mission_proposers()
             proposers.append(builder.get_second_mission_starter())
             self.proposers = proposers
+            self.names = dict(players)
+            self.controller = GameController(GameState.from_builder(
+                builder, rules['team_sizes'], rules['double_fail'],
+                role_pool = roles_in_game))
     def __getitem__(self, uuid : str) -> RoleInfo:
         with self._lock:
             return self.player_info[uuid]
@@ -121,7 +130,36 @@ class AvalonGame:
                                    proposers = self.proposers,
                                    game_rules = self.rules,
                                    image = 'round_table.jpg',
-                                   num_players = len(self.player_info))
+                                   num_players = len(self.player_info),
+                                   panels = self.render_panels(uuid))
+
+    # ---- live game ----
+
+    def render_panels(self, uuid : str | None) -> dict:
+        """HTML for the live parts of the page. uuid=None: the host's
+        public view (no private information at all)."""
+        with self._lock:
+            ctl = self.controller
+            name = self.names.get(uuid) if uuid else None
+            view = ctl.view(name)
+            ctx = dict(view = view, me = name, game_rules = self.rules,
+                       undo_label = ctl.undo_label() if uuid is None else None)
+            if uuid is None:
+                return dict(host = render_template('game/host_panel.html', **ctx))
+            return dict(game = render_template('game/panel.html', **ctx),
+                        abilities = render_template('game/abilities.html', **ctx))
+
+    def act(self, uuid : str, action : str, params : dict):
+        with self._lock:
+            self.controller.act(self.names[uuid], action, **params)
+
+    def host_undo(self) -> str:
+        with self._lock:
+            return self.controller.undo()
+
+    def host_skip(self):
+        with self._lock:
+            self.controller.skip_pause()
     def snapshot(self):
         with self._lock:
             return dict(self.player_info)
@@ -394,6 +432,8 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
                    shown = shown,
                    quest_prefs = quests,
                    defaults = dict(evils = default_num_evils(n), **default_quests(n)))
+    if lobby.current_game.controller is not None:
+        ctx['host_panel'] = lobby.current_game.render_panels(None)['host']
     g.channel = lobby.id
     return flask.render_template('host.html', **ctx)
 
@@ -430,6 +470,84 @@ def restart():
     save_prefs(role_names, lobby.current_game.rules)
     new_event('new-game', lobby.id)
     return flask.redirect(url_for('lobby_api'))
+
+# ---- live game ----
+
+def action_params(action : str, form) -> dict:
+    """Form fields -> GameController.act() parameters."""
+    params = {}
+    if action in ('propose', 'propose_first_round'):
+        params['team'] = form.getlist('team')
+    if action == 'assassinate':
+        params['targets'] = form.getlist('targets')
+    for key in ('proposer', 'next_proposer', 'replaced', 'card', 'kind'):
+        if key in form:
+            params[key] = form[key]
+    if 'target' in form:
+        params['target'] = form['target'] or None
+    for key in ('approve', 'remove'):
+        if key in form:
+            params[key] = form[key] == '1'
+    return params
+
+def current_game_for_player():
+    lobby = joined_lobby()
+    if lobby is None or g.uuid not in lobby.current_game \
+            or lobby.current_game.controller is None:
+        flask.abort(404)
+    return lobby
+
+@app.route("/game/panels")
+def game_panels():
+    lobby = current_game_for_player()
+    return flask.jsonify(lobby.current_game.render_panels(g.uuid))
+
+@app.route("/game/state")
+def game_state():
+    """This player's view of the game as JSON (what their page shows)."""
+    lobby = current_game_for_player()
+    game = lobby.current_game
+    with game._lock:
+        view = game.controller.view(game.names[g.uuid])
+    return flask.jsonify(game_id = id(game.controller), **view)
+
+@app.route("/game/action", methods=["POST"])
+def game_action():
+    lobby = current_game_for_player()
+    action = request.form.get('action', '')
+    try:
+        lobby.current_game.act(g.uuid, action, action_params(action, request.form))
+    except (RuleError, KeyError, ValueError) as e:
+        message = e.args[0] if isinstance(e, RuleError) else "That didn't work, try again."
+        return flask.jsonify(error = message), 400
+    lobby.touch()
+    new_event('game-update', lobby.id)
+    return flask.jsonify(lobby.current_game.render_panels(g.uuid))
+
+def hosted_game():
+    lobby = LOBBIES.hosted_by(g.uuid)
+    if lobby is None or lobby.current_game.controller is None:
+        flask.abort(404)
+    return lobby
+
+@app.route("/host/game/panels")
+def host_game_panels():
+    return flask.jsonify(hosted_game().current_game.render_panels(None))
+
+@app.route("/host/game/<command>", methods=["POST"])
+def host_game_command(command):
+    lobby = hosted_game()
+    try:
+        if command == 'undo':
+            lobby.current_game.host_undo()
+        elif command == 'skip':
+            lobby.current_game.host_skip()
+        else:
+            flask.abort(404)
+    except RuleError as e:
+        return flask.jsonify(error = e.args[0]), 400
+    new_event('game-update', lobby.id)
+    return flask.jsonify(lobby.current_game.render_panels(None))
 
 @app.route("/rules/")
 @app.route("/rules/<slug>")

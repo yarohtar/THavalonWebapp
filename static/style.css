@@ -761,3 +761,230 @@ button.link-btn {
 .game-list form {
     margin: 0;
 }
+
+/* ====== Player page: Game / Role tabs ====== */
+body:has(> nav.tab-bar) {
+    padding-bottom: 5rem;              /* room for the tab bar */
+}
+.tab-page[hidden] {
+    display: none;
+}
+body > nav.tab-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-width: none;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(20, 18, 28, 0.96);
+    border-top: 1px solid rgba(202, 168, 74, 0.35);
+    backdrop-filter: blur(6px);
+}
+.tab-bar button {
+    flex: 1;
+    padding: 0.8rem 0.5rem;
+    background: transparent;
+    color: #e6c36f;
+    border: 1px solid rgba(202, 168, 74, 0.35);
+}
+.tab-bar button[aria-selected="true"] {
+    background: linear-gradient(145deg, #caa84a, #a3842f);
+    color: #14121c;
+}
+.tab-bar button:hover { transform: none; box-shadow: none; }
+
+/* ====== Game board ====== */
+.game-card {
+    text-align: left;
+    margin-bottom: 1rem;
+}
+.quest-track {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin: 0.2rem 0 0.8rem;
+}
+.quest-token {
+    position: relative;
+    flex: 1;
+    max-width: 3.6rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(202, 168, 74, 0.35);
+    background: rgba(255, 255, 255, 0.04);
+    font-family: 'Cinzel', serif;
+    font-size: 1.3rem;
+    color: rgba(244, 241, 230, 0.75);
+}
+.quest-token.current {
+    border-color: #e6c36f;
+    box-shadow: 0 0 10px rgba(230, 195, 111, 0.45);
+    color: #e6c36f;
+}
+.quest-token.success {
+    background: radial-gradient(circle at 35% 30%, #b9d2df, var(--team-good) 55%, #5d7686);
+    border-color: var(--team-good);
+    color: #14121c;
+}
+.quest-token.fail {
+    background: radial-gradient(circle at 35% 30%, #e0ab9a, var(--team-evil) 55%, #7d4a3d);
+    border-color: var(--team-evil);
+    color: #14121c;
+}
+.quest-df {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.2rem;
+    font-size: 0.85rem;
+    color: #ffd86b;
+}
+.proposal-track {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+.proposal-dot {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    border: 1px solid rgba(202, 168, 74, 0.4);
+    color: rgba(244, 241, 230, 0.6);
+}
+.proposal-dot.used { background: rgba(202, 168, 74, 0.25); }
+.proposal-dot.now { background: #caa84a; color: #14121c; font-weight: 700; }
+
+.game-section {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(202, 168, 74, 0.2);
+}
+.game-section h3 { font-size: 1.25rem; margin: 0 0 0.4rem; }
+.game-section h4 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+    color: #caa84a;
+    margin-bottom: 0.3rem;
+}
+.game-section p { margin-bottom: 0.4rem; }
+.game-section .name { font-weight: 600; }
+.hint { font-size: 0.95rem !important; opacity: 0.7; }
+.result-success { color: var(--team-good); font-weight: 700; }
+.result-fail { color: var(--team-evil); font-weight: 700; }
+.winner-good { color: var(--team-good) !important; }
+.winner-evil { color: var(--team-evil) !important; }
+
+ul.detail-list, ol.proposal-list { margin: 0.3rem 0; }
+ul.detail-list > li, ol.proposal-list > li {
+    margin-top: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 1rem;
+}
+.vote-split { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; font-size: 0.95rem; }
+.vote-split .approve { color: var(--team-good); }
+.vote-split .reject { color: var(--team-evil); }
+
+/* Cards */
+.card-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.card-token {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid currentColor;
+}
+.card-success { color: var(--team-good); }
+.card-fail { color: var(--team-evil); }
+.card-reversal { color: #e6c36f; }
+.card-questing-beast-was-here { color: var(--team-neutral); }
+
+/* Actions */
+.game-section form { margin-top: 0.6rem; gap: 0.6rem; }
+.pick-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.pick input { display: none; }
+.pick span {
+    display: inline-block;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid #555;
+    cursor: pointer;
+    user-select: none;
+}
+.pick input:checked + span {
+    border-color: #c9a44c;
+    background: #2c2416;
+    color: #ffd86b;
+}
+.vote-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+.vote-buttons.two { flex-direction: row; }
+.vote-buttons.two button { flex: 1; }
+.vote-buttons button.chosen { outline: 3px solid #ffd86b; outline-offset: 2px; }
+button.approve { background: linear-gradient(145deg, #b9d2df, #7f9aab); }
+button.reject { background: linear-gradient(145deg, #e0ab9a, #a76654); }
+button.secondary {
+    background: transparent;
+    color: #e6c36f;
+    border: 1px solid rgba(202, 168, 74, 0.5);
+}
+.card-picker summary {
+    padding: 0.9rem 1rem;
+    text-align: center;
+    border-radius: 10px;
+    font-family: 'Cinzel', serif;
+    background: linear-gradient(145deg, #caa84a, #a3842f);
+    color: #14121c;
+    cursor: pointer;
+    list-style: none;
+}
+.card-picker summary::-webkit-details-marker { display: none; }
+.card-buttons { flex-direction: row !important; flex-wrap: wrap; }
+.card-buttons button {
+    flex: 1;
+    background: #1f1d27;
+    border: 1px solid #555;
+}
+.card-buttons .card-token { border: none; font-size: 1.05rem; }
+.this-game summary { cursor: pointer; color: #caa84a; }
+.ability {
+    margin-top: 1rem;
+    padding: 0.8rem;
+    border-radius: 10px;
+    border: 1px solid rgba(202, 168, 74, 0.4);
+    text-align: left;
+}
+.ability h3 { font-size: 1.15rem; margin: 0 0 0.3rem; }
+.host-controls form { margin-top: 0.4rem; }
+
+.game-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 5.5rem;
+    transform: translate(-50%, 1rem);
+    z-index: 200;
+    max-width: 90vw;
+    padding: 0.7rem 1.1rem;
+    border-radius: 10px;
+    background: #3a1f1a;
+    border: 1px solid var(--team-evil);
+    color: #f4f1e6;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+}
+.game-toast.show { opacity: 1; transform: translate(-50%, 0); }
+body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
