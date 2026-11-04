@@ -22,12 +22,7 @@
     {% endif %}
     <p><a href="{{ url_for('lobby_api') }}">Host a game</a> · <a href="{{ url_for('register_api') }}">Change your name</a></p>
 </div>
-{% if auto_refresh %}
-<script>
-    const source = new EventSource("{{ events_url }}");
-    source.addEventListener('new-lobby', function(e){
-        location.reload()
-    }, false);
-</script>
-{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>Events.reloadOn('new-lobby');</script>
 {% endblock %}

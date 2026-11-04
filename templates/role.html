@@ -100,13 +100,7 @@
     </div>
     {% block extra_info %}
     {% endblock %}
-
-    {% if auto_refresh %}
-    <script>
-        const source = new EventSource("{{ events_url }}");
-        source.addEventListener('new-game', function(e){
-            location.reload()
-        }, false);
-    </script>
-    {% endif %}
+{% endblock %}
+{% block scripts %}
+<script>Events.reloadOn('new-game');</script>
 {% endblock %}

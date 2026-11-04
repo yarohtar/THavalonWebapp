@@ -19,12 +19,7 @@
     {% if other_games %}
     <p><a href="{{ url_for('games') }}">Switch to another game</a></p>
     {% endif %}
-    {% if auto_refresh %}
-    <script>
-        const source = new EventSource("{{ events_url }}");
-        source.addEventListener('new-game', function(e){
-            location.reload()
-        }, false);
-    </script>
-    {% endif %}
+{% endblock %}
+{% block scripts %}
+<script>Events.reloadOn('new-game');</script>
 {% endblock %}

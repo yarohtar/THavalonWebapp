@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
+<body{% if events_url %} data-events-url="{{ events_url }}"{% endif %}>
     {% block body %}
     {% endblock %}
     <footer>
@@ -60,5 +60,7 @@
         });
     })();
     </script>
+    <script src="{{ url_for('static', filename='events.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

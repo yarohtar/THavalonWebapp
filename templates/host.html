@@ -42,8 +42,12 @@
     </ul>
 
 
+    <p class="form-error" id="players-changed" hidden>
+        Players have changed. <a href="{{ url_for('lobby_api') }}">Refresh</a> to update the list and team sizes.
+    </p>
     <form method="POST"
           action="{{ url_for('restart') }}"
+          id="start-form"
           style="display:inline;">
         <h2>Roles</h2>
         <ul>
@@ -135,14 +139,20 @@
 })();
 </script>
 {% endif %}
-
-{% if auto_refresh %}
+{% endblock %}
+{% block scripts %}
 <script>
-    const source = new EventSource("{{ events_url }}");
-    source.addEventListener('new-player', function(e){
-        location.reload()
-    }, false);
-
+(function () {
+    // Reload to show new players, unless the host is halfway through editing
+    // the form; then just say so, to avoid wiping their changes.
+    let dirty = false;
+    const form = document.getElementById('start-form');
+    form.addEventListener('input', function () { dirty = true; });
+    form.addEventListener('change', function () { dirty = true; });
+    Events.on('new-player', function () {
+        if (!dirty) return location.reload();
+        document.getElementById('players-changed').hidden = false;
+    });
+})();
 </script>
-{% endif %}
 {% endblock %}

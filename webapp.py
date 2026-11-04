@@ -1,6 +1,5 @@
 import flask
 from flask import Flask, render_template, request, session, url_for, g
-from flask_sse import sse
 import random
 import secrets
 import threading
@@ -14,32 +13,28 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask.views import MethodView
 import rules
+import events
 
 app = Flask(__name__)
 app.secret_key = "secret"
 rules.init_app(app)
 
-# auto refresh enabled by default
-auto_refresh ='DISABLE_AUTO_REFRESH' not in os.environ
-
-if auto_refresh:
-    app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    app.register_blueprint(sse, url_prefix='/events')
+app.register_blueprint(events.blueprint)
 
 # Channel for "a game was opened" events, for players not in any game yet.
 LOBBIES_CHANNEL = 'lobbies'
 
 def new_event(event_name, channel, data = None):
-    if auto_refresh:
-        sse.publish(data, type=event_name, channel = channel)
+    events.publish(channel, event_name, data)
 
 @app.context_processor
 def inject_events_url():
+    """Pages that set g.channel get live updates from that channel."""
     channel = g.get('channel')
-    if not auto_refresh or channel is None:
-        return dict(auto_refresh = False)
-    return dict(auto_refresh = True,
-                events_url = url_for('sse.stream', channel = channel))
+    if channel is None:
+        return dict(events_url = None)
+    return dict(events_url = url_for('events.stream', channel = channel,
+                                     last_id = events.bus.current_id(channel)))
 
 class GameSettings:
     """What the host chose. None means "use the default for the player count"."""
@@ -185,6 +180,7 @@ class Lobbies:
         cutoff = time.time() - self.max_idle_seconds
         for lobby_id in [i for i, l in self._by_id.items() if l.last_active < cutoff]:
             del self._by_id[lobby_id]
+        events.bus.prune(self.max_idle_seconds)
     def get(self, lobby_id : str | None) -> Lobby | None:
         with self._lock:
             self._prune()

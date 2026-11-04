@@ -6,14 +6,14 @@ After installing the python packages from requirements.txt (Python 3.14+), run t
 flask run
 ```
 
-Or with conda (includes Python 3.14 and a Redis server):
+Or with conda:
 ```
 conda env create -f environment.yml
 conda activate avalon
-redis-server --daemonize yes
 flask run
 ```
 To update the environment after `requirements.txt` changes: `conda env update -f environment.yml`.
+
 The game will be run locally, and users connected to the same wifi network should be able to connect.
 
 If you are on eduroam (or similar), you can use [ngrok](https://ngrok.com) to get a url address that can be accessed by anyone. 
@@ -22,13 +22,10 @@ After setting up you account, simply open a new terminal and run:
 ngrok http 5000 
 ```
 
-Note that you will have to have Redis installed and running.
-This is just to enable automatic refresh on client side whenever a new game is started. 
-If you don't have redis, or wish to disable this feature for other reasons, 
-you should create a `.env` file with this line:
-```
-DISABLE_AUTO_REFRESH=""
-```
+Pages update live (players joining, games starting) using Server-Sent Events;
+see `events.py` and `static/events.js`. Games and events are kept in memory, so
+the app must run as a single process. In production, gunicorn picks up
+`gunicorn.conf.py` (1 worker, many threads).
 
 
 # THavalon
