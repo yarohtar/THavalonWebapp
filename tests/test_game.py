@@ -489,12 +489,23 @@ def test_cards_restricted_by_role():
     ctl.act("p0", "propose_first_round", team=["p0", "p1"])
     ctl.act("p1", "propose_first_round", team=["p0", "p1"])
     everyone(ctl, "vote_first_round", proposer="p0")
-    assert ctl.available_actions("p0")["play_card"]["cards"] == ["Success", "Reversal"]
+    assert ctl.available_actions("p0")["play_card"]["cards"] == ["Success", "Fail", "Reversal"]
     assert ctl.available_actions("p1")["play_card"]["cards"] == ["Fail"]
     with pytest.raises(RuleError):
         ctl.act("p1", "play_card", card="Success")
     with pytest.raises(NotAllowed):
         ctl.act("p2", "play_card", card="Success")
+
+
+def test_good_players_may_fail():
+    state, ctl = make_game(["Merlin", "Servant", "Servant", "Mordred", "Minion"])
+    ctl.act("p0", "propose_first_round", team=["p0", "p1"])
+    ctl.act("p1", "propose_first_round", team=["p0", "p1"])
+    everyone(ctl, "vote_first_round", proposer="p0")
+    assert ctl.available_actions("p1")["play_card"]["cards"] == ["Success", "Fail"]
+    ctl.act("p0", "play_card", card="Success")
+    ctl.act("p1", "play_card", card="Fail")
+    assert state.quests[0].succeeded is False
 
 
 # ---------------------------------------------------------------- random games

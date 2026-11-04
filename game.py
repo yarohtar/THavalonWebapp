@@ -223,10 +223,9 @@ class GameState:
         if role == "Maelegant":
             return [Card.SUCCESS, Card.FAIL, Card.REVERSAL]
         if role == "Lancelot":
-            return [Card.SUCCESS, Card.REVERSAL]
-        if self.allegiance(player) == "Evil":
-            return [Card.SUCCESS, Card.FAIL]
-        return [Card.SUCCESS]
+            return [Card.SUCCESS, Card.FAIL, Card.REVERSAL]
+        # Everyone else, Good or Evil, may play Success or Fail.
+        return [Card.SUCCESS, Card.FAIL]
 
     def assassin(self) -> str | None:
         for role_name in ASSASSIN_RANKING:

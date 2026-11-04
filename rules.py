@@ -95,9 +95,9 @@ TERMS: list[Term] = [
          aliases=("Transformations", "lonely")),
 
     # ---- cards ----
-    Term("success", "Success", "The normal Good Quest card.", "card",
+    Term("success", "Success", "The Quest card that helps a Quest succeed.", "card",
          page="quests", anchor="cards"),
-    Term("fail", "Fail", "Evil's Quest card. Enough of them fail the Quest.", "card",
+    Term("fail", "Fail", "Anyone may play it. Enough of them fail the Quest.", "card",
          page="quests", anchor="cards", aliases=("Fails",)),
     Term("reversal", "Reversal",
          "Played by Lancelot or Maelegant: flips one other card, preferring one that changes the result.",
