@@ -17,6 +17,8 @@ jobs:
           sudo dpkg -i cloudflared.deb
 
       - name: Update app on iammerlin.fyi
+        # If Cloudflare rejects the token, cloudflared waits for a browser login; don't hang.
+        timeout-minutes: 3
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           # Reached through the Cloudflare tunnel, so the EC2 address can change freely.
@@ -26,6 +28,10 @@ jobs:
           TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
+          if [ -z "$TUNNEL_SERVICE_TOKEN_ID" ] || [ -z "$TUNNEL_SERVICE_TOKEN_SECRET" ]; then
+            echo "::error::CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET repo secrets are not set"
+            exit 1
+          fi
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
