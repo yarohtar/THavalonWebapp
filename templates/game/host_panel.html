@@ -1,0 +1,31 @@
+{# Host's live view: public information only, plus undo / skip. #}
+{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, action_form %}
+{{ board(view) }}
+<section class="game-section now">
+    {% include "game/_now.html" %}
+</section>
+<section class="game-section host-controls">
+    {% if view.phase in ('team_announced', 'reveal', 'result') %}
+    {% call action_form('skip', url=url_for('host_game_command', command='skip'),
+                        confirm='Stop waiting for players who are not ready?') %}
+        <button type="submit" class="secondary">Skip waiting</button>
+    {% endcall %}
+    {% endif %}
+    {% if undo_label %}
+    {% call action_form('undo', url=url_for('host_game_command', command='undo'),
+                        confirm='Undo: ' ~ undo_label ~ '?') %}
+        <button type="submit" class="secondary">Undo: {{ undo_label }}</button>
+    {% endcall %}
+    {% else %}
+    <p class="hint">Nothing to undo. Steps that revealed cards or roles can't be undone.</p>
+    {% endif %}
+</section>
+{% if view.proposals %}
+<section class="game-section"><h4>Round {{ view.round }} proposals</h4>{{ proposal_list(view) }}</section>
+{% endif %}
+{% if view.latest_quest and view.phase != 'result' %}
+<section class="game-section"><h4>Last quest</h4>{{ quest_detail(view.latest_quest) }}</section>
+{% endif %}
+{% if view.declarations %}
+<section class="game-section"><h4>Declared</h4>{{ declarations(view) }}</section>
+{% endif %}

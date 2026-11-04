@@ -1,0 +1,122 @@
+{# Shared pieces of the live game view. `view` is GameController.view(). #}
+
+{% macro board(view) %}
+<div class="quest-track" aria-label="Quests">
+    {% for i in range(5) %}
+    {% set r = i + 1 %}
+    {% set q = view.quests|selectattr('round', 'equalto', r)|first %}
+    {% set cls = 'success' if q and q.succeeded == True
+                 else 'fail' if q and q.succeeded == False
+                 else 'current' if r == view.round and view.phase != 'game_over'
+                 else '' %}
+    <div class="quest-token {{ cls }}" title="Quest {{ r }}">
+        <span class="quest-size">{{ view.team_sizes[i] }}</span>
+        {% if view.double_fail_quest == r %}<span class="quest-df" title="Needs 2 Fails">✦</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% if view.round >= 2 and view.phase not in ('game_over', 'pellinore_guess', 'assassination') %}
+<div class="proposal-track" aria-label="Proposals">
+    {% for k in range(1, view.proposals_per_round + 1) %}
+    <span class="proposal-dot {% if k < view.proposal_number %}used{% elif k == view.proposal_number %}now{% endif %}">
+        {%- if k == view.proposals_per_round %}H{% else %}{{ k }}{% endif -%}
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro names(list) -%}
+{% for p in list %}<span class="name">{{ p }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endmacro %}
+
+{% macro card_token(card) -%}
+<span class="card-token card-{{ card|lower|replace(' ', '-') }}">{{ card }}</span>
+{%- endmacro %}
+
+{# A form that posts to /game/action (or `url`) through static/game.js. #}
+{% macro action_form(action, confirm=None, url=None, cls='') -%}
+<form class="game-action {{ cls }}" method="post"
+      {% if url %}action="{{ url }}"{% endif %}
+      {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>
+    <input type="hidden" name="action" value="{{ action }}">
+    {{ caller() }}
+</form>
+{%- endmacro %}
+
+{# Tap-to-select list of players. kind: checkbox (teams) or radio (one player). #}
+{% macro pick_players(field, players, kind='radio', checked=(), extra=None) %}
+<div class="pick-list">
+    {% for p in players %}
+    <label class="pick"><input type="{{ kind }}" name="{{ field }}" value="{{ p }}"
+        {% if p in checked %}checked{% endif %} {% if kind == 'radio' %}required{% endif %}><span>{{ p }}</span></label>
+    {% endfor %}
+    {% if extra %}
+    <label class="pick"><input type="radio" name="{{ field }}" value="" required><span>{{ extra }}</span></label>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro team_picker(action, opts, label) %}
+{% call action_form(action, cls='team-picker') %}
+    <div data-team-size="{{ opts.team_size }}">
+    {{ pick_players('team', opts.players, 'checkbox', opts.current or ()) }}
+    </div>
+    <button type="submit" data-label="{{ label }}">{{ label }}</button>
+{% endcall %}
+{% endmacro %}
+
+{% macro quest_detail(q) %}
+<p>
+    <b>Quest {{ q.round }}</b>:
+    {% if q.succeeded %}<span class="result-success">succeeded</span>{% else %}<span class="result-fail">failed</span>{% endif %}
+    {% if q.fails_needed == 2 %}(needed 2 Fails){% endif %}
+</p>
+<p>Team: {{ names(q.team) }}</p>
+{% if q.played %}<p class="card-row">{% for c in q.played %}{{ card_token(c) }} {% endfor %}</p>{% endif %}
+<ul class="detail-list">
+    {% if q.removed %}<li>[[Strong Inquisition]] removed {{ q.removed }}'s card.</li>{% endif %}
+    {% for p, c in q.revealed.items() %}
+    <li>{% if p == q.gawain_target %}[[Gawain]]{% else %}[[Inquisition]]{% endif %} revealed {{ p }}'s card: {{ card_token(c) }}</li>
+    {% endfor %}
+    {% if 'Questing Beast Was Here' in (q.played or []) %}
+    <li>[[Questing Beast Was Here]] counted as {{ q.qbwh_counts_as }}.</li>
+    {% endif %}
+    {% if q.betrayed %}<li>[[Agravaine]] used [[Betrayal]]: the quest failed.</li>{% endif %}
+</ul>
+{% endmacro %}
+
+{% macro proposal_list(view) %}
+{% set props = view.proposals %}
+{% if props %}
+<ol class="proposal-list">
+    {% for p in props %}
+    <li>
+        {% if p.sorceress_next %}
+        <span class="name">{{ p.leader }}</span> used [[Sorceress]]: <span class="name">{{ p.sorceress_next }}</span> proposes next.
+        {% else %}
+        <span class="name">{{ p.leader }}</span>{% if p.hammer %} ([[Hammer]]){% endif %}: {{ names(p.team) }}
+        {% if p.votes %}
+        <div class="vote-split">
+            <span class="approve">✓ {{ names(p.approved_by) if p.approved_by else '—' }}</span>
+            <span class="reject">✗ {{ names(p.rejected_by) if p.rejected_by else '—' }}</span>
+        </div>
+        {% elif p.hammer %}
+        <div class="vote-split">Goes without a vote.</div>
+        {% endif %}
+        {% endif %}
+    </li>
+    {% endfor %}
+</ol>
+{% endif %}
+{% endmacro %}
+
+{% macro declarations(view) %}
+{% if view.declarations %}
+<ul class="detail-list">
+    {% for d in view.declarations %}
+    <li><span class="name">{{ d.player }}</span> declared as {{ term(d.role) }}{% if d.role == 'Gawain' and view.gawain_exiled %} (exiled){% endif %}.</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}

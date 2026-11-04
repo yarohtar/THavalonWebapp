@@ -1,0 +1,50 @@
+{# Role-tab abilities. Kept off the Game tab so nobody spots them over your shoulder. #}
+{% from "game/_macros.html" import action_form, pick_players %}
+{% set acts = view.actions or {} %}
+{% if 'sorceress' in acts %}
+<div class="ability">
+    <h3>Use [[Sorceress]]</h3>
+    <p>Instead of proposing: choose the next proposer and reverse the proposal order.</p>
+    {% call action_form('sorceress', confirm='Declare as Morgana? Everyone will see your role.') %}
+        {{ pick_players('next_proposer', acts.sorceress.choices) }}
+        <button type="submit">Declare as Morgana</button>
+    {% endcall %}
+</div>
+{% endif %}
+{% if 'changeling' in acts %}
+<div class="ability">
+    <h3>Use [[Changeling]]</h3>
+    <p>Replace one player on the Hammer team with yourself.</p>
+    {% call action_form('changeling', confirm='Declare as Oberon? Everyone will see your role.') %}
+        {{ pick_players('replaced', acts.changeling.choices) }}
+        <button type="submit">Declare as Oberon</button>
+    {% endcall %}
+</div>
+{% endif %}
+{% if 'gawain' in acts %}
+<div class="ability">
+    <h3>Use [[Gawain's Inquisition|Inquisition]]</h3>
+    <p>Make a player on the team reveal their card. Revealing a Success exiles you.</p>
+    {% call action_form('gawain', confirm='Declare as Gawain? Everyone will see your role.') %}
+        {{ pick_players('target', acts.gawain.choices) }}
+        <button type="submit">Declare as Gawain</button>
+    {% endcall %}
+</div>
+{% endif %}
+{% if 'betray' in acts %}
+<div class="ability">
+    <h3>Use [[Betrayal]]</h3>
+    <p>The quest succeeded with you on it. You may make it fail.</p>
+    {% call action_form('betray', confirm='Declare as Agravaine and fail the quest?') %}
+        <button type="submit">Declare as Agravaine</button>
+    {% endcall %}
+</div>
+{% endif %}
+{% if 'proclaim' in acts %}
+<div class="ability">
+    <h3>Use [[Proclamation]]</h3>
+    {% call action_form('proclaim', confirm='Proclaim yourself as Arthur?') %}
+        <button type="submit">Proclaim as Arthur</button>
+    {% endcall %}
+</div>
+{% endif %}

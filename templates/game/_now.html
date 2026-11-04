@@ -1,0 +1,160 @@
+{# What is happening now, plus this player's actions (none for the host). #}
+{% from "game/_macros.html" import names, team_picker, action_form, pick_players, card_token %}
+{% set acts = view.actions or {} %}
+{% set fr = view.first_round %}
+{% set cq = view.current_quest %}
+{% set prop = view.proposals[-1] if view.proposals else None %}
+
+{% if view.phase == 'first_round_proposing' %}
+    <h3>[[First Round]]</h3>
+    <p>{{ names(fr.proposers) }} each propose a team of {{ view.team_sizes[0] }}.
+       {{ fr.round2_starter }} proposes first in round 2.</p>
+    {% for p, team in fr.teams.items() %}<p><span class="name">{{ p }}</span>'s team: {{ names(team) }}</p>{% endfor %}
+    {% if 'propose_first_round' in acts %}
+        {{ team_picker('propose_first_round', acts.propose_first_round,
+                       'Change team' if acts.propose_first_round.current else 'Propose team') }}
+    {% endif %}
+
+{% elif view.phase == 'first_round_voting' %}
+    <h3>[[First Round]] vote</h3>
+    {% if 'vote_first_round' in acts %}
+    {% call action_form('vote_first_round', cls='vote-buttons') %}
+        {% for p in fr.proposers %}
+        <button type="submit" name="proposer" value="{{ p }}"
+                class="{% if acts.vote_first_round.current == p %}chosen{% endif %}">
+            <span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}
+        </button>
+        {% endfor %}
+    {% endcall %}
+    {% if acts.vote_first_round.current %}<p class="hint">You can change your vote until everyone has voted.</p>{% endif %}
+    {% else %}
+        {% for p in fr.proposers %}<p><span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}</p>{% endfor %}
+    {% endif %}
+    <p class="hint">Voted: {{ fr.voted|length }} / {{ view.seating|length }}</p>
+
+{% elif view.phase == 'proposing' %}
+    <h3>{% if view.hammer %}[[Hammer]]: {% endif %}<span class="name">{{ view.leader }}</span> proposes</h3>
+    <p>A team of {{ view.team_sizes[view.round - 1] }}.
+       {% if view.hammer %}This team goes on the Quest without a vote.{% endif %}</p>
+    {% if 'propose' in acts %}
+        {{ team_picker('propose', acts.propose, 'Send team' if view.hammer else 'Propose team') }}
+    {% endif %}
+
+{% elif view.phase == 'voting' %}
+    <h3>Vote on <span class="name">{{ prop.leader }}</span>'s team</h3>
+    <p>{{ names(prop.team) }}</p>
+    {% if 'vote' in acts %}
+    {% call action_form('vote', cls='vote-buttons two') %}
+        <button type="submit" name="approve" value="1" class="approve {% if acts.vote.current == True %}chosen{% endif %}">Approve</button>
+        <button type="submit" name="approve" value="0" class="reject {% if acts.vote.current == False %}chosen{% endif %}">Reject</button>
+    {% endcall %}
+    {% endif %}
+    <p class="hint">Voted: {{ prop.voted|length }} / {{ view.seating|length }}</p>
+
+{% elif view.phase == 'team_announced' %}
+    <h3>[[Hammer]] team</h3>
+    <p>{{ names(prop.team) }}</p>
+    <p class="hint">Waiting for everyone before cards are chosen.</p>
+
+{% elif view.phase == 'quest' %}
+    <h3>Quest {{ view.round }}</h3>
+    <p>{{ names(cq.team) }}{% if cq.fails_needed == 2 %} · needs 2 Fails{% endif %}</p>
+    {% if cq.inquisition %}<p>The Leader has {{ term(cq.inquisition|capitalize ~ ' Inquisition') }}.</p>{% endif %}
+    {% if 'play_card' in acts %}
+    <details class="card-picker">
+        <summary>Choose your card</summary>
+        {% call action_form('play_card', cls='card-buttons') %}
+            {% for c in acts.play_card.cards %}
+            <button type="submit" name="card" value="{{ c }}">{{ card_token(c) }}</button>
+            {% endfor %}
+        {% endcall %}
+    </details>
+    {% elif view.you and view.you.card %}
+    <p>Your card is chosen.</p>
+    {% endif %}
+    <p class="hint">Cards chosen: {{ cq.chosen|length }} / {{ cq.team|length }}</p>
+
+{% elif view.phase == 'inquisition' %}
+    <h3>{{ term(cq.inquisition|capitalize ~ ' Inquisition') }}</h3>
+    <p><span class="name">{{ cq.leader }}</span> picks a card to
+       {% if cq.inquisition == 'strong' %}reveal or remove{% else %}reveal{% endif %}.</p>
+    {% if 'inquisition' in acts %}
+    {% call action_form('inquisition') %}
+        {{ pick_players('target', acts.inquisition.choices) }}
+        <div class="vote-buttons {% if acts.inquisition.can_remove %}two{% endif %}">
+            <button type="submit" name="remove" value="0">Reveal</button>
+            {% if acts.inquisition.can_remove %}<button type="submit" name="remove" value="1">Remove</button>{% endif %}
+        </div>
+    {% endcall %}
+    {% endif %}
+
+{% elif view.phase == 'reveal' %}
+    <h3>Quest {{ view.round }}: cards are in</h3>
+    {% for p, c in cq.revealed.items() %}<p>{{ p }}'s card: {{ card_token(c) }}</p>{% endfor %}
+    <p class="hint">The cards are revealed once everyone is ready.</p>
+
+{% elif view.phase == 'result' %}
+    <h3>Quest {{ view.round }}
+        {% if view.latest_quest.succeeded %}<span class="result-success">succeeded</span>{% else %}<span class="result-fail">failed</span>{% endif %}</h3>
+    <p class="card-row">{% for c in view.latest_quest.played %}{{ card_token(c) }} {% endfor %}</p>
+    <p class="hint">The game continues once everyone is ready.</p>
+
+{% elif view.phase == 'pellinore_guess' %}
+    <h3>[[Pellinore]] names the [[Questing Beast]]</h3>
+    {% if 'pellinore_guess' in acts %}
+    {% call action_form('pellinore_guess') %}
+        {{ pick_players('target', acts.pellinore_guess.choices, extra='No guess') }}
+        <button type="submit">Name the Beast</button>
+    {% endcall %}
+    {% endif %}
+
+{% elif view.phase == 'assassination' %}
+    <h3>[[Assassination]]</h3>
+    <p>Good won 3 Quests. Evil may discuss; the highest-ranked Evil player decides.</p>
+    {% if 'assassinate' in acts %}
+    {% call action_form('assassinate', confirm='This is final. Assassinate?', cls='assassinate-form') %}
+        <div class="pick-list">
+            {% for kind, label in [('merlin', 'One as Merlin'), ('nilrem', 'One as Nilrem'),
+                                   ('lovers', 'Two as the Lovers'), ('none', 'No one')] %}
+            <label class="pick"><input type="radio" name="kind" value="{{ kind }}" required><span>{{ label }}</span></label>
+            {% endfor %}
+        </div>
+        {{ pick_players('targets', acts.assassinate.choices, 'checkbox') }}
+        <button type="submit">Assassinate</button>
+    {% endcall %}
+    {% endif %}
+
+{% elif view.phase == 'game_over' %}
+    {% set o = view.outcome %}
+    <h3 class="winner-{{ o.winner|lower }}">{{ o.winner }} wins</h3>
+    {% if view.assassination %}
+    <p>[[Assassination]]:
+        {% if view.assassination.kind == 'none' %}no one{% else %}{{ names(view.assassination.targets) }} as
+        {{ {'merlin': 'Merlin', 'nilrem': 'Nilrem', 'lovers': 'the Lovers'}[view.assassination.kind] }}{% endif %}
+        — {{ 'correct' if view.assassination.correct else 'wrong' }}.</p>
+    {% endif %}
+    {% if o.neutrals %}
+    <p>[[Pellinore]] ({{ o.neutrals.Pellinore.player }}): sanity {{ o.neutrals.Pellinore.sanity }},
+        {{ 'wins' if o.neutrals.Pellinore.won else 'loses' }}.
+       [[The Questing Beast]] ({{ o.neutrals['The Questing Beast'].player }}):
+        {{ o.neutrals['The Questing Beast'].points }} points,
+        {{ 'wins' if o.neutrals['The Questing Beast'].won else 'loses' }}.</p>
+    {% endif %}
+    <ul class="detail-list">
+        {% for p, r in o.roles.items() %}<li><span class="name">{{ p }}</span>: {{ term(r) }}</li>{% endfor %}
+    </ul>
+{% endif %}
+
+{% if view.phase in ('team_announced', 'reveal', 'result') %}
+    {% if 'ready' in acts %}
+    {% call action_form('ready') %}
+        <button type="submit">{{ 'Reveal cards' if view.phase == 'reveal' else 'Continue' }}</button>
+    {% endcall %}
+    {% elif view.you %}
+    <p class="hint">You're ready.</p>
+    {% endif %}
+{% endif %}
+
+{% if view.waiting_for and view.phase not in ('game_over',) %}
+<p class="hint waiting">Waiting for: {{ names(view.waiting_for) }}</p>
+{% endif %}

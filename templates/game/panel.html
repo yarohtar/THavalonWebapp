@@ -1,0 +1,27 @@
+{# Player's Game tab. #}
+{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations %}
+{{ board(view) }}
+<section class="game-section now">
+    {% include "game/_now.html" %}
+</section>
+{% if view.proposals and view.phase not in ('game_over',) %}
+<section class="game-section">
+    <h4>Round {{ view.round }} proposals</h4>
+    {{ proposal_list(view) }}
+</section>
+{% endif %}
+{% if view.latest_quest and view.phase != 'result' %}
+<section class="game-section">
+    <h4>Last quest</h4>
+    {{ quest_detail(view.latest_quest) }}
+</section>
+{% endif %}
+{% if view.declarations %}
+<section class="game-section">
+    <h4>Declared</h4>
+    {{ declarations(view) }}
+</section>
+{% endif %}
+<section class="game-section">
+    {% include "game/_this_game.html" %}
+</section>
