@@ -5,7 +5,7 @@
     <div class="card" 
          id="role-card">
         <div id="role-info">
-            <h1>You are {{ term(info['role']) }}</h1>
+            <h1>You are {{ info['role'] }}</h1>
 
             {% if info['allegiance'] == 'Evil'
                 and info['role'] != 'Colgrevance' %}
@@ -42,6 +42,7 @@
             <div class="role-rules">
                 {% include "rules/" ~ role_term.page_slug ~ ".html" %}
             </div>
+            <p class="card-rules-link"><a href="{{ role_term.url() }}">Rules for {{ info['role'] }} →</a></p>
         </div>
 
         <div class="overlay-text" id="reveal">

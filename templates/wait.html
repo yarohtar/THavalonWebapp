@@ -3,11 +3,11 @@
 {% block body %}
     <p>Welcome {{ name }}!</p>
     {% if in_lobby %}
-    <p>You're in {{ lobby.host_name }}'s game. Wait for the host to start it.</p>
+    <p>You're in {{ lobby.name }}. Wait for the host to start the game.</p>
     {% else %}
     <form method="POST" action="{{ url_for('join_lobby', lobby_id = lobby.id) }}">
         <button type="submit">
-            Join {{ lobby.host_name }}'s game
+            Join {{ lobby.name }}
         </button>
     </form>
     {% endif %}

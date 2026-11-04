@@ -1,10 +1,19 @@
 # This fork
 Added functionality for simple self hosted games of THavalon. 
 
-After installing the python packages from requirements.txt, run the app by:
+After installing the python packages from requirements.txt (Python 3.14+), run the app by:
 ```
 flask run
 ```
+
+Or with conda (includes Python 3.14 and a Redis server):
+```
+conda env create -f environment.yml
+conda activate avalon
+redis-server --daemonize yes
+flask run
+```
+To update the environment after `requirements.txt` changes: `conda env update -f environment.yml`.
 The game will be run locally, and users connected to the same wifi network should be able to connect.
 
 If you are on eduroam (or similar), you can use [ngrok](https://ngrok.com) to get a url address that can be accessed by anyone. 

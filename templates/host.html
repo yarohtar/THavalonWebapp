@@ -10,7 +10,12 @@
         teams {{ team_sizes(game_rules) }}
     </p>
     {% endif %}
-    <h1>{{ lobby.host_name }}'s Game</h1>
+    <h1>{{ lobby.name }}</h1>
+    <form method="POST" action="{{ url_for('lobby_api') }}" class="rename-form">
+        <input type="text" name="game_name" maxlength="40" value="{{ lobby.name }}" aria-label="Game name">
+        <button type="submit" class="small-btn">Rename</button>
+    </form>
+    {% if rename_error %}<p class="form-error">{{ rename_error }}</p>{% endif %}
 
     <h2>Players ({{ num_players }})</h2>
     <ul>

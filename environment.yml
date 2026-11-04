@@ -1,0 +1,10 @@
+# conda env create -f environment.yml && conda activate avalon
+name: avalon
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14   # same as the server; the code needs 3.14+
+  - redis-server  # for auto-refresh (or set DISABLE_AUTO_REFRESH in .env)
+  - pip
+  - pip:
+      - -r requirements.txt

@@ -1,6 +1,7 @@
 import flask
 from flask import Flask, render_template, request, session, url_for, g
 from flask_sse import sse
+import random
 import secrets
 import threading
 import time
@@ -133,10 +134,10 @@ class AvalonGame:
 class Lobby:
     max_capacity : int = 10
     current_game : AvalonGame
-    def __init__(self, host_uuid : str, host_name : str):
+    def __init__(self, host_uuid : str, name : str):
         self.id = secrets.token_urlsafe(6)
         self.host_uuid = host_uuid
-        self.host_name = host_name
+        self.name = name
         self.last_active = time.time()
         self._players : dict[str,str] = {}
         self._lock = threading.Lock()
@@ -192,16 +193,19 @@ class Lobbies:
         with self._lock:
             self._prune()
             return next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
-    def open(self, host_uuid : str, host_name : str) -> tuple[Lobby, bool]:
-        """The host's lobby, created if needed. Returns (lobby, created)."""
+    def open(self, host_uuid : str, name : str | None = None) -> tuple[Lobby, bool]:
+        """The host's lobby, created if needed. Returns (lobby, created).
+        A new lobby is called `name`, or a random unused Avalon name."""
         with self._lock:
             self._prune()
             lobby = next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
             if lobby is not None:
-                lobby.host_name = host_name
                 lobby.touch()
                 return lobby, False
-            lobby = Lobby(host_uuid, host_name)
+            taken = {l.name for l in self._by_id.values()}
+            if not name or name in taken:
+                name = random_game_name(taken)
+            lobby = Lobby(host_uuid, name)
             self._by_id[lobby.id] = lobby
         for i in range(app.config.get('DEV_FAKE_PLAYERS', 0)):
             lobby[f'fake{i}'] = f'p{i}'
@@ -209,13 +213,26 @@ class Lobbies:
     def active(self) -> list[Lobby]:
         with self._lock:
             self._prune()
-            return sorted(self._by_id.values(), key=lambda l: l.host_name.casefold())
+            return sorted(self._by_id.values(), key=lambda l: l.name.casefold())
     def leave_all(self, uuid : str, except_id : str | None = None):
         for lobby in self.active():
             if lobby.id != except_id:
                 lobby.pop(uuid)
 
 LOBBIES = Lobbies()
+
+GAME_NAMES = [
+    "Camelot", "Tintagel", "Avalon", "Caerleon", "Lyonesse", "Broceliande",
+    "Joyous Gard", "Corbenic", "Astolat", "Logres", "Glastonbury",
+    "The Round Table", "The Siege Perilous", "The Green Chapel",
+    "The Lady of the Lake", "Excalibur", "The Holy Grail", "The Perilous Bed",
+]
+
+def random_game_name(taken : set[str]) -> str:
+    free = [n for n in GAME_NAMES if n not in taken]
+    if free:
+        return random.choice(free)
+    return f"{random.choice(GAME_NAMES)} {random.randint(2, 99)}"
 
 class RoleInfo:
     info : dict
@@ -268,7 +285,9 @@ def assign_uuid():
 
 @app.before_request
 def require_registration():
-    allowed_paths = ['/register', '/static', '/rules', '/events']
+    # Hosts don't need a player name; only players do.
+    allowed_paths = ['/register', '/static', '/rules', '/events',
+                     '/host', '/restart', '/donotread']
     if any(request.path.startswith(p) for p in allowed_paths):
         return  # allow through
     if 'name' not in session:
@@ -350,7 +369,7 @@ app.add_url_rule('/register', view_func=RegisterView.as_view('register_api'))
 
 # ---- host pages ----
 
-def render_host(lobby : Lobby, error = None, form = None):
+def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
     players = lobby.snapshot()
     n = len(players)
     ctx = dict(lobby = lobby,
@@ -358,6 +377,7 @@ def render_host(lobby : Lobby, error = None, form = None):
                all_roles = all_roles,
                game_rules = lobby.current_game.rules,
                error = error,
+               rename_error = rename_error,
                num_players = n,
                valid_count = n in DEFAULT_TEAM_SIZES)
     if form is not None:  # re-show what the host just submitted
@@ -383,20 +403,28 @@ def render_host(lobby : Lobby, error = None, form = None):
 
 class LobbyView(MethodView):
     def get(self):
-        lobby, created = LOBBIES.open(g.uuid, g.name)
+        lobby, created = LOBBIES.open(g.uuid, session.get('game_name'))
         if created:
             new_event('new-lobby', LOBBIES_CHANNEL)
         return render_host(lobby)
     def post(self):
-        lobby, _ = LOBBIES.open(g.uuid, g.name)
-        lobby.pop(request.form['player'])
+        lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
+        if 'player' in request.form:
+            lobby.pop(request.form['player'])
+        new_name = request.form.get('game_name', '').strip()[:40]
+        if new_name and new_name != lobby.name:
+            if any(l.name == new_name for l in LOBBIES.active()):
+                return render_host(lobby, rename_error = f'"{new_name}" is already taken.'), 400
+            lobby.name = new_name
+            session['game_name'] = new_name
+            new_event('new-lobby', LOBBIES_CHANNEL)
         return flask.redirect(url_for('lobby_api'))
 
 app.add_url_rule('/host', view_func=LobbyView.as_view('lobby_api'))
 
 @app.route("/restart", methods=["POST"])
 def restart():
-    lobby, _ = LOBBIES.open(g.uuid, g.name)
+    lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
     role_names = request.form.getlist('items')
     try:
         settings = GameSettings.from_form(request.form)

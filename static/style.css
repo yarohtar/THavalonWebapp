@@ -448,6 +448,13 @@ footer a:hover {
     color: white;
 }
 
+/* ====== Team colours: muted to sit with the gold palette ====== */
+:root {
+    --team-good: #9fb9c9;     /* pale steel blue */
+    --team-evil: #c98a76;     /* faded madder red */
+    --team-neutral: #b3a6c6;  /* dusty lavender */
+}
+
 /* ====== Rules pages ====== */
 .rules {
     text-align: left;
@@ -501,9 +508,9 @@ footer a:hover {
     border: 1px solid rgba(202, 168, 74, 0.5);
     color: #e6c36f;
 }
-.badge-good    { border-color: #7fd4ff; color: #7fd4ff; }
-.badge-evil    { border-color: #ff6b6b; color: #ff6b6b; }
-.badge-neutral { border-color: #c9b6ff; color: #c9b6ff; }
+.badge-good    { border-color: var(--team-good);    color: var(--team-good); }
+.badge-evil    { border-color: var(--team-evil);    color: var(--team-evil); }
+.badge-neutral { border-color: var(--team-neutral); color: var(--team-neutral); }
 
 /* Numbered steps */
 ol.steps {
@@ -574,9 +581,39 @@ a.term {
     font-weight: 600;
     -webkit-tap-highlight-color: rgba(202, 168, 74, 0.25);
 }
-.term-good    { color: #7fd4ff !important; }
-.term-evil    { color: #ff6b6b !important; }
-.term-neutral { color: #c9b6ff !important; }
+.term-good    { color: var(--team-good) !important; }
+.term-evil    { color: var(--team-evil) !important; }
+.term-neutral { color: var(--team-neutral) !important; }
+
+/* On role cards everything stays gold, so nobody can read your team from
+   coloured text across the room. */
+#role-card a.term {
+    color: #e6c36f !important;
+}
+.card-rules-link {
+    margin-top: 1.2rem;
+    text-align: center;
+}
+.card-rules-link a {
+    color: #e6c36f;
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+}
+
+/* Host page: game name */
+.rename-form {
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    margin-top: 0 !important;
+}
+.rename-form input[type="text"] {
+    flex: 1;
+}
+button.small-btn {
+    width: auto;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+}
 
 /* Bottom sheet showing a term's summary */
 body > .term-sheet {

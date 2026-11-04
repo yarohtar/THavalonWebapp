@@ -10,7 +10,7 @@
         <li>
             <form method="POST" action="{{ url_for('join_lobby', lobby_id = lobby.id) }}">
                 <button type="submit">
-                    {{ lobby.host_name }}'s game ({{ lobby|length }} players)
+                    {{ lobby.name }} ({{ lobby|length }} players)
                     {% if current and current.id == lobby.id %} · current{% endif %}
                 </button>
             </form>
