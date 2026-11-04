@@ -22,6 +22,15 @@ After setting up you account, simply open a new terminal and run:
 ngrok http 5000 
 ```
 
+To test alone, run some bot players next to yourself (they join, then play
+whenever it is their turn; you host and play from your phone):
+```
+python tools/bots.py 6                                      # local server
+python tools/bots.py 6 --url https://avalon.iammerlin.fyi   # live site
+```
+See `python tools/bots.py --help` for options (`--game NAME` if several games
+are open, `--delay`, `--no-abilities`, ...).
+
 Pages update live (players joining, games starting) using Server-Sent Events;
 see `events.py` and `static/events.js`. Games and events are kept in memory, so
 the app must run as a single process. In production, gunicorn picks up
