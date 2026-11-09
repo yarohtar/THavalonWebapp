@@ -2,3 +2,8 @@
 {% macro team_sizes(rules) -%}
 {% for k in rules.team_sizes %}{{ k }}{% if loop.index == rules.double_fail %}*{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
 {%- endmacro %}
+
+{# "3 Evil + Gareth v 5" #}
+{% macro sides(rules) -%}
+{{ rules.num_evils }} Evil{% if rules.gareth %} + Gareth{% endif %} v {{ rules.num_others }}
+{%- endmacro %}

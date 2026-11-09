@@ -514,7 +514,8 @@ def random_game(n, seed):
     rng = random.Random(seed)
     builder = T.AvalonBuilder([f"P{i}" for i in range(n)], T.all_roles)
     sizes = {5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4]}.get(n, [3, 4, 4, 5, 5])
-    state = GameState.from_builder(builder, sizes, 4 if n >= 7 else None, rng=rng)
+    state = GameState.from_builder(builder, sizes, 4 if n >= 7 else None, rng=rng,
+                                   lady_of_the_lake=seed % 2 == 0)
     ctl = GameController(state)
     for step in range(2000):
         if state.phase == Phase.GAME_OVER:
@@ -537,7 +538,7 @@ def random_game(n, seed):
             ctl.act(p, action, next_proposer=rng.choice(o["choices"]))
         elif action in ("changeling",):
             ctl.act(p, action, replaced=rng.choice(o["choices"]))
-        elif action == "gawain":
+        elif action in ("gawain", "lady"):
             ctl.act(p, action, target=rng.choice(o["choices"]))
         elif action == "pellinore_guess":
             ctl.act(p, action, target=rng.choice(o["choices"] + [None]))
@@ -624,3 +625,182 @@ def test_scoped_view_forgets_old_details():
     assert v["proposals"] == []                                   # round 3 has none yet
     full = ctl.view("p1", scoped=False)
     assert full["quests"][0]["played"]
+
+
+# ---------------------------------------------------------------- Lady of the Lake
+
+def lady_game():
+    roles = ["Merlin", "Servant", "Servant", "Mordred", "Minion"]
+    state, _ = make_game(roles)
+    state = GameState(state.seating, state.roles, [2, 3, 2, 3, 3], None, ("p0", "p1"), "p2",
+                      rng=random.Random(0), lady_of_the_lake=True)
+    return state, GameController(state)
+
+
+def test_lady_starts_before_round2_starter_and_skips_first_quest():
+    state, ctl = lady_game()
+    assert state.lady_holder == "p1"                     # just before p2
+    play_first_round(ctl)
+    assert state.phase == Phase.PROPOSING and state.round == 2
+    assert ctl.view("p0")["lady"] == dict(holder="p1", uses=[])
+
+
+def test_lady_reveals_team_only_to_holder():
+    state, ctl = lady_game()
+    play_first_round(ctl)
+    ctl.act("p2", "propose", team=["p0", "p1", "p2"])
+    everyone(ctl, "vote", approve=True)
+    play_cards(ctl, {})
+    assert state.phase == Phase.LADY and state.round == 2
+    assert ctl.view("p0")["waiting_for"] == ["p1"]
+    assert "lady" not in ctl.available_actions("p0")
+    assert "p1" not in ctl.available_actions("p1")["lady"]["choices"]
+    with pytest.raises(RuleError):
+        state.lady_of_the_lake("p1")
+    ctl.act("p1", "lady", target="p3")
+    assert state.lady_holder == "p3" and state.phase == Phase.PROPOSING and state.round == 3
+    assert ctl.view("p1")["you"]["lady_seen"] == [dict(round=2, player="p3", team="Evil")]
+    for p in ("p0", "p2", "p3", "p4"):
+        assert ctl.view(p)["you"]["lady_seen"] == []
+    public = ctl.view(None)
+    assert public["lady"] == dict(holder="p3", uses=[dict(round=2, holder="p1", target="p3")])
+    assert "Evil" not in str(state.log[-3:])
+    assert ctl.undo_label() is None                      # the check can't be undone
+
+
+def test_no_lady_after_the_deciding_quest():
+    state, ctl = lady_game()
+    play_first_round(ctl)
+    for r in (2, 3):
+        ctl.act(state.leader, "propose", team=["p0", "p1", "p2"][:state.team_size()])
+        everyone(ctl, "vote", approve=True)
+        play_cards(ctl, {})
+        if state.phase == Phase.LADY:
+            ctl.act(state.lady_holder, "lady",
+                    target=next(p for p in state.seating if p != state.lady_holder))
+    assert state.successes == 3 and state.phase == Phase.ASSASSINATION
+    assert len(state.lady_uses) == 1
+
+
+def test_no_lady_by_default():
+    state, ctl = make_game(["Merlin", "Servant", "Servant", "Mordred", "Minion"])
+    assert state.lady_holder is None and ctl.view("p0")["lady"] is None
+
+
+def test_lady_never_returns_to_an_earlier_holder():
+    state, ctl = lady_game()
+    state.phase = Phase.LADY
+    state.lady_of_the_lake("p3")                         # p1 -> p3
+    state.phase = Phase.LADY
+    assert state.lady_choices() == ["p0", "p2", "p4"]
+    for earlier in ("p1", "p3"):
+        with pytest.raises(RuleError):
+            state.lady_of_the_lake(earlier)
+    assert ctl.available_actions("p3")["lady"]["choices"] == ["p0", "p2", "p4"]
+
+
+# ---------------------------------------------------------------- Gareth
+
+def build(n, roles=None, seed=0):
+    random.seed(seed)
+    with contextlib.redirect_stdout(io.StringIO()):    # AvalonBuilder prints
+        return T.AvalonBuilder([f"P{i}" for i in range(n)],
+                               T.all_roles if roles is None else roles)
+
+
+@pytest.mark.parametrize("n", range(5, 11))
+def test_gareth_only_in_nine_player_games_when_selected(n):
+    assert (T.gareth in build(n, T.all_roles)) == (n == 9)
+    assert (T.gareth in build(n, [T.gareth, T.merlin])) == (n == 9)
+    assert T.gareth not in build(n, [r for r in T.all_roles if r != T.gareth])
+
+
+def test_gareth_takes_an_evil_place_by_default():
+    assert T.default_num_evils(9, gareth_plays=True) == 3
+    assert T.default_num_evils(9) == 4
+    b = build(9, [T.merlin])
+    assert sum(r.allegiance() == "Evil" for r in b) == 4
+
+
+def test_gareth_default_nine_player_game():
+    assert T.DEFAULT_TEAM_SIZES[9] == [3, 4, 4, 5, 5]
+    assert T.default_double_fail_quest(9) == 4
+    teams = {"Good": 0, "Evil": 0}
+    for seed in range(200):
+        b = build(9, [T.gareth], seed)
+        fixed = [r.allegiance() for r in b if r != T.gareth]
+        assert fixed.count("Evil") == 3 and fixed.count("Good") == 5
+        teams[next(r for r in b if r == T.gareth).allegiance()] += 1
+    assert teams["Good"] > teams["Evil"] > 0     # Knight is Good 5 times in 8
+
+
+def test_gareth_knight_rival_and_what_people_see():
+    seen_evil = seen_good = False
+    for seed in range(100):
+        b = build(9, T.all_roles, seed)
+        g = next(r for r in b if r == T.gareth)
+        player = b[g]
+        team_of = {p: r.allegiance() for r, p in b.role_to_player.items()}
+        assert g.knight != player and g.rival != player
+        assert team_of[g.knight] == g.team
+        assert team_of[g.rival] in ("Good", "Evil") and team_of[g.rival] != g.team
+
+        info = g.get_info(b)
+        assert info == {"allegiance": "Unknown", "knight": g.knight, "rival": g.rival}
+
+        evils = [r for r in b if r.allegiance() == "Evil" and r != g]
+        for r in evils:
+            if r != T.oberon:
+                assert (player in r.get_info(b)["other_evils"]) == (g.team == "Evil")
+        if T.merlin in b:
+            assert (player in T.merlin.get_info(b)["seen"]) == (g.team == "Evil")
+        seen_evil |= g.team == "Evil"
+        seen_good |= g.team == "Good"
+    assert seen_evil and seen_good
+
+
+def test_colgrevance_sees_gareth_role():
+    knight = T.MoM(0)
+    g = T.Gareth("Evil", "P1", "P2")
+    b = build(10, [])
+    b.role_to_player = {T.colgrevance: "P0", knight: "P1", T.SoC(0): "P2", g: "P3"}
+    assert T.colgrevance.get_info(b)["evil_roles"] == {"P1": knight, "P3": g}
+
+
+@pytest.mark.parametrize("team", ["Good", "Evil"])
+def test_gareth_proposals_dont_depend_on_team(team):
+    names = ["Merlin", "Percival", "Servant", "Servant", "Servant",
+             "Mordred", "Morgana", "Minion"]
+    state, ctl = make_game(names + ["Servant"], sizes=(3, 4, 4, 5, 5), double_fail=4)
+    state.roles["p8"] = T.Gareth(team, "p0" if team == "Good" else "p5", "p5" if team == "Good" else "p0")
+    state.__init__(state.seating, state.roles, [3, 4, 4, 5, 5], 4, ("p0", "p1"), "p2")
+    assert state.proposals_per_round == 5
+    assert state.allegiance("p8") == team
+    assert state.assassin() == "p5"
+
+
+def gareth_game(team):
+    names = ["Merlin", "Percival", "Servant", "Servant", "Servant",
+             "Mordred", "Morgana", "Minion", "Servant"]
+    state, ctl = make_game(names, sizes=(3, 4, 4, 5, 5), double_fail=4)
+    knight, rival = ("p0", "p5") if team == "Good" else ("p5", "p0")
+    state.roles["p8"] = T.Gareth(team, knight, rival)
+    state.__init__(state.seating, state.roles, [3, 4, 4, 5, 5], 4, ("p0", "p1"), "p2",
+                   lady_of_the_lake=True)
+    return state, GameController(state)
+
+
+@pytest.mark.parametrize("team", ["Good", "Evil"])
+def test_lady_shows_gareth_as_good(team):
+    state, ctl = gareth_game(team)
+    assert state.lady_team("p8") == "Good"
+    assert state.lady_team("p5") == "Evil"
+
+
+@pytest.mark.parametrize("team", ["Good", "Evil"])
+def test_gareth_learns_team_at_assassination(team):
+    state, ctl = gareth_game(team)
+    assert ctl.view("p8")["you"]["team"] is None
+    state._set_phase(Phase.ASSASSINATION)
+    assert ctl.view("p8")["you"]["team"] == team
+    assert ctl.view("p0")["you"]["team"] is None

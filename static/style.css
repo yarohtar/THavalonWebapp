@@ -453,6 +453,7 @@ footer a:hover {
     --team-good: #9fb9c9;     /* pale steel blue */
     --team-evil: #c98a76;     /* faded madder red */
     --team-neutral: #b3a6c6;  /* dusty lavender */
+    --team-either: #c3a9b0;   /* between steel blue and madder: Gareth */
 }
 
 /* ====== Rules pages ====== */
@@ -511,6 +512,7 @@ footer a:hover {
 .badge-good    { border-color: var(--team-good);    color: var(--team-good); }
 .badge-evil    { border-color: var(--team-evil);    color: var(--team-evil); }
 .badge-neutral { border-color: var(--team-neutral); color: var(--team-neutral); }
+.badge-either  { border-color: var(--team-either);  color: var(--team-either); }
 
 /* Numbered steps */
 ol.steps {
@@ -584,6 +586,7 @@ a.term {
 .term-good    { color: var(--team-good) !important; }
 .term-evil    { color: var(--team-evil) !important; }
 .term-neutral { color: var(--team-neutral) !important; }
+.term-either  { color: var(--team-either) !important; }
 
 /* On role cards everything stays gold, so nobody can read your team from
    coloured text across the room. */
@@ -677,6 +680,13 @@ select {
     border: 1px solid rgba(202, 168, 74, 0.4);
     border-radius: 10px;
 }
+label.setting-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+label.setting-check input { width: auto; margin: 0; }
 .setting-note, .game-summary {
     font-size: 0.95rem !important;
     opacity: 0.75;
@@ -879,6 +889,8 @@ body > nav.tab-bar {
 .game-section p { margin-bottom: 0.4rem; }
 .game-section .name { font-weight: 600; }
 .hint { font-size: 0.95rem !important; opacity: 0.7; }
+.lady-holder { text-align: center; font-size: 0.95rem; margin: 0.3rem 0 0; }
+.lady-holder .name { font-weight: 600; }
 .result-success { color: var(--team-good); font-weight: 700; }
 .result-fail { color: var(--team-evil); font-weight: 700; }
 .winner-good { color: var(--team-good) !important; }

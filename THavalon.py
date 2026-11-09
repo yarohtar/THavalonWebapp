@@ -313,6 +313,28 @@ class Oberon(EvilRole):
           info['oberon'] = False
           return info
 
+class Gareth(Role):
+    """Only in 9-player games, on top of the Evil players. Joins the team of a random player (the
+    Knight); a random player of the other team is the Rival. Gareth doesn't
+    know their own team. `team` is None until the builder decides it."""
+    team : str | None
+    knight : str | None
+    rival : str | None
+    def __init__(self, team : str | None = None,
+                 knight : str | None = None, rival : str | None = None):
+        self.team = team
+        self.knight = knight
+        self.rival = rival
+    def __str__(self) -> str:
+        return "Gareth"
+    def allegiance(self) -> str:
+        return self.team or "none"
+    def get_info(self, game : AvalonBuilder) -> dict:
+        # No Nilrem, no fellow Evil: anything more would reveal the team.
+        return {'allegiance': 'Unknown', 'knight': self.knight, 'rival': self.rival}
+    def can_appear(self, num_players : int) -> bool:
+        return num_players == 9
+
 class NeutralRole(Role):
     def allegiance(self) -> str:
         return "Neutral"
@@ -359,6 +381,8 @@ agravaine = Agravaine()
 colgrevance = Colgrevance()
 oberon = Oberon()
 
+gareth = Gareth()
+
 pellinore = Pellinore()
 beast = TheBeast()
 
@@ -383,7 +407,9 @@ all_roles = [
             agravaine, 
             colgrevance, 
             oberon, 
-            
+
+            gareth,
+
             pellinore, 
             beast, 
         ]
@@ -393,11 +419,17 @@ string_to_role : dict[str, Role] = { str(role): role for role in all_roles }
 def convert_strings_to_roles(str_roles : list[str]):
     return [string_to_role[str_role] for str_role in str_roles]
 
-def default_num_evils(num_players : int) -> int:
-    return (2 if num_players <= 6
-            else 3 if num_players <= 8
-            else 4 if num_players <= 11
-            else 5)
+def has_gareth(num_players : int, roles : list[Role]) -> bool:
+    """Gareth plays (in 9-player games only) when the host selected them."""
+    return gareth in roles and gareth.can_appear(num_players)
+
+def default_num_evils(num_players : int, gareth_plays : bool = False) -> int:
+    """Evil players, not counting Gareth. Gareth takes the place of one."""
+    evils = (2 if num_players <= 6
+             else 3 if num_players <= 8
+             else 4 if num_players <= 11
+             else 5)
+    return evils - 1 if gareth_plays else evils
 
 DEFAULT_TEAM_SIZES : dict[int, list[int]] = {
     5:  [2, 3, 2, 3, 3],
@@ -414,16 +446,21 @@ def default_double_fail_quest(num_players : int) -> int | None:
 
 def generate_roles(num_players : int, base_roles : list[Role],
                    num_evils : int | None = None) -> list[Role]:
-    base_roles = [role for role in base_roles if role.is_base_role()]
+    gareth_plays = has_gareth(num_players, base_roles)
+    base_roles = [role for role in base_roles
+                  if role.is_base_role() and role != gareth]
     possible_roles = [role for role in base_roles if role.can_appear(num_players)]
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
     if num_evils is None:
-        num_evils = default_num_evils(num_players)
+        num_evils = default_num_evils(num_players, gareth_plays)
     num_goods = num_players - num_evils
 
     roles_in_play : list[Role] = []
+    if gareth_plays:
+        num_goods -= 1
+        roles_in_play.append(gareth)
     if pellinore in possible_roles and beast in possible_roles:
         num_goods -= 2
         roles_in_play.append(pellinore)
@@ -469,6 +506,8 @@ class AvalonBuilder:
             self[role] = player
         for role in roles:
             self.transform_lonely(role)
+        if gareth in self:
+            self.choose_gareth_team()
 
     def __contains__(self, role : Role) -> bool:
         return role in self.role_to_player
@@ -490,6 +529,18 @@ class AvalonBuilder:
 
     def transform_lonely(self, role : Role):
         self[role.transform_if_lonely(self)] = self.pop(role)
+
+    def choose_gareth_team(self):
+        """Gareth joins the Knight's team; the Rival is from the other team."""
+        player = self.pop(gareth)
+        teams = {"Good": [], "Evil": []}
+        for role, p in self.role_to_player.items():
+            if role.allegiance() in teams:
+                teams[role.allegiance()].append(p)
+        knight = random.choice(teams["Good"] + teams["Evil"])
+        team = "Good" if knight in teams["Good"] else "Evil"
+        rival = random.choice(teams["Evil" if team == "Good" else "Good"])
+        self[Gareth(team, knight, rival)] = player
 
     def get_players_with_roles(self, roles : list[Role]) -> list[str]:
         players = [self[role] for role in roles if role in self]

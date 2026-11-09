@@ -23,7 +23,7 @@ from game import Card, GameState, Phase, RuleError, PAUSES
 
 # Log entries that make secret information public. Once one of these has
 # happened, nothing before it can be undone (the information is out).
-REVEALING = {"inquisition", "gawain", "changeling", "sorceress", "betrayal",
+REVEALING = {"inquisition", "gawain", "changeling", "sorceress", "betrayal", "lady",
              "proclamation", "quest_revealed", "pellinore_guess",
              "assassination", "game_over"}
 
@@ -128,6 +128,8 @@ class GameController:
         if role == "Arthur" and not s.proclaimed and s.failures >= 2 \
                 and s.phase != Phase.GAME_OVER:
             acts["proclaim"] = {}
+        if s.phase == Phase.LADY and player == s.lady_holder:
+            acts["lady"] = dict(choices=s.lady_choices())
         if s.phase in PAUSES and player not in s.ready:
             acts["ready"] = {}
         if s.phase == Phase.PELLINORE_GUESS and role == "Pellinore":
@@ -170,6 +172,8 @@ class GameController:
                 s.betray()
             case "proclaim":
                 s.proclaim()
+            case "lady":
+                s.lady_of_the_lake(params["target"])
             case "ready":
                 s.mark_ready(player)
             case "pellinore_guess":
@@ -249,6 +253,11 @@ class GameController:
             proclaimed = s.player_with_role("Arthur") if s.proclaimed else None,
             assassination = s.assassination,
             outcome = s.outcome,
+            lady = None if s.lady_holder is None else dict(
+                holder = s.lady_holder,
+                uses = [dict(round=u["round"], holder=u["holder"], target=u["target"])
+                        for u in s.lady_uses],
+            ),
         )
         if player in s.roles:
             q = s.current_quest
@@ -256,6 +265,12 @@ class GameController:
                 name = player,
                 role = s.role(player),
                 card = q.cards[player].value if q and player in q.cards else None,
+                # What the Lady of the Lake showed this player, and only them.
+                lady_seen = [dict(round=u["round"], player=u["target"], team=u["team"])
+                             for u in s.lady_uses if u["holder"] == player],
+                # Gareth's own team, once Evil have revealed themselves.
+                team = (s.allegiance(player) if s.role(player) == "Gareth"
+                        and s.gareth_knows_team() else None),
             )
             v["actions"] = self.available_actions(player)
         return v
@@ -300,6 +315,8 @@ class GameController:
                 return [s.current_quest.leader]
             case Phase.TEAM_ANNOUNCED | Phase.REVEAL | Phase.RESULT:
                 return [p for p in s.seating if p not in s.ready]
+            case Phase.LADY:
+                return [s.lady_holder]
             case Phase.ASSASSINATION:
                 return [s.assassin()]
             case Phase.PELLINORE_GUESS:
@@ -317,4 +334,5 @@ def _describe(player : str, action : str, params : dict) -> str:
         "vote": f"{player} voted",
         "play_card": f"{player} chose a card",
         "ready": f"{player} pressed ready",
+        "lady": f"{player} sent the Lady to {params.get('target')}",
     }.get(action, f"{player}: {action.replace('_', ' ')}")

@@ -1,8 +1,8 @@
 {# Summary of this game's settings (was the "Start of Game" card). #}
-{% from "_game_rules.html" import team_sizes %}
+{% from "_game_rules.html" import team_sizes, sides %}
 {% set ordinal = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'] %}
 <details class="this-game">
-    <summary>This game: {{ game_rules.num_evils }} Evil v {{ game_rules.num_others }}</summary>
+    <summary>This game: {{ sides(game_rules) }}</summary>
     <p>Teams: {{ team_sizes(game_rules) }}</p>
     <ul>
         <li>The {{ ordinal[game_rules.proposals - 1] }} proposal is the [[Hammer]].</li>
@@ -14,6 +14,12 @@
         <li>[[Strong Inquisition]]: the first time the first proposal of a round (from round 2) is approved.</li>
         <li>[[Weak Inquisition]]: the first time the second proposal is approved,
             or the first proposal once Strong Inquisition has been used.</li>
+        {% endif %}
+        {% if game_rules.gareth %}
+        <li>[[Gareth]] is in the game, and doesn't know their own team.</li>
+        {% endif %}
+        {% if game_rules.lady %}
+        <li>Played with the [[Lady of the Lake]].</li>
         {% endif %}
         {% if game_rules.double_fail %}
         <li>The {{ ordinal[game_rules.double_fail - 1] }} [[Quest]] needs 2 [[Fail|Fails]] to fail.</li>

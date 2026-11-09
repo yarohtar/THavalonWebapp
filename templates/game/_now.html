@@ -99,6 +99,18 @@
     <p class="card-row">{% for c in view.latest_quest.played %}{{ card_token(c) }} {% endfor %}</p>
     <p class="hint">The game continues once everyone is ready.</p>
 
+{% elif view.phase == 'lady' %}
+    <h3>[[Lady of the Lake]]</h3>
+    <p><span class="name">{{ view.lady.holder }}</span> sends the Lady to a player who hasn't held her yet,
+       who shows them their team. Nobody else sees it, and that player holds the Lady next.</p>
+    {% if 'lady' in acts %}
+    {% call action_form('lady', confirm='Send the Lady of the Lake to this player?') %}
+        {{ pick_players('target', acts.lady.choices) }}
+        <button type="submit">Send the Lady</button>
+    {% endcall %}
+    <p class="hint">Their team will appear on your Role tab.</p>
+    {% endif %}
+
 {% elif view.phase == 'pellinore_guess' %}
     <h3>[[Pellinore]] names the [[Questing Beast]]</h3>
     {% if 'pellinore_guess' in acts %}
@@ -111,6 +123,9 @@
 {% elif view.phase == 'assassination' %}
     <h3>[[Assassination]]</h3>
     <p>Good won 3 Quests. Evil may discuss; the highest-ranked Evil player decides.</p>
+    {% if view.you and view.you.role == 'Gareth' %}
+    <p class="hint">[[Gareth]]: your team is now shown on your Role tab.</p>
+    {% endif %}
     {% if 'assassinate' in acts %}
     {% call action_form('assassinate', confirm='This is final. Assassinate?', cls='assassinate-form') %}
         <div class="pick-list">
@@ -132,6 +147,9 @@
         {% if view.assassination.kind == 'none' %}no one{% else %}{{ names(view.assassination.targets) }} as
         {{ {'merlin': 'Merlin', 'nilrem': 'Nilrem', 'lovers': 'the Lovers'}[view.assassination.kind] }}{% endif %}
         — {{ 'correct' if view.assassination.correct else 'wrong' }}.</p>
+    {% endif %}
+    {% if o.gareth %}
+    <p>[[Gareth]] ({{ o.gareth.player }}) was <b class="term-{{ o.gareth.team|lower }}">{{ o.gareth.team }}</b>.</p>
     {% endif %}
     {% if o.neutrals %}
     <p>[[Pellinore]] ({{ o.neutrals.Pellinore.player }}): sanity {{ o.neutrals.Pellinore.sanity }},

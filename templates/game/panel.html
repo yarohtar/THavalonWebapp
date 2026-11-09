@@ -1,5 +1,5 @@
 {# Player's Game tab. #}
-{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations %}
+{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, lady_uses %}
 {{ board(view) }}
 <section class="game-section now">
     {% include "game/_now.html" %}
@@ -14,6 +14,12 @@
 <section class="game-section">
     <h4>Last quest</h4>
     {{ quest_detail(view.latest_quest) }}
+</section>
+{% endif %}
+{% if view.lady and view.lady.uses %}
+<section class="game-section">
+    <h4>[[Lady of the Lake]]</h4>
+    {{ lady_uses(view) }}
 </section>
 {% endif %}
 {% if view.declarations %}

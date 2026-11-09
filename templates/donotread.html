@@ -47,6 +47,16 @@ They stalked {{ game[player]['stalked_evil'] }} as an evil player.
 {% endfor %}
 </div>
 
+{% for player in game: %}
+{% if game[player]['role'] == 'Gareth' %}
+<div class="card">
+    <h1>Gareth</h1>
+    <h3>{{ names[player] }} is Gareth, on the {{ 'Blue' if gareth_team == 'Good' else 'Red' }} team</h3>
+    <p>Knight: {{ game[player]['knight'] }}. Rival: {{ game[player]['rival'] }}.</p>
+</div>
+{% endif %}
+{% endfor %}
+
 {% if num_players == 9 %}
 <div class="card">
     <h1>Neutrals</h1>

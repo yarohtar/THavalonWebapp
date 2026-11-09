@@ -29,7 +29,7 @@ class Term:
     title: str
     summary: str         # one line, shown in the tap-preview sheet
     kind: str = "rule"   # role | ability | rule | card
-    team: str | None = None  # good | evil | neutral
+    team: str | None = None  # good | evil | either | neutral
     page: str | None = None  # page slug; defaults to own slug
     anchor: str | None = None
     aliases: tuple[str, ...] = ()
@@ -84,6 +84,9 @@ TERMS: list[Term] = [
     Term("strong-inquisition", "Strong Inquisition",
          "The Leader either reveals one Quest card, or removes one without revealing it.",
          page="inquisition", anchor="strong"),
+    Term("lady-of-the-lake", "Lady of the Lake",
+         "Optional. After each Quest from the 2nd, her holder sends her to someone who hasn't held her and secretly learns that player's team.",
+         aliases=("Lady",)),
     Term("quests", "Quests",
          "Team sizes, which cards you may play, and when a Quest fails.",
          aliases=("Quest", "mission", "missions", "Quest card", "Quest cards")),
@@ -177,6 +180,10 @@ TERMS: list[Term] = [
     role("minion-of-mordred", "Minion of Mordred", "evil",
          "A plain Evil role.", players="5–10 players",
          aliases=("Minion", "Minions of Mordred")),
+
+    # ---- Either team ----
+    role("gareth", "Gareth", "either",
+         "9 players. On the team of a random Knight, opposed to a random Rival; doesn't know their own team until the Assassination."),
 
     # ---- Neutral ----
     role("pellinore", "Pellinore", "neutral",

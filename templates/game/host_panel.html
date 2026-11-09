@@ -1,5 +1,5 @@
 {# Host's live view: public information only, plus undo / skip. #}
-{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, action_form %}
+{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, lady_uses, action_form %}
 {{ board(view) }}
 <section class="game-section now">
     {% include "game/_now.html" %}
@@ -25,6 +25,9 @@
 {% endif %}
 {% if view.latest_quest and view.phase != 'result' %}
 <section class="game-section"><h4>Last quest</h4>{{ quest_detail(view.latest_quest) }}</section>
+{% endif %}
+{% if view.lady and view.lady.uses %}
+<section class="game-section"><h4>[[Lady of the Lake]]</h4>{{ lady_uses(view) }}</section>
 {% endif %}
 {% if view.declarations %}
 <section class="game-section"><h4>Declared</h4>{{ declarations(view) }}</section>

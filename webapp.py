@@ -7,7 +7,8 @@ import time
 import uuid as uuid_lib
 from THavalon import (AvalonBuilder, Role, convert_strings_to_roles, all_roles,
                       balin, pellinore, beast,
-                      default_num_evils, DEFAULT_TEAM_SIZES, default_double_fail_quest)
+                      default_num_evils, DEFAULT_TEAM_SIZES, default_double_fail_quest,
+                      has_gareth, gareth)
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,6 +44,7 @@ class GameSettings:
     num_evils : int | None = None
     team_sizes : list[int] | None = None
     double_fail : int | None = None   # quest number (1-5), 0 = no quest, None = default
+    lady : bool = False               # play with the Lady of the Lake
 
     @classmethod
     def from_form(cls, form) -> GameSettings:
@@ -60,26 +62,33 @@ class GameSettings:
         double_fail = form.get('double_fail', 'default')
         if double_fail != 'default':
             settings.double_fail = int(double_fail)
+        settings.lady = form.get('lady') == '1'
         return settings
 
-    def resolve(self, num_players : int) -> dict:
-        """The rules actually in effect for a game of this size."""
+    def resolve(self, num_players : int, roles : list[Role]) -> dict:
+        """The rules actually in effect for a game of this size and roles."""
         n = num_players
         if n not in DEFAULT_TEAM_SIZES:
             raise ValueError("A game needs 5 to 10 players.")
-        evils = self.num_evils if self.num_evils is not None else default_num_evils(n)
+        gareth = has_gareth(n, roles)
+        evils = self.num_evils if self.num_evils is not None else default_num_evils(n, gareth)
         sizes = self.team_sizes or DEFAULT_TEAM_SIZES[n]
         if any(not 2 <= k <= n for k in sizes):
             raise ValueError(f"Team sizes must be between 2 and {n} for {n} players.")
         double_fail = (self.double_fail if self.double_fail is not None
                        else default_double_fail_quest(n))
-        proposals = evils + 1
+        if evils < 1 or n - evils - gareth < 1:
+            raise ValueError(f"{evils} Evil players doesn't work with {n} players.")
+        # Gareth counts towards proposals as if Evil (see GameState.num_evils).
+        proposals = evils + gareth + 1
         return dict(num_players = n,
                     num_evils = evils,
-                    num_others = n - evils,
+                    gareth = gareth,
+                    num_others = n - evils - gareth,
                     team_sizes = sizes,
                     double_fail = double_fail or None,
                     proposals = proposals,
+                    lady = self.lady,
                     inquisition = ('none' if proposals <= 3
                                    else 'weak' if proposals == 4
                                    else 'strong'))
@@ -99,7 +108,7 @@ class AvalonGame:
     def restart(self, roles_in_game : list[Role], players : dict[str,str],
                 settings : GameSettings):
         # Build everything first, so a bad setting leaves the old game intact.
-        rules = settings.resolve(len(players))
+        rules = settings.resolve(len(players), roles_in_game)
         builder = AvalonBuilder(list(players.values()), roles_in_game,
                                 rules['num_evils'])
         with self._lock:
@@ -114,7 +123,7 @@ class AvalonGame:
             self.names = dict(players)
             self.controller = GameController(GameState.from_builder(
                 builder, rules['team_sizes'], rules['double_fail'],
-                role_pool = roles_in_game))
+                role_pool = roles_in_game, lady_of_the_lake = rules['lady']))
     def __getitem__(self, uuid : str) -> RoleInfo:
         with self._lock:
             return self.player_info[uuid]
@@ -163,6 +172,9 @@ class AvalonGame:
     def snapshot(self):
         with self._lock:
             return dict(self.player_info)
+    def roles_dealt(self) -> list[Role]:
+        with self._lock:
+            return list(self.controller.state.roles.values()) if self.controller else []
 
 class Lobby:
     max_capacity : int = 10
@@ -286,23 +298,35 @@ def _prefs() -> dict:
     return session.get('host_prefs', {})
 
 def pref_roles() -> list[str]:
-    return _prefs().get('roles', DEFAULT_ROLE_NAMES)
+    roles = _prefs().get('roles', DEFAULT_ROLE_NAMES)
+    if not _prefs().get('gareth_offered'):     # saved before Gareth existed
+        roles = roles + [str(gareth)]
+    return roles
 
 def default_quests(n : int) -> dict:
     return dict(sizes = DEFAULT_TEAM_SIZES[n],
                 double_fail = default_double_fail_quest(n) or 0)
 
-def pref_evils(n : int) -> int:
-    return _prefs().get('evils', {}).get(str(n), default_num_evils(n))
+def _evils_key(n : int, gareth_plays : bool) -> str:
+    return f'{n}+gareth' if gareth_plays else str(n)
+
+def pref_evils(n : int, gareth_plays : bool) -> int:
+    return _prefs().get('evils', {}).get(_evils_key(n, gareth_plays),
+                                         default_num_evils(n, gareth_plays))
 
 def pref_quests(n : int, evils : int) -> dict:
     return _prefs().get('quests', {}).get(f'{n}-{evils}') or default_quests(n)
+
+def pref_lady() -> bool:
+    return _prefs().get('lady', False)
 
 def save_prefs(roles : list[str], rules_used : dict):
     n, evils = rules_used['num_players'], rules_used['num_evils']
     prefs = _prefs()
     prefs['roles'] = roles
-    prefs.setdefault('evils', {})[str(n)] = evils
+    prefs['gareth_offered'] = True
+    prefs['lady'] = rules_used['lady']
+    prefs.setdefault('evils', {})[_evils_key(n, rules_used['gareth'])] = evils
     prefs.setdefault('quests', {})[f'{n}-{evils}'] = dict(
         sizes = rules_used['team_sizes'], double_fail = rules_used['double_fail'] or 0)
     session['host_prefs'] = prefs
@@ -409,6 +433,7 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
     ctx = dict(lobby = lobby,
                players = players,
                all_roles = all_roles,
+               gareth_possible = gareth.can_appear(n),
                game_rules = lobby.current_game.rules,
                error = error,
                rename_error = rename_error,
@@ -416,12 +441,15 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
                valid_count = n in DEFAULT_TEAM_SIZES)
     if form is not None:  # re-show what the host just submitted
         ctx['active_roles'] = form.getlist('items')
+        ctx['lady'] = form.get('lady') == '1'
     else:
         ctx['active_roles'] = pref_roles()
+        ctx['lady'] = pref_lady()
     if ctx['valid_count']:
-        evil_options = list(range(1, min(5, n - 1) + 1))
-        quests = {e: pref_quests(n, e) for e in evil_options}
-        evils = pref_evils(n)
+        gareth_plays = gareth.can_appear(n) and str(gareth) in ctx['active_roles']
+        evil_options = list(range(1, min(5, n - 1 - gareth_plays) + 1))
+        quests = {e: pref_quests(n, e) for e in range(1, 6)}
+        evils = pref_evils(n, gareth_plays)
         shown = quests.get(evils, default_quests(n))
         if form is not None:
             evils = form.get('evils', type=int, default=evils)
@@ -431,7 +459,13 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
                    evils = evils,
                    shown = shown,
                    quest_prefs = quests,
-                   defaults = dict(evils = default_num_evils(n), **default_quests(n)))
+                   gareth_plays = gareth_plays,
+                   # Evil count to switch to when Gareth is toggled.
+                   gareth_evils = {'on': pref_evils(n, True), 'off': pref_evils(n, False)},
+                   defaults = dict(evils = default_num_evils(n, gareth_plays),
+                                   evils_with_gareth = default_num_evils(n, True),
+                                   evils_without_gareth = default_num_evils(n, False),
+                                   **default_quests(n)))
     if lobby.current_game.controller is not None:
         ctx['host_panel'] = lobby.current_game.render_panels(None)['host']
     g.channel = lobby.id
@@ -564,8 +598,11 @@ def all_info():
     if lobby is None:
         return flask.redirect(url_for('index'))
     current_game = lobby.current_game.snapshot()
+    gareth_team = next((r.allegiance() for r in lobby.current_game.roles_dealt()
+                        if str(r) == 'Gareth'), None)
     return flask.render_template('donotread.html', 
                                  game = current_game,
+                                 gareth_team = gareth_team,
                                  names = lobby.snapshot(),
                                  num_players = len(current_game))
 

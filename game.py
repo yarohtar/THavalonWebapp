@@ -13,7 +13,7 @@ Flow of a round (see Phase):
     round 1:  FIRST_ROUND_PROPOSING -> FIRST_ROUND_VOTING -> QUEST
     later:    PROPOSING -> VOTING -> QUEST            (rejected: next PROPOSING)
               PROPOSING -> [TEAM_ANNOUNCED] -> QUEST  (Hammer; Changeling pause)
-    then:     QUEST -> [INQUISITION] -> [REVEAL] -> [RESULT] -> next round
+    then:     QUEST -> [INQUISITION] -> [REVEAL] -> [RESULT] -> [LADY] -> next round
     end:      [PELLINORE_GUESS] -> [ASSASSINATION] -> GAME_OVER
 
 TEAM_ANNOUNCED (Oberon), REVEAL (Gawain) and RESULT (Agravaine) are pauses
@@ -58,6 +58,7 @@ class Phase(str, Enum):
     INQUISITION = "inquisition"         # Leader must use their Inquisition
     REVEAL = "reveal"                   # pause before reveal; Gawain may act
     RESULT = "result"                   # pause after reveal; Agravaine may betray
+    LADY = "lady"                       # Lady of the Lake holder checks a player
     PELLINORE_GUESS = "pellinore_guess"
     ASSASSINATION = "assassination"
     GAME_OVER = "game_over"
@@ -68,6 +69,8 @@ PAUSES = (Phase.TEAM_ANNOUNCED, Phase.REVEAL, Phase.RESULT)
 # Who makes the final Assassination decision, highest first.
 ASSASSIN_RANKING = ["Mordred", "Morgana", "Maelegant", "Agravaine",
                     "Colgrevance", "Minion of Mordred", "Oberon"]
+# Gareth isn't ranked: an Evil Gareth joins the discussion, but their Knight
+# is an Evil player ranked above them anyway.
 
 
 @dataclass
@@ -110,7 +113,8 @@ class GameState:
                  first_proposers : tuple[str, str],
                  round2_starter : str,
                  role_pool : list[Role] | None = None,
-                 rng : random.Random | None = None):
+                 rng : random.Random | None = None,
+                 lady_of_the_lake : bool = False):
         assert len(team_sizes) == 5
         assert set(roles) == set(seating)
         self.seating = list(seating)            # proposal order
@@ -124,7 +128,10 @@ class GameState:
         n = len(seating)
         self.possible_roles = {str(r) for r in (role_pool or all_roles) if r.can_appear(n)}
         self.possible_roles |= {str(r) for r in roles.values()}
-        self.num_evils = sum(r.allegiance() == "Evil" for r in roles.values())
+        # Gareth counts as Evil here whichever team they're on, so the number
+        # of proposals doesn't give their team away.
+        self.num_evils = sum(r.allegiance() == "Evil" or str(r) == "Gareth"
+                             for r in roles.values())
         self.proposals_per_round = self.num_evils + 1
 
         self.phase = Phase.FIRST_ROUND_PROPOSING
@@ -145,6 +152,15 @@ class GameState:
         self.changeling_used = False
         self.gawain_exiled = False
         self.proclaimed = False
+
+        # Lady of the Lake: starts with the player before the round-2
+        # starter (the last in proposal order). Who holds her and whom she
+        # was sent to is public; the team shown is only for the sender.
+        self.lady_holder : str | None = None
+        if lady_of_the_lake:
+            start = self.seating.index(round2_starter)
+            self.lady_holder = self.seating[(start - 1) % n]
+        self.lady_uses : list[dict] = []    # round, holder, target, team (SECRET)
 
         self.pellinore_guess_target : str | None = None
         self.assassination : dict | None = None
@@ -570,6 +586,41 @@ class GameState:
         if self.successes >= 3 or self.failures >= 3:
             self._start_end_game()
             return
+        if self.lady_holder is not None and self.round >= 2:
+            self._set_phase(Phase.LADY)
+            return
+        self._next_round()
+
+    def lady_of_the_lake(self, target : str):
+        """The Lady's holder sends her to `target`, who shows the holder
+        their team. `target` holds the Lady from now on."""
+        self._require(Phase.LADY)
+        holder = self.lady_holder
+        if target not in self.lady_choices():
+            raise RuleError("Send the Lady to a player who hasn't held her.")
+        self.lady_uses.append(dict(round=self.round, holder=holder, target=target,
+                                   team=self.lady_team(target)))
+        self.lady_holder = target
+        self._emit("lady", holder=holder, target=target)     # the team stays secret
+        self._next_round()
+
+    def lady_team(self, player : str) -> str:
+        """The team the Lady shows: the true one, except Gareth always shows Good."""
+        return "Good" if self.role(player) == "Gareth" else self.allegiance(player)
+
+    def gareth_knows_team(self) -> bool:
+        """Gareth learns their team once Evil reveal themselves for the
+        Assassination (or the game ends)."""
+        return self.phase in (Phase.ASSASSINATION, Phase.GAME_OVER)
+
+    def lady_choices(self) -> list[str]:
+        """Players the Lady may be sent to: anyone who has never held her."""
+        held = {self.lady_holder} | {u["target"] for u in self.lady_uses}
+        if self.lady_uses:
+            held.add(self.lady_uses[0]["holder"])
+        return [p for p in self.seating if p not in held]
+
+    def _next_round(self):
         self.round += 1
         # The next round starts with the player after the last proposer.
         last = self.proposals[-1].leader if self.round > 2 else None
@@ -637,6 +688,9 @@ class GameState:
         good_won = self.successes >= 3 and not (self.assassination or {}).get("correct")
         outcome = dict(winner="Good" if good_won else "Evil",
                        roles={p: self.role(p) for p in self.seating})
+        gareth = self.player_with_role("Gareth")
+        if gareth:
+            outcome["gareth"] = dict(player=gareth, team=self.allegiance(gareth))
         pellinore = self.player_with_role("Pellinore")
         beast = self.player_with_role("The Questing Beast")
         if pellinore and beast:

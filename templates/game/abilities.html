@@ -1,6 +1,30 @@
 {# Role-tab abilities. Kept off the Game tab so nobody spots them over your shoulder. #}
 {% from "game/_macros.html" import action_form, pick_players %}
 {% set acts = view.actions or {} %}
+{% if view.you and view.you.team %}
+<div class="ability">
+    <h3>Your team</h3>
+    <p>Evil have revealed themselves: you are
+        <b class="term-{{ view.you.team|lower }}">{{ view.you.team }}</b>
+        ({{ 'blue' if view.you.team == 'Good' else 'red' }}).</p>
+    {% if view.phase == 'assassination' %}
+    <p>{% if view.you.team == 'Evil' %}Reveal yourself to the other Evil players and join the [[Assassination]] discussion.
+       {% else %}Stay hidden: Evil may not know who you are.{% endif %}</p>
+    {% endif %}
+</div>
+{% endif %}
+{% if view.you and view.you.lady_seen %}
+<div class="ability">
+    <h3>[[Lady of the Lake]]</h3>
+    <ul class="detail-list">
+        {% for u in view.you.lady_seen %}
+        <li><span class="name">{{ u.player }}</span> is
+            <b class="term-{{ u.team|lower }}">{{ u.team }}</b>
+            {%- if u.team == 'Good' %} (blue){% elif u.team == 'Evil' %} (red){% endif %}.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 {% if 'sorceress' in acts %}
 <div class="ability">
     <h3>Use [[Sorceress]]</h3>

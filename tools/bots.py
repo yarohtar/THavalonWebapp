@@ -148,6 +148,8 @@ class Bot:
             o = acts["inquisition"]
             remove = o["can_remove"] and rng.random() < 0.3
             return "inquisition", {"target": rng.choice(o["choices"]), "remove": "1" if remove else "0"}
+        if "lady" in acts:
+            return "lady", {"target": rng.choice(acts["lady"]["choices"])}
         if "ready" in acts:
             return "ready", {}
         if "pellinore_guess" in acts:

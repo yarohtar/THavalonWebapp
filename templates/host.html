@@ -1,7 +1,7 @@
 {% extends "template.html" %}
 {% block title %}Host{% endblock %}
 {% block body %}
-{% from "_game_rules.html" import team_sizes %}
+{% from "_game_rules.html" import team_sizes, sides %}
 {% if host_panel %}
 <div class="card game-card" data-panels-url="{{ url_for('host_game_panels') }}">
     <h2>Game in progress</h2>
@@ -12,7 +12,7 @@
     {% if game_rules %}
     <p class="game-summary">
         Current game: {{ game_rules.num_players }} players,
-        {{ game_rules.num_evils }} Evil v {{ game_rules.num_others }},
+        {{ sides(game_rules) }},
         teams {{ team_sizes(game_rules) }}
     </p>
     {% endif %}
@@ -75,6 +75,9 @@
                     {% endfor %}
                 </div>
             </li>
+            {% if gareth_possible %}
+            <li class="setting-note">[[Gareth]] plays on top of the Evil players chosen below.</li>
+            {% endif %}
         </ul>
 
         <h2>Game Settings</h2>
@@ -85,7 +88,7 @@
             <select name="evils" id="evils">
                 {% for k in evil_options %}
                 <option value="{{ k }}" {% if k == evils %}selected{% endif %}>
-                    {{ k }} Evil v {{ num_players - k }}{% if k == defaults.evils %} (default){% endif %}
+                    {{ k }} Evil{% if gareth_plays %} + Gareth{% endif %} v {{ num_players - k - (1 if gareth_plays else 0) }}{% if k == defaults.evils %} (default){% endif %}
                 </option>
                 {% endfor %}
             </select>
@@ -115,6 +118,10 @@
                 <button type="button" class="link-btn" id="reset-defaults">Reset to default</button>
             </div>
         </div>
+        <label class="setting setting-check">
+            <input type="checkbox" name="lady" value="1" {% if lady %}checked{% endif %}>
+            Play with the [[Lady of the Lake]]
+        </label>
         <p class="setting-note">Your choices are remembered for each player count and Evil count.
             Proposals per round and [[Inquisition]] follow the number of Evil players.</p>
         <button type="submit">Start New Game</button>
@@ -130,7 +137,31 @@
 (function () {
     const PREFS = {{ quest_prefs|tojson }};   // per Evil count: {sizes, double_fail}
     const DEFAULTS = {{ defaults|tojson }};
+    const N = {{ num_players }};
+    const GARETH_EVILS = {{ gareth_evils|tojson }};   // remembered count with/without Gareth
     const evils = document.getElementById('evils');
+    const garethBox = {{ 'true' if gareth_possible else 'false' }} && document.getElementById('Gareth');
+    function garethPlays() { return !!(garethBox && garethBox.checked); }
+    function defaultEvils() {
+        return garethPlays() ? DEFAULTS.evils_with_gareth : DEFAULTS.evils_without_gareth;
+    }
+    // Rebuild the Evil options: Gareth takes one of the other players' places.
+    function labelOptions(selected) {
+        const g = garethPlays() ? 1 : 0;
+        evils.innerHTML = '';
+        for (let k = 1; k <= Math.min(5, N - 1 - g); k++) {
+            const o = document.createElement('option');
+            o.value = k;
+            o.textContent = k + ' Evil' + (g ? ' + Gareth' : '') + ' v ' + (N - k - g)
+                + (k === defaultEvils() ? ' (default)' : '');
+            evils.appendChild(o);
+        }
+        evils.value = Math.min(selected, N - 1 - g);
+    }
+    if (garethBox) garethBox.addEventListener('change', function () {
+        labelOptions(GARETH_EVILS[garethPlays() ? 'on' : 'off']);
+        fill(PREFS[evils.value]);
+    });
     function fill(q) {
         for (let i = 1; i <= 5; i++) {
             document.getElementById('size' + i).value = q.sizes[i - 1];
@@ -139,7 +170,7 @@
     }
     evils.addEventListener('change', function () { fill(PREFS[evils.value]); });
     document.getElementById('reset-defaults').addEventListener('click', function () {
-        evils.value = DEFAULTS.evils;
+        labelOptions(defaultEvils());
         fill(DEFAULTS);
     });
 })();

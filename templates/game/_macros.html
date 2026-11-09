@@ -24,6 +24,9 @@
     {% endfor %}
 </div>
 {% endif %}
+{% if view.lady %}
+<p class="lady-holder">[[Lady of the Lake]]: <span class="name">{{ view.lady.holder }}</span></p>
+{% endif %}
 {% endmacro %}
 
 {% macro names(list) -%}
@@ -109,6 +112,14 @@
     {% endfor %}
 </ol>
 {% endif %}
+{% endmacro %}
+
+{% macro lady_uses(view) %}
+<ul class="detail-list">
+    {% for u in view.lady.uses %}
+    <li>After Quest {{ u.round }}: <span class="name">{{ u.holder }}</span> checked <span class="name">{{ u.target }}</span>.</li>
+    {% endfor %}
+</ul>
 {% endmacro %}
 
 {% macro declarations(view) %}
