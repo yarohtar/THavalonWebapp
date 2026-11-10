@@ -1050,7 +1050,8 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     color: #14121c !important;
     text-decoration: none;
 }
-.dev-btn { margin-left: auto; text-decoration: none; border: 1px solid #c77dff; border-radius: 6px; padding: 0.15rem 0.5rem; }
+.dev-push { margin-left: auto; }
+.dev-btn { text-decoration: none; border: 1px solid #c77dff; border-radius: 6px; padding: 0.15rem 0.5rem; }
 .dev-seats { gap: 0.3rem; }
 .dev-seat {
     padding: 0.2rem 0.5rem;
@@ -1066,3 +1067,15 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .dev-list { text-align: left; }
 .dev-list li { margin-bottom: 0.6rem; }
 .dev-meta { opacity: 0.6; font-size: 0.85rem; margin-left: 0.4rem; }
+.dev-feedback form { text-align: left; }
+.dev-feedback textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0.4rem 0 0.8rem;
+    padding: 0.6rem;
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background: #1f1d27;
+    color: inherit;
+}

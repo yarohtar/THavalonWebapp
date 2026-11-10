@@ -15,7 +15,9 @@ def run(code, **env):
               if k not in ("AVALON_DEV", "CF_ACCESS_AUD", "CF_ACCESS_TEAM_DOMAIN",
                            "DEV_ALLOWED_EMAILS")}, **env}
     prelude = "import sys; sys.path.insert(0, '.'); import webapp\n" \
-              "app = webapp.app; app.config.update(TESTING=True)\nc = app.test_client()\n"
+              "app = webapp.app; app.config.update(TESTING=True)\nc = app.test_client()\n" \
+              "def dev_lobby(slug):\n" \
+              "    return next(l for l in webapp.LOBBIES.active() if l.id.endswith('-' + slug))\n"
     r = subprocess.run([sys.executable, "-c", prelude + textwrap.dedent(code)],
                        cwd=ROOT, env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]
@@ -106,7 +108,7 @@ def test_every_scenario_starts_in_its_situation():
             assert r.status_code == 302, slug
             page = c.get(r.headers['Location'])
             assert page.status_code == 200 and 'dev-bar' in page.get_data(as_text=True), slug
-            ctl = webapp.LOBBIES.get('dev-' + slug).current_game.controller
+            ctl = dev_lobby(slug).current_game.controller
             assert ctl.state.phase.value == phase, (slug, ctl.state.phase)
             if action:
                 assert action in ctl.available_actions(player), (slug, player)
@@ -119,10 +121,10 @@ def test_strong_inquisition_and_beast_card():
     run("""
         app.config['DEV_NO_AUTH'] = True
         c.get('/dev/strong-inquisition')
-        ctl = webapp.LOBBIES.get('dev-strong-inquisition').current_game.controller
+        ctl = dev_lobby('strong-inquisition').current_game.controller
         assert ctl.available_actions('Cat')['inquisition']['can_remove']
         c.get('/dev/questing-beast')
-        ctl = webapp.LOBBIES.get('dev-questing-beast').current_game.controller
+        ctl = dev_lobby('questing-beast').current_game.controller
         assert ctl.available_actions('Hal')['play_card']['cards'] == ['Questing Beast Was Here']
     """, AVALON_DEV="1")
 
@@ -131,7 +133,7 @@ def test_switching_player_and_reset():
     run("""
         app.config['DEV_NO_AUTH'] = True
         c.get('/dev/sorceress')
-        ctl = webapp.LOBBIES.get('dev-sorceress').current_game.controller
+        ctl = dev_lobby('sorceress').current_game.controller
         assert c.get('/dev/sorceress/as/Ann').headers['Location'] == '/'
         state = c.get('/game/state').get_json()
         assert state['you']['name'] == 'Ann' and state['you']['role'] == 'Merlin'
@@ -139,13 +141,70 @@ def test_switching_player_and_reset():
         c.get('/dev/sorceress/as/Cat')
         r = c.post('/game/action', data={'action': 'propose', 'team': ['Ann', 'Bob', 'Cat']})
         assert r.status_code == 200
-        lobby = webapp.LOBBIES.get('dev-sorceress')
+        lobby = dev_lobby('sorceress')
         assert lobby.current_game.controller.state.phase.value == 'voting'
         r = c.get('/dev/sorceress?as=Cat')
-        lobby = webapp.LOBBIES.get('dev-sorceress')
+        lobby = dev_lobby('sorceress')
         assert lobby.current_game.controller.state.phase.value == 'proposing'
         assert c.get('/game/state').get_json()['you']['name'] == 'Cat'
         assert c.get('/dev/sorceress/as/host').headers['Location'] == '/host'
         assert 'Game in progress' in c.get('/host').get_data(as_text=True)
         assert c.get('/dev/sorceress/as/Nobody').status_code == 404
+    """, AVALON_DEV="1")
+
+
+def test_testers_get_separate_games():
+    run("""
+        app.config['DEV_NO_AUTH'] = True
+        a, b = app.test_client(), app.test_client()
+        a.get('/dev/sorceress'); b.get('/dev/sorceress')
+        a.get('/dev/sorceress/as/Cat')
+        assert a.post('/game/action', data={'action': 'propose',
+                                            'team': ['Ann', 'Bob', 'Cat']}).status_code == 200
+        b.get('/dev/sorceress/as/Cat')
+        assert a.get('/game/state').get_json()['phase'] == 'voting'
+        assert b.get('/game/state').get_json()['phase'] == 'proposing'
+        # Resetting one tester's game leaves the other's alone.
+        b.get('/dev/sorceress')
+        assert a.get('/game/state').get_json()['phase'] == 'voting'
+        ids = {l.id for l in webapp.LOBBIES.active()}
+        assert len([i for i in ids if i.endswith('-sorceress')]) == 2
+    """, AVALON_DEV="1")
+
+
+def test_feedback_email_has_scenario_and_full_state():
+    out = run("""
+        import json
+        app.config['DEV_NO_AUTH'] = True
+        sent = []
+        app.config['DEV_SEND_EMAIL'] = lambda *a, **k: sent.append((a, k))
+        c.get('/dev/quest-cards')
+        c.get('/dev/quest-cards/as/Gus')
+        c.post('/game/action', data={'action': 'play_card', 'card': 'Reversal'})
+        assert 'Send feedback' in c.get('/dev/feedback?page=/').get_data(as_text=True)
+        assert c.post('/dev/feedback', data={'description': ''}).status_code == 400
+        r = c.post('/dev/feedback', data={'description': 'Reversal looks odd\\nmore', 'page': '/'})
+        assert r.status_code == 200 and 'was sent' in r.get_data(as_text=True)
+        (to, subject, body), kw = sent[0]
+        assert to == 'dev@example.com' and kw['sender'] == 'dev@example.com'
+        assert 'Choosing quest cards' in subject and 'Reversal looks odd' in subject
+        report = json.loads(body.split('Full report (JSON):')[1])
+        assert report['scenario']['slug'] == 'quest-cards' and report['viewing_as'] == 'Gus'
+        g = report['game']
+        assert g['phase'] == 'quest' and g['roles']['Gus'] == 'Maelegant'
+        assert g['secret']['current_quest_cards'] == {'Gus': 'Reversal'}
+        assert any(e['type'] == 'quest_started' for e in g['log'])
+        # A page off this site isn't used as a link.
+        r = c.get('/dev/feedback?page=https://evil.example')
+        assert 'evil.example' not in r.get_data(as_text=True)
+        print('ok')
+    """, AVALON_DEV="1", DEV_FEEDBACK_EMAIL="dev@example.com")
+    assert "ok" in out
+
+
+def test_feedback_without_email_setting_is_not_lost_silently():
+    run("""
+        app.config['DEV_NO_AUTH'] = True
+        assert 'Send feedback' not in c.get('/dev/feedback').get_data(as_text=True)
+        assert c.post('/dev/feedback', data={'description': 'x'}).status_code == 503
     """, AVALON_DEV="1")

@@ -4,10 +4,12 @@
         <a href="{{ url_for('dev.index') }}" class="dev-tag">DEV</a>
         {% if scenario %}
         <b class="dev-title">{{ scenario.title }}</b>
-        <a class="dev-btn" href="{{ url_for('dev.start', slug=scenario.slug, as=who) }}">↺ Reset</a>
+        <a class="dev-btn dev-push" href="{{ url_for('dev.start', slug=scenario.slug, as=who) }}">↺ Reset</a>
         {% else %}
         <a href="{{ url_for('dev.index') }}">Test scenarios</a>
         {% endif %}
+        <a class="dev-btn {% if not scenario %}dev-push{% endif %}" data-dev-feedback
+           href="{{ url_for('dev.feedback') }}">✎ Feedback</a>
     </div>
     {% if scenario %}
     <div class="dev-bar-row dev-seats">
@@ -26,6 +28,12 @@
 (function () {
     // Each player keeps their own tab memory: forget it when switching player.
     document.addEventListener('click', function (e) {
+        const fb = e.target.closest('#dev-bar a[data-dev-feedback]');
+        if (fb) {   // tell the form which page this was about
+            fb.href = fb.getAttribute('href').split('?')[0] + '?page='
+                + encodeURIComponent(location.pathname + location.search);
+            return;
+        }
         if (e.target.closest('#dev-bar a')) {
             try { sessionStorage.clear(); } catch (_) {}
         }

@@ -1,0 +1,28 @@
+{% extends "template.html" %}
+{% block title %}Feedback{% endblock %}
+{% block body %}
+<div class="card dev-feedback">
+    <h1>Feedback</h1>
+    {% if sent %}
+    <p>Thanks, your feedback was sent.</p>
+    <p><a href="{{ page or url_for('dev.index') }}">← Back to the game</a></p>
+    {% else %}
+    <p class="setting-note">
+        {% if scenario %}About <b>{{ scenario.title }}</b>, viewing as <b>{{ who }}</b>.
+        The game's full state (roles, cards, votes, history) is attached automatically.
+        {% else %}You're not in a test scenario right now.{% endif %}
+    </p>
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    {% if configured %}
+    <form method="post" action="{{ url_for('dev.feedback') }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <label for="description">What happened? What did you expect?</label>
+        <textarea id="description" name="description" rows="8" required
+                  placeholder="e.g. After Gawain revealed a card, the Game tab still said…">{{ description or '' }}</textarea>
+        <button type="submit">Send feedback</button>
+    </form>
+    {% endif %}
+    <p><a href="{{ page or url_for('dev.index') }}">← Back</a></p>
+    {% endif %}
+</div>
+{% endblock %}

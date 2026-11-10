@@ -9,7 +9,15 @@ the normal site never registers any of this.
 
 Viewing as someone simply makes this browser session *be* that player: the
 real pages (Game / Role / Vote tabs, host page) are used unchanged. A bar at
-the top of every page switches player and resets the scenario.
+the top of every page switches player, resets the scenario and sends
+feedback. Each tester (browser session) gets their own copy of every
+scenario, so testers never see each other's games.
+
+Feedback (/dev/feedback) is emailed through Amazon SES with the game's full
+state, secrets included:
+
+    DEV_FEEDBACK_EMAIL      where feedback goes (also the sender by default)
+    DEV_FEEDBACK_FROM       optional: a different verified SES sender
 
 Access: the dev site sits behind Cloudflare Access, whose policy decides who
 gets in (add playtesters there). As a second lock, every request must carry
@@ -256,20 +264,83 @@ def make_builder(players : list[str], role_names : list[str]) -> T.AvalonBuilder
     return b
 
 
+# ---------------------------------------------------------------- feedback
+
+def game_snapshot(game) -> dict:
+    """Everything about a game, secrets included, for a feedback email."""
+    ctl = game.controller
+    if ctl is None:
+        return {}
+    s = ctl.state
+    q = s.current_quest
+    p = s.current_proposal
+    hv = game.host_vote
+    return dict(
+        phase=s.phase.value, round=s.round, leader=s.leader,
+        roles={pl: s.role(pl) for pl in s.seating},
+        secret=dict(
+            current_quest_cards={k: v.value for k, v in q.cards.items()} if q else None,
+            current_proposal_votes=dict(p.votes) if p else None,
+            first_round_votes=dict(s.first_round_votes),
+            ready=sorted(s.ready),
+            lady_uses=s.lady_uses,
+            host_vote_ballots=dict(hv.ballots) if hv else None,
+        ),
+        host_vote=hv.view() if hv else None,
+        undo=ctl.undo_label(),
+        view=ctl.view(None, scoped=False),
+        log=s.log,
+    )
+
+
+def send_email(to : str, subject : str, text : str, reply_to : str | None = None,
+               sender : str | None = None):
+    """Through Amazon SES with the server's instance role (aws CLI), like the
+    maths site's feedback emails. Raises on failure."""
+    import json
+    import subprocess
+    import tempfile
+    content = {"Simple": {"Subject": {"Data": subject[:200], "Charset": "UTF-8"},
+                          "Body": {"Text": {"Data": text, "Charset": "UTF-8"}}}}
+    with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
+        json.dump(content, f)
+        f.flush()
+        cmd = ["aws", "sesv2", "send-email",
+               "--region", os.environ.get("AWS_REGION", "eu-west-2"),
+               "--from-email-address", sender or to,
+               "--destination", json.dumps({"ToAddresses": [to]}),
+               "--content", f"file://{f.name}"]
+        if reply_to:
+            cmd += ["--reply-to-addresses", reply_to]
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+
+
 # ---------------------------------------------------------------- the app
 
 def init_app(app, web):
     """`web` is the webapp module (passed in to avoid a circular import)."""
+    import json
+    import secrets
+    from datetime import datetime, timezone
+    from flask import g
+
     bp = Blueprint("dev", __name__, url_prefix="/dev")
 
+    # Every tester (browser session) gets their own copy of each scenario,
+    # kept on the server under a random id stored in their session.
+    def tester() -> str:
+        if "dev_tester" not in session:
+            session["dev_tester"] = secrets.token_hex(4)
+        return session["dev_tester"]
+
     def uuid_of(slug, who):
-        return f"dev-{slug}-{who}"
+        return f"dev-{tester()}-{slug}-{who}"
 
     def lobby_id(slug):
-        return f"dev-{slug}"
+        return f"dev-{tester()}-{slug}"
 
     def build(sc : Scenario):
-        """A fresh lobby with the scenario's game, replacing any earlier one."""
+        """A fresh lobby with the scenario's game, replacing this tester's earlier one."""
         players = {uuid_of(sc.slug, n): n for n in sc.players}
         lobby = web.Lobby(uuid_of(sc.slug, "host"), f"Test: {sc.title}")
         lobby.id = lobby_id(sc.slug)
@@ -293,8 +364,7 @@ def init_app(app, web):
 
     def current():
         """(scenario, lobby, who) this session is looking at, or Nones."""
-        gid = session.get("dev_slug")
-        sc = BY_SLUG.get(gid)
+        sc = BY_SLUG.get(session.get("dev_slug"))
         if sc is None:
             return None, None, None
         return sc, web.LOBBIES.get(lobby_id(sc.slug)), session.get("dev_as")
@@ -350,6 +420,57 @@ def init_app(app, web):
     def inject_dev_bar():
         return dict(dev_bar=dev_bar)
 
+    # ---- feedback, emailed with the game's full state ----
+
+    feedback_to = os.environ.get("DEV_FEEDBACK_EMAIL", "").strip()
+    feedback_from = os.environ.get("DEV_FEEDBACK_FROM", "").strip() or feedback_to
+
+    @bp.route("/feedback", methods=["GET", "POST"])
+    def feedback():
+        sc, lobby, who = current()
+        page = request.values.get("page") or ""
+        if not page.startswith("/") or page.startswith("//"):
+            page = ""          # only pages on this site (it's used as a link)
+        if request.method == "GET":
+            return flask.render_template("dev/feedback.html", scenario=sc, who=who,
+                                         page=page, configured=bool(feedback_to))
+        text = request.form.get("description", "").strip()
+        if not text:
+            return flask.render_template("dev/feedback.html", scenario=sc, who=who, page=page,
+                                         configured=bool(feedback_to),
+                                         error="Describe what happened first."), 400
+        tester_email = g.get("dev_email")
+        report = dict(
+            time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            tester=tester_email, tester_id=session.get("dev_tester"),
+            scenario=dict(slug=sc.slug, title=sc.title, about=sc.about) if sc else None,
+            viewing_as=who, page=page,
+            user_agent=request.headers.get("User-Agent"),
+            game=game_snapshot(lobby.current_game) if lobby else None,
+        )
+        where = f"{sc.title} as {who}" if sc else "no scenario"
+        body = (f"{text}\n\n"
+                f"-- \nFrom: {tester_email or 'unknown tester'}\n"
+                f"Scenario: {where}\nPage: {page or '?'}\n"
+                f"Phase: {(report['game'] or {}).get('phase', '-')}\n\n"
+                f"Full report (JSON):\n{json.dumps(report, indent=2, default=str)}\n")
+        subject = f"[Avalon dev] {where}: {text.splitlines()[0][:80]}"
+        if not feedback_to:
+            app.logger.warning("Feedback not sent (DEV_FEEDBACK_EMAIL unset):\n%s", body)
+            return flask.render_template("dev/feedback.html", scenario=sc, who=who, page=page,
+                                         configured=False,
+                                         error="Feedback isn't set up on this server."), 503
+        try:
+            app.config.get("DEV_SEND_EMAIL", send_email)(
+                feedback_to, subject, body, reply_to=tester_email, sender=feedback_from)
+        except Exception as e:
+            app.logger.error("Feedback email failed: %s\n%s", e, body)
+            return flask.render_template("dev/feedback.html", scenario=sc, who=who, page=page,
+                                         configured=True, description=text,
+                                         error="Sending failed. Try again in a moment."), 502
+        return flask.render_template("dev/feedback.html", scenario=sc, who=who, page=page,
+                                     configured=True, sent=True)
+
     # ---- access check: runs before everything else ----
 
     team = os.environ.get("CF_ACCESS_TEAM_DOMAIN", "").strip()
@@ -377,8 +498,10 @@ def init_app(app, web):
                                 issuer=f"https://{team}")
         except Exception:
             return flask.Response("Forbidden.", 403)
-        if allowed and str(claims.get("email", "")).lower() not in allowed:
+        email = str(claims.get("email", "")).lower()
+        if allowed and email not in allowed:
             return flask.Response("Forbidden.", 403)
+        g.dev_email = email or None
         return None
 
     app.before_request_funcs.setdefault(None, []).insert(0, check_access)
