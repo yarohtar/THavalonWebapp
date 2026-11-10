@@ -1,5 +1,5 @@
 {# What is happening now, plus this player's actions (none for the host). #}
-{% from "game/_macros.html" import names, team_picker, action_form, pick_players, card_token %}
+{% from "game/_macros.html" import names, team_picker, action_form, pick_players, card_token, inquisition_notes %}
 {% set acts = view.actions or {} %}
 {% set fr = view.first_round %}
 {% set cq = view.current_quest %}
@@ -66,13 +66,15 @@
 
 {% elif view.phase == 'reveal' %}
     <h3>Quest {{ view.round }}: cards are in</h3>
-    {% for p, c in cq.revealed.items() %}<p>{{ p }}'s card: {{ card_token(c) }}</p>{% endfor %}
+    {% if cq.revealed or cq.removed %}<ul class="detail-list">{{ inquisition_notes(cq) }}</ul>{% endif %}
     <p class="hint">The cards are revealed once everyone is ready.</p>
 
 {% elif view.phase == 'result' %}
     <h3>Quest {{ view.round }}
         {% if view.latest_quest.succeeded %}<span class="result-success">succeeded</span>{% else %}<span class="result-fail">failed</span>{% endif %}</h3>
     <p class="card-row">{% for c in view.latest_quest.played %}{{ card_token(c) }} {% endfor %}</p>
+    {% set lq = view.latest_quest %}
+    {% if lq.revealed or lq.removed %}<ul class="detail-list">{{ inquisition_notes(lq) }}</ul>{% endif %}
     <p class="hint">The game continues once everyone is ready.</p>
 
 {% elif view.phase == 'lady' %}

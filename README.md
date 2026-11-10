@@ -37,6 +37,13 @@ the app must run as a single process. In production, gunicorn picks up
 `gunicorn.conf.py` (1 worker, many threads).
 
 
+Test scenarios: the dev site (same code, run with `AVALON_DEV=1`, behind
+Cloudflare Access) has premade games at `/dev/`, e.g. an Assassination or
+Gawain's Inquisition, with a bar to view the game as any player and reset it.
+Locally: `AVALON_DEV=1 python webapp.py`, then open http://127.0.0.1:5000/dev/.
+See `dev.py` to add scenarios.
+
+
 # THavalon
 An extended ruleset for the Resistance: Avalon, primarily developed by me (Andrew Hitt/aquadrizzt), with help and extensive play-testing from Technology House, Inc. 
 

@@ -78,15 +78,21 @@
 <p>Team: {{ names(q.team) }}</p>
 {% if q.played %}<p class="card-row">{% for c in q.played %}{{ card_token(c) }} {% endfor %}</p>{% endif %}
 <ul class="detail-list">
-    {% if q.removed %}<li>[[Strong Inquisition]] removed {{ q.removed }}'s card.</li>{% endif %}
-    {% for p, c in q.revealed.items() %}
-    <li>{% if p == q.gawain_target %}[[Gawain]]{% else %}[[Inquisition]]{% endif %} revealed {{ p }}'s card: {{ card_token(c) }}</li>
-    {% endfor %}
+    {{ inquisition_notes(q) }}
     {% if 'Questing Beast Was Here' in (q.played or []) %}
     <li>[[Questing Beast Was Here]] counted as {{ q.qbwh_counts_as }}.</li>
     {% endif %}
     {% if q.betrayed %}<li>[[Agravaine]] used [[Betrayal]]: the quest failed.</li>{% endif %}
 </ul>
+{% endmacro %}
+
+{# What Inquisition / Gawain did on a quest, as <li>s. Public as soon as it happens. #}
+{% macro inquisition_notes(q) %}
+    {% if q.removed %}<li>[[Strong Inquisition]]: <span class="name">{{ q.leader }}</span> removed <span class="name">{{ q.removed }}</span>'s card. It doesn't count.</li>{% endif %}
+    {% for p, c in q.revealed.items() %}
+    <li>{% if p == q.gawain_target %}[[Gawain]]{% else %}{{ term((q.inquisition or 'weak')|capitalize ~ ' Inquisition') }}: <span class="name">{{ q.leader }}</span>{% endif %}
+        revealed <span class="name">{{ p }}</span>'s card: {{ card_token(c) }}</li>
+    {% endfor %}
 {% endmacro %}
 
 {% macro proposal_list(view) %}

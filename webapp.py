@@ -10,6 +10,7 @@ from THavalon import (AvalonBuilder, Role, convert_strings_to_roles, all_roles,
                       default_num_evils, DEFAULT_TEAM_SIZES, default_double_fail_quest,
                       has_gareth, gareth)
 import os
+import sys
 from dotenv import load_dotenv
 load_dotenv()
 from flask.views import MethodView
@@ -116,6 +117,11 @@ class AvalonGame:
         rules = settings.resolve(len(players), roles_in_game)
         builder = AvalonBuilder(list(players.values()), roles_in_game,
                                 rules['num_evils'])
+        self.install(builder, roles_in_game, players, rules)
+
+    def install(self, builder : AvalonBuilder, roles_in_game : list[Role],
+                players : dict[str,str], rules : dict):
+        """Start a game from roles already dealt (restart, or a dev scenario)."""
         with self._lock:
             self.player_info = {}
             self.roles_in_game = roles_in_game
@@ -325,6 +331,10 @@ class Lobbies:
         for i in range(app.config.get('DEV_FAKE_PLAYERS', 0)):
             lobby[f'fake{i}'] = f'p{i}'
         return lobby, True
+    def add(self, lobby : Lobby):
+        """Add (or replace) a lobby made elsewhere (dev scenarios)."""
+        with self._lock:
+            self._by_id[lobby.id] = lobby
     def active(self) -> list[Lobby]:
         with self._lock:
             self._prune()
@@ -410,12 +420,13 @@ def assign_uuid():
         session['player_id'] = str(uuid_lib.uuid4())
     g.uuid = session['player_id']
 
+REGISTRATION_EXEMPT = ['/register', '/static', '/rules', '/events',
+                       '/host', '/restart', '/donotread']
+
 @app.before_request
 def require_registration():
     # Hosts don't need a player name; only players do.
-    allowed_paths = ['/register', '/static', '/rules', '/events',
-                     '/host', '/restart', '/donotread']
-    if any(request.path.startswith(p) for p in allowed_paths):
+    if any(request.path.startswith(p) for p in REGISTRATION_EXEMPT):
         return  # allow through
     if 'name' not in session:
         next_page = request.full_path.rstrip('?') if request.method == 'GET' else None
@@ -696,7 +707,14 @@ def all_info():
                                  names = lobby.snapshot(),
                                  num_players = len(current_game))
 
+# Test scenarios, only on the dev site (AVALON_DEV=1). See dev.py.
+import dev
+if dev.enabled():
+    dev.init_app(app, sys.modules[__name__])
+
 if __name__ == "__main__":
     # Development server only: every new lobby starts with 9 fake players.
     app.config['DEV_FAKE_PLAYERS'] = 9
+    # Local dev scenarios skip the Cloudflare Access login check.
+    app.config['DEV_NO_AUTH'] = True
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -19,6 +19,11 @@ echo "Installing requirements..."
 
 echo "Restarting avalon..."
 sudo systemctl restart avalon
+# The dev site (test scenarios) runs the same code with AVALON_DEV=1.
+if systemctl cat avalon-dev >/dev/null 2>&1; then
+    echo "Restarting avalon-dev..."
+    sudo systemctl restart avalon-dev
+fi
 sleep 2
 systemctl is-active avalon
 exit

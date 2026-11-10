@@ -1028,3 +1028,41 @@ button.goto-vote { width: 100%; margin-top: 0.4rem; }
 }
 .game-toast.show { opacity: 1; transform: translate(-50%, 0); }
 body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
+
+/* ====== Dev site only (templates/dev) ====== */
+.dev-bar {
+    max-width: none;
+    margin: 0 0 1rem;
+    padding: 0.5rem 0.75rem;
+    background: #2a1035;
+    border-bottom: 2px dashed #c77dff;
+    font-size: 0.9rem;
+    text-align: left;
+}
+.dev-bar a { color: #e0b0ff; }
+.dev-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+.dev-bar-row + .dev-bar-row { margin-top: 0.4rem; }
+.dev-tag {
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    background: #c77dff;
+    color: #14121c !important;
+    text-decoration: none;
+}
+.dev-btn { margin-left: auto; text-decoration: none; border: 1px solid #c77dff; border-radius: 6px; padding: 0.15rem 0.5rem; }
+.dev-seats { gap: 0.3rem; }
+.dev-seat {
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(199, 125, 255, 0.5);
+    text-decoration: none;
+    line-height: 1.2;
+}
+.dev-seat small { opacity: 0.7; }
+.dev-seat.me { background: #c77dff; color: #14121c !important; }
+.dev-seat.waiting { border-color: #ffd86b; box-shadow: 0 0 0 1px #ffd86b; }
+.dev-about { margin: 0.4rem 0 0; opacity: 0.8; }
+.dev-list { text-align: left; }
+.dev-list li { margin-bottom: 0.6rem; }
+.dev-meta { opacity: 0.6; font-size: 0.85rem; margin-left: 0.4rem; }

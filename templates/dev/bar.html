@@ -1,0 +1,51 @@
+{# Dev site only: switch player / reset the scenario. Refreshed live by its script. #}
+<div class="dev-bar" id="dev-bar">
+    <div class="dev-bar-row">
+        <a href="{{ url_for('dev.index') }}" class="dev-tag">DEV</a>
+        {% if scenario %}
+        <b class="dev-title">{{ scenario.title }}</b>
+        <a class="dev-btn" href="{{ url_for('dev.start', slug=scenario.slug, as=who) }}">↺ Reset</a>
+        {% else %}
+        <a href="{{ url_for('dev.index') }}">Test scenarios</a>
+        {% endif %}
+    </div>
+    {% if scenario %}
+    <div class="dev-bar-row dev-seats">
+        <a class="dev-seat {% if who == 'host' %}me{% endif %}"
+           href="{{ url_for('dev.switch', slug=scenario.slug, who='host') }}">Host</a>
+        {% for p, role in seats %}
+        <a class="dev-seat {% if who == p %}me{% endif %} {% if p in waiting %}waiting{% endif %}"
+           href="{{ url_for('dev.switch', slug=scenario.slug, who=p) }}"
+           title="{{ role }}">{{ p }} <small>{{ role }}</small></a>
+        {% endfor %}
+    </div>
+    <p class="dev-about">{{ scenario.about }}{% if waiting %} · Waiting for: {{ waiting|join(', ') }}{% endif %}</p>
+    {% endif %}
+</div>
+<script>
+(function () {
+    // Each player keeps their own tab memory: forget it when switching player.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('#dev-bar a')) {
+            try { sessionStorage.clear(); } catch (_) {}
+        }
+    });
+    if (window.__devBarLive) return;
+    window.__devBarLive = true;
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.Events) return;
+        Events.on('game-update', function () {
+            fetch('{{ url_for("dev.bar") }}', {credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.text() : null; })
+                .then(function (html) {
+                    if (!html) return;
+                    const box = document.createElement('div');
+                    box.innerHTML = html;
+                    const fresh = box.querySelector('#dev-bar');
+                    const old = document.getElementById('dev-bar');
+                    if (fresh && old) old.replaceWith(fresh);
+                });
+        });
+    });
+})();
+</script>

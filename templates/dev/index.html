@@ -1,0 +1,20 @@
+{% extends "template.html" %}
+{% block title %}Test scenarios{% endblock %}
+{% block body %}
+<div class="card dev-index">
+    <h1>Test scenarios</h1>
+    <p class="setting-note">Each link starts its game afresh in that situation. Use the bar at the
+        top to view the game as any player (or the host), and ↺ Reset to start over.
+        Players shown <span class="dev-seat waiting">like this</span> are the ones the game is waiting for.</p>
+    {% for group, scenarios in groups.items() %}
+    <h2>{{ group }}</h2>
+    <ul class="dev-list">
+        {% for sc in scenarios %}
+        <li><a href="{{ url_for('dev.start', slug=sc.slug) }}"><b>{{ sc.title }}</b></a>
+            <span class="dev-meta">{{ sc.roles|length }} players</span><br>
+            <span>{{ sc.about }}</span></li>
+        {% endfor %}
+    </ul>
+    {% endfor %}
+</div>
+{% endblock %}

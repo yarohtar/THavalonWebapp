@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body{% if events_url %} data-events-url="{{ events_url }}"{% endif %}>
+    {% if dev_bar is defined %}{{ dev_bar() }}{% endif %}
     {% block body %}
     {% endblock %}
     <footer>
