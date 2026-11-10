@@ -39,6 +39,35 @@ def test_dev_site_refuses_everything_without_access_settings():
     """, AVALON_DEV="1")
 
 
+def test_dev_site_accepts_valid_access_tokens_only():
+    """A token signed by the team's key for this app gets in, whatever the
+    email (the Access policy decides that), unless DEV_ALLOWED_EMAILS limits it."""
+    code = """
+        import json, time, jwt
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        import dev
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+        jwk['kid'] = 'k1'
+        # Serve our test key instead of fetching Cloudflare's.
+        jwt.PyJWKClient.fetch_data = lambda self: {'keys': [jwk]}
+        def token(**claims):
+            base = dict(aud=['aud'], iss='https://example.cloudflareaccess.com',
+                        email='player@example.com', exp=time.time() + 60)
+            return jwt.encode({**base, **claims}, key, 'RS256', headers={'kid': 'k1'})
+        def status(t):
+            return c.get('/dev/', headers={'Cf-Access-Jwt-Assertion': t}).status_code
+        print(status(token()), status(token(aud=['other-app'])),
+              status(token(iss='https://evil.cloudflareaccess.com')),
+              status(token(exp=time.time() - 60)))
+    """
+    env = dict(AVALON_DEV="1", CF_ACCESS_TEAM_DOMAIN="example.cloudflareaccess.com",
+               CF_ACCESS_AUD="aud")
+    assert run(code, **env).split() == ["200", "403", "403", "403"]
+    limited = run(code, DEV_ALLOWED_EMAILS="someone@example.com", **env).split()
+    assert limited[0] == "403"
+
+
 def test_dev_site_refuses_bad_tokens():
     run("""
         c.set_cookie('CF_Authorization', 'not-a-token')

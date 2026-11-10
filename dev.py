@@ -11,13 +11,16 @@ Viewing as someone simply makes this browser session *be* that player: the
 real pages (Game / Role / Vote tabs, host page) are used unchanged. A bar at
 the top of every page switches player and resets the scenario.
 
-Access: the dev site sits behind Cloudflare Access. As a second lock, every
-request must carry a valid Access token (checked against the team's keys)
-for an allowed email; without the settings below, everything is refused.
+Access: the dev site sits behind Cloudflare Access, whose policy decides who
+gets in (add playtesters there). As a second lock, every request must carry
+a valid Access token for this Access application (checked against the
+team's keys), so the site stays closed if Access is ever switched off.
+Without the first two settings below, everything is refused.
 
     CF_ACCESS_TEAM_DOMAIN   e.g. myteam.cloudflareaccess.com
     CF_ACCESS_AUD           the Access application's audience tag
-    DEV_ALLOWED_EMAILS      comma-separated
+    DEV_ALLOWED_EMAILS      optional, comma-separated: only these emails
+                            (empty: whoever the Access policy lets in)
 """
 from __future__ import annotations
 
@@ -354,7 +357,7 @@ def init_app(app, web):
     allowed = {e.strip().lower() for e in os.environ.get("DEV_ALLOWED_EMAILS", "").split(",")
                if e.strip()}
     jwks = None
-    if team and aud and allowed:
+    if team and aud:
         import jwt
         jwks = jwt.PyJWKClient(f"https://{team}/cdn-cgi/access/certs", cache_keys=True)
 
@@ -374,7 +377,7 @@ def init_app(app, web):
                                 issuer=f"https://{team}")
         except Exception:
             return flask.Response("Forbidden.", 403)
-        if str(claims.get("email", "")).lower() not in allowed:
+        if allowed and str(claims.get("email", "")).lower() not in allowed:
             return flask.Response("Forbidden.", 403)
         return None
 
