@@ -139,3 +139,13 @@ def test_lobbies_survive_restart_of_the_app(server, monkeypatch):
         assert [l.name for l in again.active()] == ["Camelot"]
         # Still the same lobby when the host comes back.
         assert again.open("host-1")[0].id == lobby.id
+
+
+def test_redis_reads_outlast_the_sse_wait(monkeypatch):
+    """Live-update streams block in XREAD for HEARTBEAT_SECONDS; the client's
+    read timeout must be longer, or every quiet stream errors out."""
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setattr(store, "_client", None)
+    kwargs = store.connect().connection_pool.connection_kwargs
+    monkeypatch.setattr(store, "_client", None)
+    assert kwargs["socket_timeout"] > events.HEARTBEAT_SECONDS

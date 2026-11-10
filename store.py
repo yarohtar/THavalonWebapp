@@ -25,6 +25,7 @@ from typing import Callable, TypeVar
 import redis
 
 SCHEMA = 1
+SOCKET_TIMEOUT = 60      # seconds; must exceed events.HEARTBEAT_SECONDS
 T = TypeVar("T")
 log = logging.getLogger(__name__)
 
@@ -38,8 +39,12 @@ def connect() -> redis.Redis:
     if _client is None:
         url = os.environ.get("REDIS_URL")
         if url:
-            # SSE streams each hold a connection while they wait for events.
-            _client = redis.Redis.from_url(url, health_check_interval=30)
+            # SSE streams each hold a connection while they wait for events
+            # (events.HEARTBEAT_SECONDS at a time), so reads must be allowed
+            # to take longer than that.
+            _client = redis.Redis.from_url(url, health_check_interval=30,
+                                           socket_timeout=SOCKET_TIMEOUT,
+                                           socket_connect_timeout=5)
         else:
             import fakeredis
             log.warning("REDIS_URL is not set: using in-memory fakeredis (nothing is kept).")
