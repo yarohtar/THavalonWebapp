@@ -1,5 +1,5 @@
 {# Host's live view: public information only, plus undo / skip. #}
-{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, lady_uses, action_form %}
+{% from "game/_macros.html" import board, quest_detail, proposal_list, declarations, lady_uses, action_form, pick_players, host_vote_result %}
 {{ board(view) }}
 <section class="game-section now">
     {% include "game/_now.html" %}
@@ -18,6 +18,41 @@
     {% endcall %}
     {% else %}
     <p class="hint">Nothing to undo. Steps that revealed cards or roles can't be undone.</p>
+    {% endif %}
+</section>
+<section class="game-section host-vote">
+    {% if host_vote %}{{ host_vote_result(host_vote) }}{% endif %}
+    {% if host_vote and host_vote.open %}
+    <div class="vote-buttons two">
+        {% call action_form('vote-end', url=url_for('host_game_command', command='vote-end'),
+                            confirm='End the vote now? Missing votes are left out.') %}
+            <button type="submit" class="secondary">End vote now</button>
+        {% endcall %}
+        {% call action_form('vote-cancel', url=url_for('host_game_command', command='vote-cancel'),
+                            confirm='Cancel this vote? No results are shown.') %}
+            <button type="submit" class="secondary">Cancel vote</button>
+        {% endcall %}
+    </div>
+    {% else %}
+    <details class="host-vote-start">
+        <summary>Start a vote by hand</summary>
+        <p class="hint">If the game gets stuck, run votes here and carry on by hand.
+            These votes don't change the game above; everyone sees their results.</p>
+        <h4>Team proposal vote</h4>
+        {% call action_form('vote-start', url=url_for('host_game_command', command='vote-start')) %}
+            <input type="hidden" name="kind" value="proposal">
+            <p class="hint">Everyone votes. Optionally mark the team being voted on:</p>
+            {{ pick_players('team', view.seating, 'checkbox') }}
+            <button type="submit">Start team vote</button>
+        {% endcall %}
+        <h4>Mission vote</h4>
+        {% call action_form('vote-start', url=url_for('host_game_command', command='vote-start')) %}
+            <input type="hidden" name="kind" value="mission">
+            <p class="hint">Who plays a card:</p>
+            {{ pick_players('team', view.seating, 'checkbox') }}
+            <button type="submit">Start mission vote</button>
+        {% endcall %}
+    </details>
     {% endif %}
 </section>
 {% if view.proposals %}

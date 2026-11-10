@@ -17,19 +17,8 @@
 
 {% elif view.phase == 'first_round_voting' %}
     <h3>[[First Round]] vote</h3>
-    {% if 'vote_first_round' in acts %}
-    {% call action_form('vote_first_round', cls='vote-buttons') %}
-        {% for p in fr.proposers %}
-        <button type="submit" name="proposer" value="{{ p }}"
-                class="{% if acts.vote_first_round.current == p %}chosen{% endif %}">
-            <span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}
-        </button>
-        {% endfor %}
-    {% endcall %}
-    {% if acts.vote_first_round.current %}<p class="hint">You can change your vote until everyone has voted.</p>{% endif %}
-    {% else %}
-        {% for p in fr.proposers %}<p><span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}</p>{% endfor %}
-    {% endif %}
+    {% for p in fr.proposers %}<p><span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}</p>{% endfor %}
+    {% if 'vote_first_round' in acts %}<button type="button" class="goto-vote" data-goto-tab="vote">{{ 'Change your vote' if acts.vote_first_round.current else 'Vote' }}</button>{% endif %}
     <p class="hint">Voted: {{ fr.voted|length }} / {{ view.seating|length }}</p>
 
 {% elif view.phase == 'proposing' %}
@@ -43,12 +32,7 @@
 {% elif view.phase == 'voting' %}
     <h3>Vote on <span class="name">{{ prop.leader }}</span>'s team</h3>
     <p>{{ names(prop.team) }}</p>
-    {% if 'vote' in acts %}
-    {% call action_form('vote', cls='vote-buttons two') %}
-        <button type="submit" name="approve" value="1" class="approve {% if acts.vote.current == True %}chosen{% endif %}">Approve</button>
-        <button type="submit" name="approve" value="0" class="reject {% if acts.vote.current == False %}chosen{% endif %}">Reject</button>
-    {% endcall %}
-    {% endif %}
+    {% if 'vote' in acts %}<button type="button" class="goto-vote" data-goto-tab="vote">{{ 'Change your vote' if acts.vote.current is not none else 'Vote' }}</button>{% endif %}
     <p class="hint">Voted: {{ prop.voted|length }} / {{ view.seating|length }}</p>
 
 {% elif view.phase == 'team_announced' %}
@@ -60,15 +44,7 @@
     <h3>Quest {{ view.round }}</h3>
     <p>{{ names(cq.team) }}{% if cq.fails_needed == 2 %} · needs 2 Fails{% endif %}</p>
     {% if cq.inquisition %}<p>The Leader has {{ term(cq.inquisition|capitalize ~ ' Inquisition') }}.</p>{% endif %}
-    {% if 'play_card' in acts %}
-    <details class="card-picker">
-        <summary>Choose your card</summary>
-        {% call action_form('play_card', cls='card-buttons') %}
-            {% for c in acts.play_card.cards %}
-            <button type="submit" name="card" value="{{ c }}">{{ card_token(c) }}</button>
-            {% endfor %}
-        {% endcall %}
-    </details>
+    {% if 'play_card' in acts %}<button type="button" class="goto-vote" data-goto-tab="vote">Choose your card</button>
     {% elif view.you and view.you.card %}
     <p>Your card is chosen.</p>
     {% endif %}

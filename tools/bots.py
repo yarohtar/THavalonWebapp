@@ -8,6 +8,7 @@
 Each bot registers, joins the game (automatically if only one game is open,
 or the one named with --game), and plays whenever it may act: proposing,
 voting, choosing cards, pressing Continue, and sometimes using abilities.
+They also vote in votes the host starts by hand.
 Bots only act for themselves, so the game still waits for you.
 
 Start the bots, then press "Start New Game" on the host page. They keep
@@ -99,12 +100,16 @@ class Bot:
             self.game_id = view["game_id"]
             self.log(f"new game: I am {view['you']['role']}")
         acts = view.get("actions") or {}
-        choice = self.choose(view, acts)
-        if choice is None:
-            return
-        action, params = choice
+        hv = view.get("host_vote")
+        if hv and hv["pending"]:
+            path, action, params = "/game/host-vote", "host vote", self.host_vote(view, hv)
+        else:
+            choice = self.choose(view, acts)
+            if choice is None:
+                return
+            (action, params), path = choice, "/game/action"
         time.sleep(self.rng.uniform(0.3, 1.0) * self.args.delay)
-        status, body = self.request("/game/action", dict(action=action, **params))
+        status, body = self.request(path, dict(action=action, **params))
         if status == 200:
             self.log(f"{action} {params}" if params else action)
         else:
@@ -158,6 +163,16 @@ class Bot:
             return "assassinate", {"kind": "merlin",
                                    "targets": rng.choice([p for p in view["seating"] if p != me])}
         return None
+
+    def host_vote(self, view, hv) -> dict:
+        """A choice in a vote the host started by hand."""
+        if hv["kind"] == "proposal":
+            approve = self.rng.random() < (0.8 if self.name in hv["team"] else self.args.approve)
+            choice = "approve" if approve else "reject"
+        else:
+            evil = self.is_evil(view) and self.rng.random() < self.args.fail
+            choice = "Fail" if evil else "Success"
+        return {"vote": hv["id"], "choice": choice}
 
     def is_evil(self, view) -> bool:
         return view["you"]["role"] in ("Mordred", "Morgana", "Maelegant", "Agravaine",

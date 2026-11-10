@@ -62,11 +62,16 @@
         {% block extra_info %}
         {% endblock %}
     </section>
+
+    <section class="tab-page" id="tab-vote" hidden>
+        <div class="card game-card" data-panel="vote">{{ panels.vote|safe }}</div>
+    </section>
 </div>
 
 <nav class="tab-bar" role="tablist">
     <button type="button" role="tab" data-tab="game" aria-selected="true">Game</button>
     <button type="button" role="tab" data-tab="role" aria-selected="false">Role</button>
+    <button type="button" role="tab" data-tab="vote" aria-selected="false">Vote</button>
 </nav>
 {% endblock %}
 
@@ -85,7 +90,9 @@
         showRole(!roleInfo.classList.contains('visible'));
     });
 
+    let currentTab = 'game';
     function switchTab(name) {
+        currentTab = name;
         document.querySelectorAll('.tab-page').forEach(function (el) {
             el.hidden = el.id !== 'tab-' + name;
         });
@@ -93,13 +100,46 @@
             b.setAttribute('aria-selected', b.dataset.tab === name);
         });
         if (name !== 'role') showRole(false);   // leaving the Role tab hides it again
-        sessionStorage.setItem('avalon-tab', name);
+        try { sessionStorage.setItem('avalon-tab', name); } catch (_) {}
         window.scrollTo(0, 0);
     }
     document.querySelectorAll('.tab-bar [data-tab]').forEach(function (b) {
         b.addEventListener('click', function () { switchTab(b.dataset.tab); });
     });
-    switchTab(sessionStorage.getItem('avalon-tab') || 'game');
+    // Buttons elsewhere on the page that open a tab ("Vote" on the Game tab).
+    document.addEventListener('click', function (e) {
+        const b = e.target.closest('[data-goto-tab]');
+        if (b) switchTab(b.dataset.gotoTab);
+    });
+    let savedTab = null;
+    try { savedTab = sessionStorage.getItem('avalon-tab'); } catch (_) {}
+    switchTab(savedTab || 'game');
+
+    // Vote tab: open it when a vote this player is part of starts (once per
+    // vote, so they can still leave it), and go back to the Game tab when
+    // their votes are over. The panel says which votes are on (data-vote-key)
+    // and whether this player still has to vote (data-vote-pending).
+    const voteButton = document.querySelector('.tab-bar [data-tab="vote"]');
+    let hadVote = null;
+    let opened = null;      // key of the votes we last opened the tab for
+    try { opened = sessionStorage.getItem('avalon-vote-opened'); } catch (_) {}
+    function syncVoteTab() {
+        const screen = document.querySelector('[data-panel="vote"] .vote-screen');
+        if (!screen) return;
+        const key = screen.dataset.voteKey;
+        const pending = !!screen.dataset.votePending;
+        voteButton.classList.toggle('attention', pending);
+        if (pending && key !== opened) {
+            opened = key;
+            try { sessionStorage.setItem('avalon-vote-opened', key); } catch (_) {}
+            switchTab('vote');
+        } else if (!key && hadVote && currentTab === 'vote') {
+            switchTab('game');
+        }
+        hadVote = !!key;
+    }
+    document.addEventListener('panels-rendered', syncVoteTab);
+    syncVoteTab();
 })();
 Events.reloadOn('new-game');
 </script>

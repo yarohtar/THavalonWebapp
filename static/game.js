@@ -10,6 +10,17 @@
     const panelsUrl = root.dataset.panelsUrl;
     const actionUrl = root.dataset.actionUrl;
 
+    // Identifies a checkbox/radio across re-renders: its form (by target
+    // and hidden fields) plus its own name and value.
+    function inputKey(input) {
+        const form = input.form;
+        let key = form ? (form.getAttribute('action') || '') : '';
+        if (form) form.querySelectorAll('input[type=hidden]').forEach(function (h) {
+            key += '|' + h.name + '=' + h.value;
+        });
+        return key + '|' + input.name + '=' + input.value;
+    }
+
     function render(panels) {
         for (const name in panels) {
             const el = document.querySelector('[data-panel="' + name + '"]');
@@ -17,12 +28,22 @@
             // Keep open <details> (e.g. "This game") open across refreshes.
             const open = Array.from(el.querySelectorAll('details[open] > summary'))
                 .map(function (s) { return s.textContent; });
+            // Keep half-made choices (players ticked for a team) too.
+            const picks = new Map();
+            el.querySelectorAll('.pick input').forEach(function (i) {
+                picks.set(inputKey(i), i.checked);
+            });
             el.innerHTML = panels[name];
             el.querySelectorAll('details > summary').forEach(function (s) {
                 if (open.indexOf(s.textContent) >= 0) s.parentElement.open = true;
             });
+            el.querySelectorAll('.pick input').forEach(function (i) {
+                const key = inputKey(i);
+                if (picks.has(key)) i.checked = picks.get(key);
+            });
             el.querySelectorAll('.team-picker').forEach(updatePicker);
         }
+        document.dispatchEvent(new CustomEvent('panels-rendered'));
     }
 
     let refreshing = null;

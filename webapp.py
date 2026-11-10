@@ -17,6 +17,8 @@ import rules
 import events
 from game import GameState, RuleError
 from actions import GameController
+import votes
+from votes import HostVote
 
 app = Flask(__name__)
 app.secret_key = "secret"
@@ -101,9 +103,12 @@ class AvalonGame:
         self._lock = threading.RLock()
         self.roles_in_game = all_roles[:]
         self.player_info = {}
+        self.game_number = 0        # counts restarts, so vote keys never repeat
+        self._host_vote_ids = 0
     rules : dict | None = None
     controller : GameController | None = None
     names : dict[str, str]          # uuid -> player name (names are the game's ids)
+    host_vote : HostVote | None = None   # the latest vote the host started
 
     def restart(self, roles_in_game : list[Role], players : dict[str,str],
                 settings : GameSettings):
@@ -121,6 +126,8 @@ class AvalonGame:
             proposers.append(builder.get_second_mission_starter())
             self.proposers = proposers
             self.names = dict(players)
+            self.host_vote = None
+            self.game_number += 1
             self.controller = GameController(GameState.from_builder(
                 builder, rules['team_sizes'], rules['double_fail'],
                 role_pool = roles_in_game, lady_of_the_lake = rules['lady']))
@@ -151,12 +158,50 @@ class AvalonGame:
             ctl = self.controller
             name = self.names.get(uuid) if uuid else None
             view = ctl.view(name)
+            hv = self.host_vote.view(name) if self.host_vote else None
             ctx = dict(view = view, me = name, game_rules = self.rules,
+                       host_vote = hv,
                        undo_label = ctl.undo_label() if uuid is None else None)
             if uuid is None:
                 return dict(host = render_template('game/host_panel.html', **ctx))
+            key, pending = vote_status(view, hv)
+            key = f'{self.game_number}:{key}' if key else ''
             return dict(game = render_template('game/panel.html', **ctx),
-                        abilities = render_template('game/abilities.html', **ctx))
+                        abilities = render_template('game/abilities.html', **ctx),
+                        vote = render_template('game/vote.html', vote_key = key,
+                                               vote_pending = pending, **ctx))
+
+    # ---- votes the host starts by hand (don't affect the game) ----
+
+    def start_host_vote(self, kind : str, team : list[str]):
+        with self._lock:
+            if self.host_vote and self.host_vote.open:
+                raise RuleError("End the current vote first.")
+            seating = self.controller.state.seating
+            team = [p for p in seating if p in team]
+            self._host_vote_ids += 1
+            if kind == votes.MISSION:
+                cards = votes.mission_cards(self.controller.state.possible_roles)
+                self.host_vote = HostVote(self._host_vote_ids, kind, team, cards = cards)
+            else:
+                self.host_vote = HostVote(self._host_vote_ids, kind, seating, team = team)
+
+    def end_host_vote(self, cancel : bool = False):
+        with self._lock:
+            if not (self.host_vote and self.host_vote.open):
+                raise RuleError("No vote is going on.")
+            self.host_vote.close(cancelled = cancel)
+
+    def cast_host_vote(self, uuid : str, vote_id : int, choice : str):
+        with self._lock:
+            hv = self.host_vote
+            if hv is None or hv.id != vote_id:
+                raise RuleError("This vote has ended.")
+            hv.cast(self.names[uuid], choice)
+
+    def host_vote_view(self, uuid : str) -> dict | None:
+        with self._lock:
+            return self.host_vote.view(self.names[uuid]) if self.host_vote else None
 
     def act(self, uuid : str, action : str, params : dict):
         with self._lock:
@@ -175,6 +220,30 @@ class AvalonGame:
     def roles_dealt(self) -> list[Role]:
         with self._lock:
             return list(self.controller.state.roles.values()) if self.controller else []
+
+def vote_status(view : dict, host_vote : dict | None) -> tuple[str, bool]:
+    """(key, pending) for the player's Vote tab. key names the votes going on
+    that this player is part of ('' if none); it changes when a new vote
+    starts, which is when the page switches to the Vote tab. pending: this
+    player still has to vote in one of them."""
+    keys, pending = [], False
+    acts = view.get('actions') or {}
+    phase = view['phase']
+    if phase == 'first_round_voting':
+        keys.append('fr')
+        pending |= acts.get('vote_first_round', {}).get('current', 0) is None
+    elif phase == 'voting':
+        prop = view['proposals'][-1]
+        keys.append(f"p{prop['round']}.{prop['number']}")
+        pending |= acts.get('vote', {}).get('current', 0) is None
+    elif phase == 'quest' and view.get('you') \
+            and view['you']['name'] in view['current_quest']['team']:
+        keys.append(f"q{view['round']}")
+        pending |= 'play_card' in acts
+    if host_vote and host_vote['involved']:
+        keys.append(host_vote['key'])
+        pending |= host_vote['pending']
+    return ' '.join(keys), pending
 
 class Lobby:
     max_capacity : int = 10
@@ -543,7 +612,8 @@ def game_state():
     game = lobby.current_game
     with game._lock:
         view = game.controller.view(game.names[g.uuid])
-    return flask.jsonify(game_id = id(game.controller), **view)
+        host_vote = game.host_vote_view(g.uuid)
+    return flask.jsonify(game_id = id(game.controller), host_vote = host_vote, **view)
 
 @app.route("/game/action", methods=["POST"])
 def game_action():
@@ -554,6 +624,19 @@ def game_action():
     except (RuleError, KeyError, ValueError) as e:
         message = e.args[0] if isinstance(e, RuleError) else "That didn't work, try again."
         return flask.jsonify(error = message), 400
+    lobby.touch()
+    new_event('game-update', lobby.id)
+    return flask.jsonify(lobby.current_game.render_panels(g.uuid))
+
+@app.route("/game/host-vote", methods=["POST"])
+def game_host_vote():
+    """A player votes in the vote the host started."""
+    lobby = current_game_for_player()
+    try:
+        lobby.current_game.cast_host_vote(g.uuid, request.form.get('vote', type=int),
+                                          request.form.get('choice', ''))
+    except RuleError as e:
+        return flask.jsonify(error = e.args[0]), 400
     lobby.touch()
     new_event('game-update', lobby.id)
     return flask.jsonify(lobby.current_game.render_panels(g.uuid))
@@ -576,6 +659,13 @@ def host_game_command(command):
             lobby.current_game.host_undo()
         elif command == 'skip':
             lobby.current_game.host_skip()
+        elif command == 'vote-start':
+            lobby.current_game.start_host_vote(request.form.get('kind', ''),
+                                               request.form.getlist('team'))
+        elif command == 'vote-end':
+            lobby.current_game.end_host_vote()
+        elif command == 'vote-cancel':
+            lobby.current_game.end_host_vote(cancel = True)
         else:
             flask.abort(404)
     except RuleError as e:

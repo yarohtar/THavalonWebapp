@@ -1,0 +1,111 @@
+{# Player's Vote tab: every vote this player is part of right now.
+   Game votes and votes the host started look the same; host votes just
+   don't count towards the game, and their cards aren't checked by role.
+   data-vote-key / data-vote-pending tell role.html when to switch tabs. #}
+{% from "game/_macros.html" import names, action_form, card_token, host_vote_result %}
+{% set acts = view.actions or {} %}
+{% set fr = view.first_round %}
+{% set cq = view.current_quest %}
+{% set prop = view.proposals[-1] if view.proposals else None %}
+{% set hv = host_vote %}
+
+{# Approve / Reject. `form` is the action_form arguments, `field` and the
+   two values what the buttons send, `mine` 'approve' / 'reject' / None. #}
+{% macro proposal_vote(title, team, form, field, values, mine, voted, total, extra={}) %}
+<section class="vote-box">
+    <h3>{{ title }}</h3>
+    {% if team %}<p>{{ names(team) }}</p>{% endif %}
+    {% call action_form(form.action, url=form.url, cls='vote-buttons two') %}
+        {% for k, v in extra.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+        <button type="submit" name="{{ field }}" value="{{ values[0] }}" class="approve {% if mine == 'approve' %}chosen{% endif %}">Approve</button>
+        <button type="submit" name="{{ field }}" value="{{ values[1] }}" class="reject {% if mine == 'reject' %}chosen{% endif %}">Reject</button>
+    {% endcall %}
+    {% if mine %}<p class="hint">You can change your vote until everyone has voted.</p>{% endif %}
+    <p class="hint">Voted: {{ voted }} / {{ total }}</p>
+    {{ caller() if caller }}
+</section>
+{% endmacro %}
+
+{# Card choice. `cards` None once this player has chosen. #}
+{% macro mission_vote(title, team, fails_needed, form, field, cards, chosen, total, extra={}) %}
+<section class="vote-box">
+    <h3>{{ title }}</h3>
+    <p>{{ names(team) }}{% if fails_needed == 2 %} · needs 2 Fails{% endif %}</p>
+    {% if cards %}
+    <details class="card-picker">
+        <summary>Choose your card</summary>
+        {% call action_form(form.action, url=form.url, cls='card-buttons') %}
+            {% for k, v in extra.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+            {% for c in cards %}
+            <button type="submit" name="{{ field }}" value="{{ c }}">{{ card_token(c) }}</button>
+            {% endfor %}
+        {% endcall %}
+    </details>
+    {% else %}
+    <p>Your card is chosen.</p>
+    {% endif %}
+    <p class="hint">Cards chosen: {{ chosen }} / {{ total }}</p>
+    {{ caller() if caller }}
+</section>
+{% endmacro %}
+
+<div class="vote-screen" data-vote-key="{{ vote_key }}" data-vote-pending="{{ '1' if vote_pending else '' }}">
+
+{% if not vote_key %}
+    <h3>No vote right now</h3>
+    <p class="hint">This page opens by itself when you have to vote.</p>
+    {% if hv and not hv.open and not hv.cancelled %}
+    <section class="game-section">{{ host_vote_result(hv) }}</section>
+    {% endif %}
+{% endif %}
+
+{% if view.phase == 'first_round_voting' %}
+<section class="vote-box">
+    <h3>[[First Round]] vote</h3>
+    <p>Choose which team goes on the first Quest.</p>
+    {% if 'vote_first_round' in acts %}
+    {% call action_form('vote_first_round', cls='vote-buttons') %}
+        {% for p in fr.proposers %}
+        <button type="submit" name="proposer" value="{{ p }}"
+                class="{% if acts.vote_first_round.current == p %}chosen{% endif %}">
+            <span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}
+        </button>
+        {% endfor %}
+    {% endcall %}
+    {% if acts.vote_first_round.current %}<p class="hint">You can change your vote until everyone has voted.</p>{% endif %}
+    {% endif %}
+    <p class="hint">Voted: {{ fr.voted|length }} / {{ view.seating|length }}</p>
+</section>
+
+{% elif view.phase == 'voting' and 'vote' in acts %}
+    {% set cur = acts.vote.current %}
+    {{ proposal_vote("Vote on " ~ prop.leader ~ "'s team", prop.team,
+                     dict(action='vote', url=None), 'approve', ('1', '0'),
+                     'approve' if cur == True else 'reject' if cur == False else None,
+                     prop.voted|length, view.seating|length) }}
+
+{% elif view.phase == 'quest' and view.you and view.you.name in cq.team %}
+    {{ mission_vote("Quest " ~ view.round, cq.team, cq.fails_needed,
+                    dict(action='play_card', url=None), 'card',
+                    acts.play_card.cards if 'play_card' in acts else None,
+                    cq.chosen|length, cq.team|length) }}
+{% endif %}
+
+{% if hv and hv.involved %}
+    {% set form = dict(action='host_vote', url=url_for('game_host_vote')) %}
+    {% if hv.kind == 'proposal' %}
+    {% call proposal_vote("Vote on the team", hv.team, form, 'choice', ('approve', 'reject'),
+                          hv.mine, hv.voted|length, hv.voters|length, extra={'vote': hv.id}) %}
+        <p class="hint">Started by the host; doesn't change the game board.</p>
+    {% endcall %}
+    {% else %}
+    {% call mission_vote("Quest", hv.team, None, form, 'choice',
+                         hv.choices if hv.pending else None,
+                         hv.voted|length, hv.voters|length, extra={'vote': hv.id}) %}
+        <p class="hint">Started by the host; doesn't change the game board.
+            Play the card your role would play.</p>
+    {% endcall %}
+    {% endif %}
+{% endif %}
+
+</div>

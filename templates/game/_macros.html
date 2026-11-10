@@ -131,3 +131,28 @@
 </ul>
 {% endif %}
 {% endmacro %}
+
+{# A vote the host started by hand: progress while open, results after. #}
+{% macro host_vote_result(hv) %}
+<h4>Host vote: {{ 'team proposal' if hv.kind == 'proposal' else 'mission' }}</h4>
+{% if hv.team %}<p>Team: {{ names(hv.team) }}</p>{% endif %}
+{% if hv.open %}
+<p class="hint">Voted: {{ hv.voted|length }} / {{ hv.voters|length }}
+    {%- if hv.waiting_for %} · waiting for {{ names(hv.waiting_for) }}{% endif %}</p>
+{% elif hv.cancelled %}
+<p class="hint">Cancelled by the host.</p>
+{% else %}
+    {% if hv.kind == 'proposal' %}
+    <p>{% if hv.approved %}<span class="result-success">Approved</span>{% else %}<span class="result-fail">Rejected</span>{% endif %}
+       ({{ hv.approved_by|length }} of {{ hv.voters|length }})</p>
+    <div class="vote-split">
+        <span class="approve">✓ {{ names(hv.approved_by) if hv.approved_by else '—' }}</span>
+        <span class="reject">✗ {{ names(hv.rejected_by) if hv.rejected_by else '—' }}</span>
+    </div>
+    {% else %}
+    <p class="card-row">{% for c in hv.played %}{{ card_token(c) }} {% endfor %}
+        {%- if not hv.played %}No cards played.{% endif %}</p>
+    {% endif %}
+    {% if hv.waiting_for %}<p class="hint">Ended before {{ names(hv.waiting_for) }} voted.</p>{% endif %}
+{% endif %}
+{% endmacro %}
