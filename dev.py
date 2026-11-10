@@ -298,14 +298,19 @@ def send_email(to : str, subject : str, text : str, reply_to : str | None = None
     """Through Amazon SES with the server's instance role (aws CLI), like the
     maths site's feedback emails. Raises on failure."""
     import json
+    import shutil
     import subprocess
     import tempfile
+    # The service's PATH is only the app's virtualenv; the CLI is a system tool.
+    aws = shutil.which("aws", path=os.environ.get("PATH", "") + ":/usr/local/bin:/usr/bin")
+    if aws is None:
+        raise RuntimeError("aws CLI not found")
     content = {"Simple": {"Subject": {"Data": subject[:200], "Charset": "UTF-8"},
                           "Body": {"Text": {"Data": text, "Charset": "UTF-8"}}}}
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(content, f)
         f.flush()
-        cmd = ["aws", "sesv2", "send-email",
+        cmd = [aws, "sesv2", "send-email",
                "--region", os.environ.get("AWS_REGION", "eu-west-2"),
                "--from-email-address", sender or to,
                "--destination", json.dumps({"ToAddresses": [to]}),
