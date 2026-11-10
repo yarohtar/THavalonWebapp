@@ -16,6 +16,7 @@ def run(code, **env):
                            "DEV_ALLOWED_EMAILS")}, **env}
     prelude = "import sys; sys.path.insert(0, '.'); import webapp\n" \
               "app = webapp.app; app.config.update(TESTING=True)\nc = app.test_client()\n" \
+              "webapp.LOBBIES.store.redis.flushdb()\n" \
               "def dev_lobby(slug):\n" \
               "    return next(l for l in webapp.LOBBIES.active() if l.id.endswith('-' + slug))\n"
     r = subprocess.run([sys.executable, "-c", prelude + textwrap.dedent(code)],

@@ -2,8 +2,6 @@ import flask
 from flask import Flask, render_template, request, session, url_for, g
 import random
 import secrets
-import threading
-import time
 import uuid as uuid_lib
 from THavalon import (AvalonBuilder, Role, convert_strings_to_roles, all_roles,
                       balin, pellinore, beast,
@@ -18,6 +16,8 @@ import rules
 import events
 from game import GameState, RuleError
 from actions import GameController
+import store
+from store import Store, Conflict
 import votes
 from votes import HostVote
 
@@ -97,11 +97,12 @@ class GameSettings:
                                    else 'strong'))
 
 class AvalonGame:
+    """The game a lobby is playing. Plain data: it is stored in Redis with
+    its Lobby and changed only through Lobbies.update()."""
     player_info : dict[str, RoleInfo]
     roles_in_game : list[Role]
     proposers : list[str]
     def __init__(self):
-        self._lock = threading.RLock()
         self.roles_in_game = all_roles[:]
         self.player_info = {}
         self.game_number = 0        # counts restarts, so vote keys never repeat
@@ -122,110 +123,96 @@ class AvalonGame:
     def install(self, builder : AvalonBuilder, roles_in_game : list[Role],
                 players : dict[str,str], rules : dict):
         """Start a game from roles already dealt (restart, or a dev scenario)."""
-        with self._lock:
-            self.player_info = {}
-            self.roles_in_game = roles_in_game
-            self.rules = rules
-            for role in builder:
-                self.player_info[next(p for p in players if players[p] == builder[role])] = RoleInfo(role, builder)
-            proposers = builder.get_first_mission_proposers()
-            proposers.append(builder.get_second_mission_starter())
-            self.proposers = proposers
-            self.names = dict(players)
-            self.host_vote = None
-            self.game_number += 1
-            self.controller = GameController(GameState.from_builder(
-                builder, rules['team_sizes'], rules['double_fail'],
-                role_pool = roles_in_game, lady_of_the_lake = rules['lady']))
+        self.player_info = {}
+        self.roles_in_game = roles_in_game
+        self.rules = rules
+        for role in builder:
+            self.player_info[next(p for p in players if players[p] == builder[role])] = RoleInfo(role, builder)
+        proposers = builder.get_first_mission_proposers()
+        proposers.append(builder.get_second_mission_starter())
+        self.proposers = proposers
+        self.names = dict(players)
+        self.host_vote = None
+        self.game_number += 1
+        self.controller = GameController(GameState.from_builder(
+            builder, rules['team_sizes'], rules['double_fail'],
+            role_pool = roles_in_game, lady_of_the_lake = rules['lady']))
     def __getitem__(self, uuid : str) -> RoleInfo:
-        with self._lock:
-            return self.player_info[uuid]
+        return self.player_info[uuid]
     def __contains__(self, uuid : str):
-        with self._lock:
-            return uuid in self.player_info
+        return uuid in self.player_info
     def render_html_info(self, uuid : str):
-        with self._lock:
-            player_info = self.player_info[uuid]
-            filename = player_info['role'] + '.html'
-            return render_template(filename, 
-                                   info = player_info.info,
-                                   proposers = self.proposers,
-                                   game_rules = self.rules,
-                                   image = 'round_table.jpg',
-                                   num_players = len(self.player_info),
-                                   panels = self.render_panels(uuid))
+        player_info = self.player_info[uuid]
+        filename = player_info['role'] + '.html'
+        return render_template(filename,
+                               info = player_info.info,
+                               proposers = self.proposers,
+                               game_rules = self.rules,
+                               image = 'round_table.jpg',
+                               num_players = len(self.player_info),
+                               panels = self.render_panels(uuid))
 
     # ---- live game ----
 
     def render_panels(self, uuid : str | None) -> dict:
         """HTML for the live parts of the page. uuid=None: the host's
         public view (no private information at all)."""
-        with self._lock:
-            ctl = self.controller
-            name = self.names.get(uuid) if uuid else None
-            view = ctl.view(name)
-            hv = self.host_vote.view(name) if self.host_vote else None
-            ctx = dict(view = view, me = name, game_rules = self.rules,
-                       host_vote = hv,
-                       undo_label = ctl.undo_label() if uuid is None else None)
-            if uuid is None:
-                return dict(host = render_template('game/host_panel.html', **ctx))
-            key, pending = vote_status(view, hv)
-            key = f'{self.game_number}:{key}' if key else ''
-            return dict(game = render_template('game/panel.html', **ctx),
-                        abilities = render_template('game/abilities.html', **ctx),
-                        vote = render_template('game/vote.html', vote_key = key,
-                                               vote_pending = pending, **ctx))
+        ctl = self.controller
+        name = self.names.get(uuid) if uuid else None
+        view = ctl.view(name)
+        hv = self.host_vote.view(name) if self.host_vote else None
+        ctx = dict(view = view, me = name, game_rules = self.rules,
+                   host_vote = hv,
+                   undo_label = ctl.undo_label() if uuid is None else None)
+        if uuid is None:
+            return dict(host = render_template('game/host_panel.html', **ctx))
+        key, pending = vote_status(view, hv)
+        key = f'{self.game_number}:{key}' if key else ''
+        return dict(game = render_template('game/panel.html', **ctx),
+                    abilities = render_template('game/abilities.html', **ctx),
+                    vote = render_template('game/vote.html', vote_key = key,
+                                           vote_pending = pending, **ctx))
 
     # ---- votes the host starts by hand (don't affect the game) ----
 
     def start_host_vote(self, kind : str, team : list[str]):
-        with self._lock:
-            if self.host_vote and self.host_vote.open:
-                raise RuleError("End the current vote first.")
-            seating = self.controller.state.seating
-            team = [p for p in seating if p in team]
-            self._host_vote_ids += 1
-            if kind == votes.MISSION:
-                cards = votes.mission_cards(self.controller.state.possible_roles)
-                self.host_vote = HostVote(self._host_vote_ids, kind, team, cards = cards)
-            else:
-                self.host_vote = HostVote(self._host_vote_ids, kind, seating, team = team)
+        if self.host_vote and self.host_vote.open:
+            raise RuleError("End the current vote first.")
+        seating = self.controller.state.seating
+        team = [p for p in seating if p in team]
+        self._host_vote_ids += 1
+        if kind == votes.MISSION:
+            cards = votes.mission_cards(self.controller.state.possible_roles)
+            self.host_vote = HostVote(self._host_vote_ids, kind, team, cards = cards)
+        else:
+            self.host_vote = HostVote(self._host_vote_ids, kind, seating, team = team)
 
     def end_host_vote(self, cancel : bool = False):
-        with self._lock:
-            if not (self.host_vote and self.host_vote.open):
-                raise RuleError("No vote is going on.")
-            self.host_vote.close(cancelled = cancel)
+        if not (self.host_vote and self.host_vote.open):
+            raise RuleError("No vote is going on.")
+        self.host_vote.close(cancelled = cancel)
 
     def cast_host_vote(self, uuid : str, vote_id : int, choice : str):
-        with self._lock:
-            hv = self.host_vote
-            if hv is None or hv.id != vote_id:
-                raise RuleError("This vote has ended.")
-            hv.cast(self.names[uuid], choice)
+        hv = self.host_vote
+        if hv is None or hv.id != vote_id:
+            raise RuleError("This vote has ended.")
+        hv.cast(self.names[uuid], choice)
 
     def host_vote_view(self, uuid : str) -> dict | None:
-        with self._lock:
-            return self.host_vote.view(self.names[uuid]) if self.host_vote else None
+        return self.host_vote.view(self.names[uuid]) if self.host_vote else None
 
     def act(self, uuid : str, action : str, params : dict):
-        with self._lock:
-            self.controller.act(self.names[uuid], action, **params)
+        self.controller.act(self.names[uuid], action, **params)
 
     def host_undo(self) -> str:
-        with self._lock:
-            return self.controller.undo()
+        return self.controller.undo()
 
     def host_skip(self):
-        with self._lock:
-            self.controller.skip_pause()
+        self.controller.skip_pause()
     def snapshot(self):
-        with self._lock:
-            return dict(self.player_info)
+        return dict(self.player_info)
     def roles_dealt(self) -> list[Role]:
-        with self._lock:
-            return list(self.controller.state.roles.values()) if self.controller else []
+        return list(self.controller.state.roles.values()) if self.controller else []
 
 def vote_status(view : dict, host_vote : dict | None) -> tuple[str, bool]:
     """(key, pending) for the player's Vote tab. key names the votes going on
@@ -252,99 +239,107 @@ def vote_status(view : dict, host_vote : dict | None) -> tuple[str, bool]:
     return ' '.join(keys), pending
 
 class Lobby:
+    """An open game: who has joined, and the game being played. Plain data,
+    stored in Redis by Lobbies."""
     max_capacity : int = 10
     current_game : AvalonGame
     def __init__(self, host_uuid : str, name : str):
         self.id = secrets.token_urlsafe(6)
         self.host_uuid = host_uuid
         self.name = name
-        self.last_active = time.time()
         self._players : dict[str,str] = {}
-        self._lock = threading.Lock()
         self.current_game = AvalonGame()
-    def touch(self):
-        self.last_active = time.time()
     def __setitem__(self, uuid : str, name : str):
-        with self._lock:
-            if uuid in self._players:
-                self._players[uuid] = name
-                return 
-            if name in self._players.values():
-                return
-            if len(self._players) >= self.max_capacity:
-                return
+        if uuid in self._players:
             self._players[uuid] = name
+            return
+        if name in self._players.values():
+            return
+        if len(self._players) >= self.max_capacity:
+            return
+        self._players[uuid] = name
     def get(self, uuid : str, default = None):
-        with self._lock:
-            return self._players.get(uuid, default)
+        return self._players.get(uuid, default)
     def pop(self, uuid : str):
-        with self._lock:
-            self._players.pop(uuid, None)
+        self._players.pop(uuid, None)
     def snapshot(self):
-        with self._lock:
-            return dict(self._players)
+        return dict(self._players)
     def __len__(self):
-        with self._lock:
-            return len(self._players)
+        return len(self._players)
     def __contains__(self, uuid : str):
-        with self._lock:
-            return uuid in self._players
+        return uuid in self._players
     def restart_game(self, roles : list[Role], settings : GameSettings):
-        with self._lock:
-            self.current_game.restart(roles, self._players, settings)
-        self.touch()
+        self.current_game.restart(roles, self._players, settings)
 
 class Lobbies:
-    """All open games. Each host (browser session) has at most one."""
+    """All open games, kept in Redis (see store.py). Each host (browser
+    session) has at most one. A lobby untouched for 12 hours expires.
+
+    Objects returned by get() and friends are copies: change a lobby with
+    update(), which saves the change atomically."""
     max_idle_seconds = 12 * 60 * 60
 
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._by_id : dict[str, Lobby] = {}
-    def _prune(self):
-        cutoff = time.time() - self.max_idle_seconds
-        for lobby_id in [i for i, l in self._by_id.items() if l.last_active < cutoff]:
-            del self._by_id[lobby_id]
-        events.bus.prune(self.max_idle_seconds)
+    def __init__(self, store : Store):
+        self.store = store
+        self._index = store.key('lobbies')          # set of lobby ids
+
+    def _key(self, lobby_id : str) -> str:
+        return self.store.key('lobby', lobby_id)
+    def _host_key(self, host_uuid : str) -> str:
+        return self.store.key('host', host_uuid)
+
     def get(self, lobby_id : str | None) -> Lobby | None:
-        with self._lock:
-            self._prune()
-            return self._by_id.get(lobby_id) if lobby_id else None
+        return self.store.get(self._key(lobby_id)) if lobby_id else None
+    def update(self, lobby_id : str, change) -> tuple[Lobby, object]:
+        """Run change(lobby) and save. Returns (lobby, change's result);
+        KeyError if the lobby is gone."""
+        lobby, result = self.store.update(self._key(lobby_id), change,
+                                          ttl = self.max_idle_seconds)
+        self.store.redis.expire(self._host_key(lobby.host_uuid), self.max_idle_seconds)
+        return lobby, result
+    def add(self, lobby : Lobby):
+        """Save a lobby made elsewhere, replacing any with the same id (dev scenarios)."""
+        r = self.store.redis
+        self.store.put(self._key(lobby.id), lobby, self.max_idle_seconds)
+        r.set(self._host_key(lobby.host_uuid), lobby.id, ex = self.max_idle_seconds)
+        r.sadd(self._index, lobby.id)
     def hosted_by(self, host_uuid : str) -> Lobby | None:
-        with self._lock:
-            self._prune()
-            return next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
+        lobby_id = self.store.redis.get(self._host_key(host_uuid))
+        return self.get(lobby_id.decode()) if lobby_id else None
     def open(self, host_uuid : str, name : str | None = None) -> tuple[Lobby, bool]:
         """The host's lobby, created if needed. Returns (lobby, created).
         A new lobby is called `name`, or a random unused Avalon name."""
-        with self._lock:
-            self._prune()
-            lobby = next((l for l in self._by_id.values() if l.host_uuid == host_uuid), None)
-            if lobby is not None:
-                lobby.touch()
-                return lobby, False
-            taken = {l.name for l in self._by_id.values()}
-            if not name or name in taken:
-                name = random_game_name(taken)
-            lobby = Lobby(host_uuid, name)
-            self._by_id[lobby.id] = lobby
+        lobby = self.hosted_by(host_uuid)
+        if lobby is not None:
+            lobby, _ = self.update(lobby.id, lambda l: None)     # keeps it alive
+            return lobby, False
+        taken = {l.name for l in self.active()}
+        if not name or name in taken:
+            name = random_game_name(taken)
+        lobby = Lobby(host_uuid, name)
         for i in range(app.config.get('DEV_FAKE_PLAYERS', 0)):
             lobby[f'fake{i}'] = f'p{i}'
+        r = self.store.redis
+        # Two requests from the same host at once: only one creates the lobby.
+        if not r.set(self._host_key(host_uuid), lobby.id, nx = True,
+                     ex = self.max_idle_seconds):
+            return self.open(host_uuid, name)
+        self.store.put(self._key(lobby.id), lobby, self.max_idle_seconds)
+        r.sadd(self._index, lobby.id)
         return lobby, True
-    def add(self, lobby : Lobby):
-        """Add (or replace) a lobby made elsewhere (dev scenarios)."""
-        with self._lock:
-            self._by_id[lobby.id] = lobby
     def active(self) -> list[Lobby]:
-        with self._lock:
-            self._prune()
-            return sorted(self._by_id.values(), key=lambda l: l.name.casefold())
+        ids = sorted(i.decode() for i in self.store.redis.smembers(self._index))
+        lobbies = self.store.get_many([self._key(i) for i in ids])
+        gone = [i for i, l in zip(ids, lobbies) if l is None]
+        if gone:
+            self.store.redis.srem(self._index, *gone)
+        return sorted((l for l in lobbies if l is not None), key=lambda l: l.name.casefold())
     def leave_all(self, uuid : str, except_id : str | None = None):
         for lobby in self.active():
-            if lobby.id != except_id:
-                lobby.pop(uuid)
+            if lobby.id != except_id and uuid in lobby:
+                self.update(lobby.id, lambda l: l.pop(uuid))
 
-LOBBIES = Lobbies()
+LOBBIES = Lobbies(Store(store.connect()))
 
 GAME_NAMES = [
     "Camelot", "Tintagel", "Avalon", "Caerleon", "Lyonesse", "Broceliande",
@@ -437,13 +432,18 @@ def joined_lobby() -> Lobby | None:
     """The game this player has joined (or was last in)."""
     return LOBBIES.get(session.get('game_id'))
 
-def join(lobby : Lobby):
+def join(lobby : Lobby) -> Lobby:
+    """Join (or rename yourself in) a lobby. Returns the lobby as saved."""
     LOBBIES.leave_all(g.uuid, except_id = lobby.id)
     session['game_id'] = lobby.id
     if lobby.get(g.uuid) != g.name:
-        lobby[g.uuid] = g.name
-        lobby.touch()
+        uuid, name = g.uuid, g.name
+        try:
+            lobby, _ = LOBBIES.update(lobby.id, lambda l: l.__setitem__(uuid, name))
+        except KeyError:
+            return lobby
         new_event('new-player', lobby.id)
+    return lobby
 
 # ---- player pages ----
 
@@ -453,8 +453,7 @@ def index():
     if lobby is None:
         active = LOBBIES.active()
         if len(active) == 1:
-            join(active[0])
-            lobby = active[0]
+            lobby = join(active[0])
         else:
             g.channel = LOBBIES_CHANNEL
             return flask.render_template('games.html', name = g.name, lobbies = active)
@@ -560,12 +559,13 @@ class LobbyView(MethodView):
     def post(self):
         lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
         if 'player' in request.form:
-            lobby.pop(request.form['player'])
+            player = request.form['player']
+            lobby, _ = LOBBIES.update(lobby.id, lambda l: l.pop(player))
         new_name = request.form.get('game_name', '').strip()[:40]
         if new_name and new_name != lobby.name:
             if any(l.name == new_name for l in LOBBIES.active()):
                 return render_host(lobby, rename_error = f'"{new_name}" is already taken.'), 400
-            lobby.name = new_name
+            LOBBIES.update(lobby.id, lambda l: setattr(l, 'name', new_name))
             session['game_name'] = new_name
             new_event('new-lobby', LOBBIES_CHANNEL)
         return flask.redirect(url_for('lobby_api'))
@@ -578,7 +578,8 @@ def restart():
     role_names = request.form.getlist('items')
     try:
         settings = GameSettings.from_form(request.form)
-        lobby.restart_game(convert_strings_to_roles(role_names), settings)
+        roles = convert_strings_to_roles(role_names)
+        lobby, _ = LOBBIES.update(lobby.id, lambda l: l.restart_game(roles, settings))
     except ValueError as e:
         return render_host(lobby, error = str(e), form = request.form), 400
     save_prefs(role_names, lobby.current_game.rules)
@@ -621,21 +622,22 @@ def game_state():
     """This player's view of the game as JSON (what their page shows)."""
     lobby = current_game_for_player()
     game = lobby.current_game
-    with game._lock:
-        view = game.controller.view(game.names[g.uuid])
-        host_vote = game.host_vote_view(g.uuid)
-    return flask.jsonify(game_id = id(game.controller), host_vote = host_vote, **view)
+    view = game.controller.view(game.names[g.uuid])
+    host_vote = game.host_vote_view(g.uuid)
+    return flask.jsonify(game_id = f'{lobby.id}:{game.game_number}',
+                         host_vote = host_vote, **view)
 
 @app.route("/game/action", methods=["POST"])
 def game_action():
     lobby = current_game_for_player()
     action = request.form.get('action', '')
+    params = action_params(action, request.form)
+    uuid = g.uuid
     try:
-        lobby.current_game.act(g.uuid, action, action_params(action, request.form))
-    except (RuleError, KeyError, ValueError) as e:
+        lobby, _ = LOBBIES.update(lobby.id, lambda l: l.current_game.act(uuid, action, params))
+    except (RuleError, KeyError, ValueError, Conflict) as e:
         message = e.args[0] if isinstance(e, RuleError) else "That didn't work, try again."
         return flask.jsonify(error = message), 400
-    lobby.touch()
     new_event('game-update', lobby.id)
     return flask.jsonify(lobby.current_game.render_panels(g.uuid))
 
@@ -643,12 +645,14 @@ def game_action():
 def game_host_vote():
     """A player votes in the vote the host started."""
     lobby = current_game_for_player()
+    uuid, vote_id = g.uuid, request.form.get('vote', type=int)
+    choice = request.form.get('choice', '')
     try:
-        lobby.current_game.cast_host_vote(g.uuid, request.form.get('vote', type=int),
-                                          request.form.get('choice', ''))
-    except RuleError as e:
-        return flask.jsonify(error = e.args[0]), 400
-    lobby.touch()
+        lobby, _ = LOBBIES.update(
+            lobby.id, lambda l: l.current_game.cast_host_vote(uuid, vote_id, choice))
+    except (RuleError, KeyError, Conflict) as e:
+        message = e.args[0] if isinstance(e, RuleError) else "That didn't work, try again."
+        return flask.jsonify(error = message), 400
     new_event('game-update', lobby.id)
     return flask.jsonify(lobby.current_game.render_panels(g.uuid))
 
@@ -665,22 +669,21 @@ def host_game_panels():
 @app.route("/host/game/<command>", methods=["POST"])
 def host_game_command(command):
     lobby = hosted_game()
+    kind, team = request.form.get('kind', ''), request.form.getlist('team')
+    commands = {
+        'undo': lambda game: game.host_undo(),
+        'skip': lambda game: game.host_skip(),
+        'vote-start': lambda game: game.start_host_vote(kind, team),
+        'vote-end': lambda game: game.end_host_vote(),
+        'vote-cancel': lambda game: game.end_host_vote(cancel = True),
+    }
+    if command not in commands:
+        flask.abort(404)
     try:
-        if command == 'undo':
-            lobby.current_game.host_undo()
-        elif command == 'skip':
-            lobby.current_game.host_skip()
-        elif command == 'vote-start':
-            lobby.current_game.start_host_vote(request.form.get('kind', ''),
-                                               request.form.getlist('team'))
-        elif command == 'vote-end':
-            lobby.current_game.end_host_vote()
-        elif command == 'vote-cancel':
-            lobby.current_game.end_host_vote(cancel = True)
-        else:
-            flask.abort(404)
-    except RuleError as e:
-        return flask.jsonify(error = e.args[0]), 400
+        lobby, _ = LOBBIES.update(lobby.id, lambda l: commands[command](l.current_game))
+    except (RuleError, KeyError, Conflict) as e:
+        message = e.args[0] if isinstance(e, RuleError) else "That didn't work, try again."
+        return flask.jsonify(error = message), 400
     new_event('game-update', lobby.id)
     return flask.jsonify(lobby.current_game.render_panels(None))
 

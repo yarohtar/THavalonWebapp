@@ -32,9 +32,12 @@ See `python tools/bots.py --help` for options (`--game NAME` if several games
 are open, `--delay`, `--no-abilities`, ...).
 
 Pages update live (players joining, games starting) using Server-Sent Events;
-see `events.py` and `static/events.js`. Games and events are kept in memory, so
-the app must run as a single process. In production, gunicorn picks up
-`gunicorn.conf.py` (1 worker, many threads).
+see `events.py` and `static/events.js`. Games and events are kept in Redis
+(`REDIS_URL`, see `store.py`), so they survive restarts and redeploys and
+several gunicorn workers can serve the same games. Without `REDIS_URL` an
+in-memory stand-in (fakeredis) is used: fine for running locally and for
+tests, but then nothing is kept and there must be one process. In production,
+gunicorn picks up `gunicorn.conf.py` (2 workers with Redis, many threads).
 
 
 Test scenarios: the dev site (same code, run with `AVALON_DEV=1`, behind

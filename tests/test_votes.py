@@ -89,7 +89,7 @@ def test_mission_needs_players():
 def table():
     """A host and five registered players in a started game."""
     import webapp
-    webapp.LOBBIES = webapp.Lobbies()
+    webapp.LOBBIES.store.redis.flushdb()
     webapp.app.config.update(TESTING=True, DEV_FAKE_PLAYERS=0)
     host = webapp.app.test_client()
     host.get("/host")

@@ -1,114 +1,97 @@
-"""In-process event bus streamed to browsers with Server-Sent Events (SSE).
+"""Event bus streamed to browsers with Server-Sent Events (SSE), kept in
+Redis Streams so that every gunicorn worker sees every event and nothing is
+lost over a restart or redeploy.
 
     events.publish(channel, 'new-game', {'any': 'json'})
 
-Browsers subscribe with static/events.js. Each event gets an id; when a
-connection drops (phone sleeps, tunnel hiccup) the browser reconnects with the
-last id it saw and gets the missed events replayed. If they are no longer
-buffered, or the server restarted in between, the browser receives `resync`
-and reloads the page.
-
-Everything lives in memory, so the app must run as ONE process (threads are
-fine). That is already required, since games are kept in memory too.
+Browsers subscribe with static/events.js. Each event's id is its Redis
+stream id; when a connection drops (phone sleeps, tunnel hiccup, redeploy)
+the browser reconnects with the last id it saw and gets the missed events
+replayed. If they are no longer kept (only the latest BUFFER_SIZE are), or
+the id is unknown, the browser receives `resync` and reloads the page.
 """
 from __future__ import annotations
 
 import json
-import secrets
-import threading
-import time
-from collections import deque
 
 from flask import Blueprint, Response, request, stream_with_context
+
+import store
 
 HEARTBEAT_SECONDS = 15   # Cloudflare drops connections idle for ~100s
 BUFFER_SIZE = 100        # events kept per channel for replay
 RETRY_MS = 2000          # how soon browsers reconnect
-
-# Changes on every server start, so ids from before a restart are detected.
-_BOOT = secrets.token_hex(4)
+CHANNEL_TTL = 12 * 60 * 60   # a channel nobody publishes to expires
 
 
-class _Channel:
-    def __init__(self):
-        self.events : deque[tuple[int, str, str]] = deque(maxlen=BUFFER_SIZE)
-        self.next_id = 1
-        self.last_used = time.time()
+def _parse_id(event_id : str | None) -> tuple[int, int] | None:
+    """A Redis stream id 'ms-seq', or None for anything else (such as ids
+    from before events lived in Redis)."""
+    if not event_id:
+        return None
+    ms, _, seq = event_id.partition('-')
+    if not (ms.isdigit() and seq.isdigit()):
+        return None
+    return int(ms), int(seq)
 
 
 class EventBus:
-    def __init__(self):
-        self._cond = threading.Condition()
-        self._channels : dict[str, _Channel] = {}
+    def __init__(self, client = None, prefix : str | None = None):
+        self._client = client
+        self._prefix = prefix
 
-    def _channel(self, name : str) -> _Channel:
-        ch = self._channels.get(name)
-        if ch is None:
-            ch = self._channels[name] = _Channel()
-        ch.last_used = time.time()
-        return ch
+    @property
+    def redis(self):
+        if self._client is None:
+            self._client = store.connect()
+        return self._client
+
+    def _key(self, channel : str) -> str:
+        return store.Store(self.redis, self._prefix).key('events', channel)
 
     def current_id(self, channel : str) -> str:
         """Id of the latest event, to render into a page so that its stream
         starts exactly where the page's content left off."""
-        with self._cond:
-            return f"{_BOOT}-{self._channel(channel).next_id - 1}"
+        last = self.redis.xrevrange(self._key(channel), count=1)
+        return last[0][0].decode() if last else '0-0'
 
     def publish(self, channel : str, event_type : str, data = None):
-        payload = json.dumps(data)
-        with self._cond:
-            ch = self._channel(channel)
-            ch.events.append((ch.next_id, event_type, payload))
-            ch.next_id += 1
-            self._cond.notify_all()
+        key = self._key(channel)
+        with self.redis.pipeline() as pipe:
+            pipe.xadd(key, {'type': event_type, 'data': json.dumps(data)},
+                      maxlen=BUFFER_SIZE, approximate=False)
+            pipe.expire(key, CHANNEL_TTL)
+            pipe.execute()
 
-    def _parse_last_id(self, last_id : str | None) -> int | None:
-        """Event number from a previous connection, or None if the id is
-        missing or from before a server restart."""
-        if not last_id:
-            return None
-        boot, _, n = last_id.partition('-')
-        if boot != _BOOT or not n.isdigit():
-            return None
-        return int(n)
+    def _missed_some(self, key : str, seen : tuple[int, int]) -> bool:
+        """Were events after `seen` already trimmed away?"""
+        if self.redis.xlen(key) < BUFFER_SIZE:
+            return False
+        first = self.redis.xrange(key, count=1)
+        return bool(first) and _parse_id(first[0][0].decode()) > seen
 
     def stream(self, channel : str, last_id : str | None):
         yield f"retry: {RETRY_MS}\n\n"
-        with self._cond:
-            ch = self._channel(channel)
-            seen = self._parse_last_id(last_id)
-            if last_id and (seen is None
-                            or (ch.events and seen < ch.events[0][0] - 1)):
-                # Missed events we can no longer replay.
-                seen = None
-                resync = True
-            else:
-                resync = False
-            if seen is None:
-                seen = ch.next_id - 1
-        if resync:
-            yield _format(f"{_BOOT}-{seen}", 'resync', 'null')
+        key = self._key(channel)
+        seen = _parse_id(last_id)
+        if last_id and (seen is None or self._missed_some(key, seen)):
+            # Missed events we can no longer replay.
+            cursor = self.current_id(channel)
+            yield _format(cursor, 'resync', 'null')
+        elif seen is None:
+            cursor = self.current_id(channel)
+        else:
+            cursor = last_id
 
         while True:
-            with self._cond:
-                ch = self._channel(channel)
-                pending = [e for e in ch.events if e[0] > seen]
-                if not pending:
-                    self._cond.wait(timeout=HEARTBEAT_SECONDS)
-                    ch = self._channel(channel)
-                    pending = [e for e in ch.events if e[0] > seen]
-            if not pending:
+            found = self.redis.xread({key: cursor}, count=BUFFER_SIZE,
+                                     block=HEARTBEAT_SECONDS * 1000)
+            if not found:
                 yield ": ping\n\n"
                 continue
-            for n, event_type, payload in pending:
-                seen = n
-                yield _format(f"{_BOOT}-{n}", event_type, payload)
-
-    def prune(self, max_idle_seconds : float):
-        cutoff = time.time() - max_idle_seconds
-        with self._cond:
-            for name in [n for n, ch in self._channels.items() if ch.last_used < cutoff]:
-                del self._channels[name]
+            for event_id, fields in found[0][1]:
+                cursor = event_id.decode()
+                yield _format(cursor, fields[b'type'].decode(), fields[b'data'].decode())
 
 
 def _format(event_id : str, event_type : str, payload : str) -> str:
