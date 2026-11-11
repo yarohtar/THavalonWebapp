@@ -92,7 +92,7 @@ def table():
     webapp.LOBBIES.store.redis.flushdb()
     webapp.app.config.update(TESTING=True, DEV_FAKE_PLAYERS=0)
     host = webapp.app.test_client()
-    host.get("/host")
+    host.post("/host/create", data={"game_name": "Camelot"})
     players = {}
     for name in ["Ann", "Bob", "Cat", "Dan", "Eve"]:
         c = webapp.app.test_client()

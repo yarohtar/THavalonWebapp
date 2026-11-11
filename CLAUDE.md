@@ -23,6 +23,8 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions). |
 | `events.py` | Live updates: Server-Sent Events over Redis Streams. |
 | `dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
+| `admin.py` | Admin pages `/admin` (all sites): list/inspect/change/close lobbies, close idle ones, "view as" any player or host (swaps the session's identity keys, restored by `/admin/stop`). |
+| `access.py` | `AccessCheck`: verifies Cloudflare Access JWTs (dev site and admin). |
 | `rules.py` | Rules pages and `[[Term]]` link markup used in templates. |
 | `templates/role.html` | Player page: **Game / Role / Vote** tabs, tab switching and Vote-tab auto-open logic. |
 | `templates/game/` | Live panels: `panel.html` (Game tab), `abilities.html` (Role tab, private), `vote.html` (Vote tab), `host_panel.html`, shared `_now.html` / `_macros.html`. |
@@ -71,6 +73,18 @@ for friends and playtests alone with bots (`tools/bots.py`).
 - **Rules pages** show the viewer's current game's rule changes at the top (`viewer_game()`);
   the Role tab shows them under the role's rules; the game summary lists them.
 
+## Admin pages (`admin.py`)
+
+- Protected by a Cloudflare Access self-hosted application on `avalon.iammerlin.fyi/admin`
+  (the owner's policy). No server settings needed: the app only checks each request carries a
+  validly signed Access token (`access.email_from_any_team`). Optionally `CF_ACCESS_TEAM_DOMAIN`
+  + `ADMIN_ACCESS_AUD` pin the application and `ADMIN_EMAILS` the emails. POST forms carry a
+  session CSRF token. Locally (`python webapp.py`) `ADMIN_NO_AUTH` skips the check.
+- Closing a lobby (`webapp.close_lobby`, also the host page's "Close lobby") deletes it and
+  publishes `new-game`/`new-player` on its channel and `new-lobby` on `lobbies`.
+- `/host` no longer creates a lobby by itself: it shows a "Create lobby" form (`host_create.html`)
+  with a free random name; `/host/create` creates it.
+
 ## Dev site (`dev.py`)
 
 - Only active with `AVALON_DEV=1`. The live site must not expose it (`/dev` → 404; tested).
@@ -90,7 +104,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Running and testing locally
 
-- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (234 tests).
+- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (243 tests).
 - `tests/test_dev.py` runs each check in a fresh subprocess (dev features are decided at import).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).
@@ -149,6 +163,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Recent history (newest first)
 
+- Admin pages (`/admin`); hosts create lobbies explicitly and can close them.
 - Host-changeable rules (`ruleset.py`), host page rules editor, changes shown on rules pages.
 - Redis storage + Redis Streams events; 2 workers; fixed redis-py 5 s timeout.
 - Dev site: per-tester games, feedback form (SES), Access-policy-only access.

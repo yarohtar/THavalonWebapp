@@ -7,6 +7,7 @@
 </head>
 <body{% if events_url %} data-events-url="{{ events_url }}"{% endif %}>
     {% if dev_bar is defined %}{{ dev_bar() }}{% endif %}
+    {% if admin_bar is defined %}{{ admin_bar() }}{% endif %}
     {% block body %}
     {% endblock %}
     <footer>

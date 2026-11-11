@@ -494,33 +494,19 @@ def init_app(app, web):
 
     # ---- access check: runs before everything else ----
 
-    team = os.environ.get("CF_ACCESS_TEAM_DOMAIN", "").strip()
-    aud = os.environ.get("CF_ACCESS_AUD", "").strip()
+    from access import AccessCheck
+    access = AccessCheck(os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
+                         os.environ.get("CF_ACCESS_AUD", ""))
     allowed = {e.strip().lower() for e in os.environ.get("DEV_ALLOWED_EMAILS", "").split(",")
                if e.strip()}
-    jwks = None
-    if team and aud:
-        import jwt
-        jwks = jwt.PyJWKClient(f"https://{team}/cdn-cgi/access/certs", cache_keys=True)
 
     def check_access():
         if app.config.get("DEV_NO_AUTH"):
             return None
-        if jwks is None:
+        if not access.configured:
             return flask.Response("Dev site is not configured.", 403)
-        import jwt
-        token = (request.headers.get("Cf-Access-Jwt-Assertion")
-                 or request.cookies.get("CF_Authorization"))
-        if not token:
-            return flask.Response("Forbidden.", 403)
-        try:
-            key = jwks.get_signing_key_from_jwt(token).key
-            claims = jwt.decode(token, key, algorithms=["RS256"], audience=aud,
-                                issuer=f"https://{team}")
-        except Exception:
-            return flask.Response("Forbidden.", 403)
-        email = str(claims.get("email", "")).lower()
-        if allowed and email not in allowed:
+        email = access.email(request)
+        if email is None or (allowed and email not in allowed):
             return flask.Response("Forbidden.", 403)
         g.dev_email = email or None
         return None

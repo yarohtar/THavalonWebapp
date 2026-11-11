@@ -29,6 +29,10 @@
         <button type="submit" class="small-btn">Rename</button>
     </form>
     {% if rename_error %}<p class="form-error">{{ rename_error }}</p>{% endif %}
+    <form method="POST" action="{{ url_for('host_close') }}" class="close-lobby-form"
+          onsubmit="return confirm('Close {{ lobby.name|e }}? Everyone in it loses the game.')">
+        <button type="submit" class="small-btn">Close lobby</button>
+    </form>
 
     <h2>Players ({{ num_players }})</h2>
     <ul>

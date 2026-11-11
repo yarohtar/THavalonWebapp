@@ -1,0 +1,31 @@
+{# Shown on every page while the admin views the site as someone else. #}
+<div class="dev-bar admin-bar" id="admin-bar">
+    <div class="dev-bar-row">
+        <span class="dev-tag admin-tag">ADMIN</span>
+        {% if lobby %}
+        <span>Viewing <b>{{ lobby.name }}</b> as <b>{{ viewing.name }}</b></span>
+        {% else %}
+        <span>Viewing as <b>{{ viewing.name }}</b> (the lobby is gone)</span>
+        {% endif %}
+        <a class="dev-btn dev-push" href="{{ url_for('admin.stop') }}">⏏ Back to admin</a>
+    </div>
+    {% if lobby %}
+    <div class="dev-bar-row dev-seats">
+        <a class="dev-seat {% if viewing.who == 'host' %}me{% endif %}"
+           href="{{ url_for('admin.view_as', lobby_id=lobby.id, who='host') }}">Host</a>
+        {% for p in people %}
+        <a class="dev-seat {% if viewing.uuid == p.uuid %}me{% endif %} {% if p.waiting %}waiting{% endif %}"
+           href="{{ url_for('admin.view_as', lobby_id=lobby.id, who=p.uuid) }}"
+           title="{{ p.role or '' }}">{{ p.name }}{% if p.role %} <small>{{ p.role }}</small>{% endif %}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<script>
+// Each player keeps their own tab memory: forget it when switching player.
+document.addEventListener('click', function (e) {
+    if (e.target.closest('#admin-bar a')) {
+        try { sessionStorage.clear(); } catch (_) {}
+    }
+});
+</script>

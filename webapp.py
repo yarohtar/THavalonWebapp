@@ -370,6 +370,27 @@ class Lobbies:
         if gone:
             self.store.redis.srem(self._index, *gone)
         return sorted((l for l in lobbies if l is not None), key=lambda l: l.name.casefold())
+    def close(self, lobby_id : str) -> Lobby | None:
+        """Remove a lobby now (instead of waiting for it to expire). Returns
+        it as it was, or None if it was already gone. A change to it that is
+        under way then fails (KeyError), as for an expired lobby."""
+        lobby = self.get(lobby_id)
+        r = self.store.redis
+        r.delete(self._key(lobby_id))
+        r.srem(self._index, lobby_id)
+        if lobby is not None:
+            host_key = self._host_key(lobby.host_uuid)
+            current = r.get(host_key)
+            if current is not None and current.decode() == lobby_id:
+                r.delete(host_key)
+        return lobby
+    def idle_seconds(self, lobby_ids : list[str]) -> dict[str, int | None]:
+        """How long ago each lobby was last changed (from its time to live)."""
+        pipe = self.store.redis.pipeline()
+        for i in lobby_ids:
+            pipe.ttl(self._key(i))
+        return {i: (self.max_idle_seconds - ttl if ttl is not None and ttl >= 0 else None)
+                for i, ttl in zip(lobby_ids, pipe.execute())}
     def leave_all(self, uuid : str, except_id : str | None = None):
         for lobby in self.active():
             if lobby.id != except_id and uuid in lobby:
@@ -676,14 +697,36 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
     g.channel = lobby.id
     return flask.render_template('host.html', **ctx)
 
+def my_lobby() -> Lobby | None:
+    """The lobby this host has open (kept alive by looking at it), or None."""
+    lobby = LOBBIES.hosted_by(g.uuid)
+    if lobby is None:
+        return None
+    try:
+        lobby, _ = LOBBIES.update(lobby.id, lambda l: None)
+    except KeyError:                    # closed just now
+        return None
+    return lobby
+
+def render_create(error = None, name = None):
+    """The host has no lobby: offer to open one, with a free name filled in."""
+    taken = {l.name for l in LOBBIES.active()}
+    if name is None:
+        name = session.get('game_name')
+        if not name or name in taken:
+            name = random_game_name(taken)
+    return flask.render_template('host_create.html', name = name, error = error)
+
 class LobbyView(MethodView):
     def get(self):
-        lobby, created = LOBBIES.open(g.uuid, session.get('game_name'))
-        if created:
-            new_event('new-lobby', LOBBIES_CHANNEL)
+        lobby = my_lobby()
+        if lobby is None:
+            return render_create()
         return render_host(lobby)
     def post(self):
-        lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
+        lobby = my_lobby()
+        if lobby is None:
+            return flask.redirect(url_for('lobby_api'))
         if 'player' in request.form:
             player = request.form['player']
             lobby, _ = LOBBIES.update(lobby.id, lambda l: l.pop(player))
@@ -698,9 +741,42 @@ class LobbyView(MethodView):
 
 app.add_url_rule('/host', view_func=LobbyView.as_view('lobby_api'))
 
+@app.route("/host/create", methods=["POST"])
+def host_create():
+    name = request.form.get('game_name', '').strip()[:40]
+    if my_lobby() is None:
+        if not name:
+            return render_create(error = "Give the game a name.", name = ''), 400
+        if any(l.name == name for l in LOBBIES.active()):
+            return render_create(error = f'"{name}" is already taken.', name = name), 400
+        lobby, created = LOBBIES.open(g.uuid, name)
+        session['game_name'] = lobby.name
+        if created:
+            new_event('new-lobby', LOBBIES_CHANNEL)
+    return flask.redirect(url_for('lobby_api'))
+
+def close_lobby(lobby_id : str) -> Lobby | None:
+    """Close a lobby now and tell open pages: players' pages reload (and find
+    the game gone), game lists and host pages refresh."""
+    lobby = LOBBIES.close(lobby_id)
+    if lobby is not None:
+        new_event('new-game', lobby.id)
+        new_event('new-player', lobby.id)
+        new_event('new-lobby', LOBBIES_CHANNEL)
+    return lobby
+
+@app.route("/host/close", methods=["POST"])
+def host_close():
+    lobby = LOBBIES.hosted_by(g.uuid)
+    if lobby is not None:
+        close_lobby(lobby.id)
+    return flask.redirect(url_for('lobby_api'))
+
 @app.route("/restart", methods=["POST"])
 def restart():
-    lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
+    lobby = my_lobby()
+    if lobby is None:
+        return flask.redirect(url_for('lobby_api'))
     role_names = request.form.getlist('items')
     try:
         settings = GameSettings.from_form(request.form)
@@ -718,7 +794,9 @@ def restart():
 @app.route("/host/save", methods=["POST"])
 def host_save():
     """Remember the roles and rules without starting a game."""
-    lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
+    lobby = my_lobby()
+    if lobby is None:
+        return flask.redirect(url_for('lobby_api'))
     try:
         ruleset = form_ruleset(request.form)
     except ValueError as e:
@@ -874,9 +952,15 @@ import dev
 if dev.enabled():
     dev.init_app(app, sys.modules[__name__])
 
+# Admin pages (/admin), behind Cloudflare Access. See admin.py.
+import admin
+admin.init_app(app, sys.modules[__name__])
+
 if __name__ == "__main__":
     # Development server only: every new lobby starts with 9 fake players.
     app.config['DEV_FAKE_PLAYERS'] = 9
     # Local dev scenarios skip the Cloudflare Access login check.
     app.config['DEV_NO_AUTH'] = True
+    # And the admin pages too.
+    app.config['ADMIN_NO_AUTH'] = True
     app.run(host="0.0.0.0", port=5000, debug=True)

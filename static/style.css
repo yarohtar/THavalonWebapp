@@ -1117,6 +1117,38 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .dev-feedback textarea::placeholder {
     color: rgba(244, 241, 230, 0.5);
 }
+/* Host page: closing the lobby */
+.close-lobby-form { margin: 0.4rem 0 0.8rem; }
+
+/* ====== Admin pages (templates/admin) ====== */
+.admin-bar { background: #3a1410; border-bottom-color: #ff8a65; }
+.admin-bar a { color: #ffc4a8; }
+.admin-tag { background: #ff8a65; }
+.admin-bar .dev-btn { border-color: #ff8a65; }
+.admin-bar .dev-seat { border-color: rgba(255, 138, 101, 0.5); }
+.admin-bar .dev-seat.me { background: #ff8a65; }
+.admin { text-align: left; }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
+.admin-table th, .admin-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid rgba(202, 168, 74, 0.25);
+    text-align: left;
+    vertical-align: top;
+}
+.admin-table tr.admin-waiting td { background: rgba(255, 216, 107, 0.08); }
+.admin-dim { opacity: 0.6; }
+.admin-msg { color: #9fdf9f; }
+.admin-error { color: #ff8a80; }
+.admin-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.2rem 0.4rem 0.2rem 0; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0 1rem; }
+.admin-num { width: 4.5rem; }
+.admin-text { min-width: 0; max-width: 12rem; }
+.admin-danger { border-color: #ff8a80 !important; color: #ff8a80 !important; }
+.admin-link { display: inline-block; text-decoration: none; border: 1px solid rgba(202, 168, 74, 0.5); border-radius: 6px; padding: 0.15rem 0.5rem; }
+.admin-log { font-size: 0.85rem; }
+.admin-pre { white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; max-height: 30rem; overflow: auto; }
+
 .wait-actions { margin-top: 1rem; }
 
 /* Host page: one row per player with its remove button */

@@ -1,0 +1,73 @@
+{% extends "template.html" %}
+{% block title %}Admin: {{ lobby.name }}{% endblock %}
+{% macro post(command, label, danger=False, confirm=None) %}
+<form method="POST" action="{{ url_for('admin.change', lobby_id=lobby.id, command=command) }}" class="admin-inline"
+      {% if confirm %}onsubmit="return confirm('{{ confirm|e }}')"{% endif %}>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {{ caller() if caller else '' }}
+    <button type="submit" class="small-btn{% if danger %} admin-danger{% endif %}">{{ label }}</button>
+</form>
+{% endmacro %}
+{% block body %}
+<div class="card admin">
+    <p><a href="{{ url_for('admin.index') }}">← All lobbies</a></p>
+    <h1>{{ lobby.name }}</h1>
+    {% if message %}<p class="admin-msg">{{ message }}</p>{% endif %}
+    {% if error %}<p class="admin-error">{{ error }}</p>{% endif %}
+    <p>Id <code>{{ lobby.id }}</code> · idle {{ idle }} · closes by itself in {{ expires }}
+        · game #{{ game.game_number }}
+        {% if summary.phase %} · <b>{{ summary.phase }}</b>, round {{ summary.round }}{% endif %}</p>
+
+    <div class="admin-actions">
+        {% call post('rename', 'Rename') %}<input name="name" value="{{ lobby.name }}" maxlength="40" class="admin-text">{% endcall %}
+        {{ post('keep-alive', 'Reset idle time') }}
+        <form method="POST" action="{{ url_for('admin.close', lobby_id=lobby.id) }}" class="admin-inline"
+              onsubmit="return confirm('Close {{ lobby.name|e }}? Everyone in it loses the game.')">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button type="submit" class="small-btn admin-danger">Close lobby</button>
+        </form>
+    </div>
+
+    <h2>People</h2>
+    <p class="setting-note">"View as" makes this browser that person until you press
+        "Back to admin" in the bar at the top. Whatever you do there is done as them.</p>
+    <div class="admin-table-wrap">
+    <table class="admin-table">
+        <tr><th>Name</th><th>Role</th><th></th></tr>
+        <tr><td><i>Host</i><br><small class="admin-dim">{{ lobby.host_uuid[:8] }}</small></td><td></td>
+            <td><a class="small-btn admin-link" href="{{ url_for('admin.view_as', lobby_id=lobby.id, who='host') }}">View as</a></td></tr>
+        {% for p in people %}
+        <tr{% if p.waiting %} class="admin-waiting"{% endif %}>
+            <td>{{ p.name }}{% if p.waiting %} <small>(game waits for them)</small>{% endif %}
+                <br><small class="admin-dim">{{ p.uuid[:8] }}{% if not p.in_lobby %} · left the lobby{% endif %}{% if not p.role %} · not in the game{% endif %}</small></td>
+            <td>{{ p.role or '' }}</td>
+            <td><a class="small-btn admin-link" href="{{ url_for('admin.view_as', lobby_id=lobby.id, who=p.uuid) }}">View as</a>
+                {% if p.in_lobby %}
+                {% call post('remove', 'Remove', danger=True, confirm='Remove ' ~ p.name ~ ' from the lobby? (They stay in a game already dealt.)') %}<input type="hidden" name="uuid" value="{{ p.uuid }}">{% endcall %}
+                {% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+
+    {% if game.controller %}
+    <h2>Game</h2>
+    {% if waiting %}<p>Waiting for: {{ waiting|join(', ') }}</p>{% endif %}
+    <div class="admin-actions">
+        {% if undo %}{{ post('undo', 'Undo: ' ~ undo, confirm='Undo ' ~ undo ~ '?') }}{% endif %}
+        {{ post('skip', 'Skip pause') }}
+        {% if host_vote_open %}{{ post('end-vote', 'Cancel host vote') }}{% endif %}
+    </div>
+    <details>
+        <summary>Log ({{ log|length }})</summary>
+        <ol class="admin-log">{% for line in log %}<li>{{ line }}</li>{% endfor %}</ol>
+    </details>
+    <details>
+        <summary>Full state (secrets included)</summary>
+        <pre class="admin-pre">{{ snapshot }}</pre>
+    </details>
+    {% else %}
+    <p class="admin-dim">No game started yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

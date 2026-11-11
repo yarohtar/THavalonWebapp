@@ -1,0 +1,42 @@
+{% extends "template.html" %}
+{% block title %}Admin{% endblock %}
+{% block body %}
+<div class="card admin">
+    <h1>All lobbies</h1>
+    {% if closed %}<p class="admin-msg">Closed: {{ closed }}</p>{% endif %}
+    <p class="setting-note">Idle = time since anything changed. Lobbies close by themselves
+        after {{ max_idle }} idle. Most idle first.</p>
+    {% if rows %}
+    <div class="admin-table-wrap">
+    <table class="admin-table">
+        <tr><th>Lobby</th><th>Idle</th><th>Players</th><th>Game</th><th></th></tr>
+        {% for r in rows %}
+        <tr>
+            <td><a href="{{ url_for('admin.lobby_page', lobby_id=r.lobby.id) }}"><b>{{ r.lobby.name }}</b></a>
+                <br><small class="admin-dim">{{ r.lobby.id }}</small></td>
+            <td>{{ r.ago }}</td>
+            <td>{{ r.players }}{% if r.in_game %} <small class="admin-dim">({{ r.in_game }} in game)</small>{% endif %}</td>
+            <td>{% if r.phase %}{{ r.phase }}{% if r.phase != 'game_over' %}, round {{ r.round }}{% endif %}{% else %}<span class="admin-dim">not started</span>{% endif %}</td>
+            <td>
+                <form method="POST" action="{{ url_for('admin.close', lobby_id=r.lobby.id) }}"
+                      onsubmit="return confirm('Close {{ r.lobby.name|e }}? Everyone in it loses the game.')">
+                    <input type="hidden" name="csrf" value="{{ csrf }}">
+                    <button type="submit" class="small-btn admin-danger">Close</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+    <form method="POST" action="{{ url_for('admin.close_idle') }}" class="admin-inline"
+          onsubmit="return confirm('Close every lobby idle at least this long?')">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        Close every lobby idle for at least
+        <input type="number" name="hours" value="2" min="0" step="0.5" class="admin-num"> hours
+        <button type="submit" class="small-btn admin-danger">Close idle</button>
+    </form>
+    {% else %}
+    <p>No lobbies are open.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -590,7 +590,7 @@ def host_form(page_html):
 
 def lobby_with_players(web, n):
     host = web.app.test_client()
-    host.get("/host")
+    host.post("/host/create", data={"game_name": "Camelot"})
     lobby = web.LOBBIES.active()[0]
     clients = {}
     for i in range(n):
