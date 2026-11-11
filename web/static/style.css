@@ -1,95 +1,79 @@
-/* ====== Google Font Import (Medieval + Readable) ====== */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Crimson+Text:wght@400;600&display=swap');
+/* Fonts (Cinzel for headings and buttons, Crimson Text for text) are
+   loaded by <link> tags in template.html. */
 
-/* ====== Base Reset ====== */
+/* ====== Palette ====== */
+:root {
+    --gold: #caa84a;            /* headings, borders, accents */
+    --gold-dark: #a3842f;       /* lower end of gold gradients */
+    --gold-light: #e6c36f;      /* links, small headings */
+    --gold-bright: #ffd86b;     /* highlights: selected, changed, attention */
+    --gold-line: rgba(202, 168, 74, 0.4);   /* input and card borders */
+    --gold-fill: #2c2416;       /* background of a selected chip */
+    --ink: #14121c;             /* page background; text on gold */
+    --text: #f4f1e6;
+    --gold-button: linear-gradient(145deg, var(--gold), var(--gold-dark));
+
+    /* Team colours: muted to sit with the gold palette */
+    --team-good: #9fb9c9;       /* pale steel blue */
+    --team-evil: #c98a76;       /* faded madder red */
+    --team-neutral: #b3a6c6;    /* dusty lavender */
+    --team-either: #c3a9b0;     /* between steel blue and madder: Gareth */
+
+    accent-color: var(--gold); /* native checkboxes and radios */
+}
+
+/* ====== Base ====== */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
-html, body {
-    /*height: 100%;*/
-    margin: 0;
-    padding: 0;
+
+/* `hidden` always hides, whatever display a class gives the element. */
+[hidden] {
+    display: none !important;
 }
 
 html {
     font-size: 17px;
-  &::after {
+}
+/* The background stays put while the page scrolls (a fixed layer behind it). */
+html::after {
     content: "";
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
+    inset: 0;
+    background-image: radial-gradient(circle at top, #2f2b3a 0%, var(--ink) 70%);
     z-index: -1;
-  }
 }
 
-/* ====== Page Background ====== */
 body {
     font-family: 'Crimson Text', serif;
-    background: radial-gradient(circle at top, #2f2b3a 0%, #14121c 70%);
-    color: #f4f1e6;
-    /*min-height: 100vh;*/
-    /*padding: 2rem 1.2rem;*/
+    background: radial-gradient(circle at top, #2f2b3a 0%, var(--ink) 70%);
+    color: var(--text);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
-/* ====== Main Content Container ====== */
+/* Every top-level block is a full-width, centred column. Fixed elements
+   (tab bar, sheets, toasts, the dev/admin bar) undo this below. */
 body > * {
-    /*max-width: 520px;           /* Mobile-friendly width */
     width: 100%;
     padding: 2rem 1.5rem;
-    text-align: center;         /* Center everything by default */
+    text-align: center;
 }
 
 .card {
+    width: 100%;
+    padding: 20px;
     background: rgba(0, 0, 0, 0.35);
     border-radius: 16px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(6px);
-    /*margin-bottom: 2rem;*/
-
-    flex: 0 0 100%;
-    width: 100%;
-
-    scroll-snap-align: start;
-
-    /*box-sizing: border-box;*/
-    padding: 20px;
 }
 
-.carousel-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.carousel {
-    --gap: 1rem;
-    display: flex;
-    overflow-x: auto;
-    border-radius: 16px;
-    gap: var(--gap);
-
-    scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
-
-    /* Hide scrollbar */
-    scrollbar-width: none;
-
-    /*background: transparent;*/
-}
-
-.carousel::-webkit-scrollbar {
-    display: none;
-}
-
-
+/* Role card: hidden until tapped (so nobody reads it over a shoulder). */
 #role-info {
     opacity: 0;
     transition: none;
@@ -115,17 +99,12 @@ body > * {
    Gold, visited or not (no browser blue/purple). More specific rules
    (footer, dev bar, term links) override this. */
 a {
-    color: #e6c36f;
+    color: var(--gold-light);
     text-underline-offset: 0.15em;
     transition: color 0.2s ease;
 }
 a:hover {
-    color: #ffd86b;
-}
-
-/* Native checkboxes / radios / range in the gold palette */
-:root {
-    accent-color: #caa84a;
+    color: var(--gold-bright);
 }
 
 /* A link that looks like the main button */
@@ -138,12 +117,12 @@ a.button-link {
     font-size: 1.05rem;
     letter-spacing: 1px;
     text-decoration: none;
-    background: linear-gradient(145deg, #caa84a, #a3842f);
-    color: #14121c;
+    background: var(--gold-button);
+    color: var(--ink);
 }
 a.button-link.secondary {
     background: transparent;
-    color: #e6c36f;
+    color: var(--gold-light);
     border: 1px solid rgba(202, 168, 74, 0.5);
 }
 
@@ -158,19 +137,19 @@ h1 {
     font-size: 2.0rem;
     text-transform: uppercase;
     margin-top: 1.8rem;
-    color: #e6c36f;             /* Gold accent */
+    color: var(--gold-light);
 }
 
 h2 {
     font-size: 1.7rem;
     margin-top: 1.5rem;
-    color: #caa84a;
+    color: var(--gold);
 }
 
 h3 {
     font-size: 1.5rem;
     margin-top: 1.2rem;
-    color: #caa84a;
+    color: var(--gold);
 }
 
 /* ====== Paragraphs ====== */
@@ -217,25 +196,14 @@ li ol > li {
 }
 li ul > li::marker,
 li ol > li::marker {
-    color: #caa84a;
-}
-
-/* ====== Role Highlighting (Optional Classes) ====== */
-.role-good {
-    color: #7fd4ff;
-    font-weight: 600;
-}
-
-.role-evil {
-    color: #ff6b6b;
-    font-weight: 600;
+    color: var(--gold);
 }
 
 /* ====== Subtle Divider ====== */
 hr {
     border: none;
     height: 1px;
-    background: linear-gradient(to right, transparent, #caa84a, transparent);
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
     margin: 1.5rem 0;
 }
 
@@ -273,13 +241,13 @@ input[type="text"] {
     font-size: 1rem;
     font-family: 'Crimson Text', serif;
 
-    color: #f4f1e6;
+    color: var(--text);
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(202, 168, 74, 0.4);
+    border: 1px solid var(--gold-line);
     border-radius: 10px;
 
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 /* Placeholder styling */
@@ -293,7 +261,7 @@ input[type="number"]:focus,
 select:focus,
 textarea:focus {
     outline: none;
-    border-color: #caa84a;
+    border-color: var(--gold);
     box-shadow: 0 0 0 3px rgba(202, 168, 74, 0.2);
 }
 input[type="text"]:focus,
@@ -309,21 +277,24 @@ button {
     font-family: 'Cinzel', serif;
     letter-spacing: 1px;
 
-    background: linear-gradient(145deg, #caa84a, #a3842f);
-    color: #14121c;
+    background: var(--gold-button);
+    color: var(--ink);
 
     border: none;
     border-radius: 10px;
 
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     width: 100%;   /* full-width on mobile */
 }
 
-/* Hover (desktop only effectively) */
-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+/* Hover lift only where there is real hover: on phones :hover sticks
+   after a tap and would leave the button lifted. */
+@media (hover: hover) {
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
 }
 
 /* Active press effect */
@@ -339,18 +310,15 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Each player row */
+/* Host page: players in the lobby */
 .player-list li {
-    display: list-item;
-    align-items: center;
-    justify-content: space-between;
     margin-top: 0rem;
     list-style-type: "◆";
     background: none;
     opacity: 0.85;
 }
 .player-list li::marker {
-    color: #caa84a;
+    color: var(--gold);
 }
 /* Remove default form spacing inside list row */
 .player-list li form {
@@ -372,62 +340,26 @@ button:disabled {
     font-size: 1rem;
     font-weight: bold;
 
-    background: rgba(255, 80, 80, 0);
+    background: transparent;
     color: #ff6b6b;
 
-    border: 1px solid rgba(255, 80, 80, 0);
+    border: 1px solid transparent;
     border-radius: 50%;
 
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: transform 0.15s ease;
 }
-
-/* Hover */
-.remove-btn:hover {
-    background: rgba(255, 80, 80, 0);
-    transform: scale(1.05);
+@media (hover: hover) {
+    .remove-btn:hover {
+        transform: scale(1.05);
+        box-shadow: none;
+    }
 }
-
-/* Press */
 .remove-btn:active {
     transform: scale(0.95);
 }
 
-/* Container for the image, ensures spacing from text */
-.role-image-container {
-    margin-top: 2rem;          /* space above image */
-    text-align: center;         /* center horizontally */
-}
-
-/* The image itself */
-.role-image {
-    max-width: 100%;            /* responsive: never wider than card */
-    height: auto;               /* maintain aspect ratio */
-    border-radius: 12px;        /* rounded corners */
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); /* soft shadow */
-    border: 2px solid rgba(202, 168, 74, 0.3); /* optional gold accent */
-    transition: transform 0.3s ease;
-}
-
-/* Optional: hover zoom effect for desktop */
-.role-image:hover {
-    transform: scale(1.03);
-}
-
-.role-list {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0;
-}
-
-/* hide default checkbox */
-.role-list input[type="checkbox"] {
-    display: none;
-}
-
-/* card appearance */
+/* Host page: a role to select (a hidden checkbox before it) */
 .role-card {
   width: 220px;
   padding: 12px 16px;
@@ -443,21 +375,26 @@ button:disabled {
 
   cursor: pointer;
 
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+@media (hover: hover) {
+    .role-card:hover {
+      border-color: var(--gold);
+      transform: translateY(-2px);
+    }
 }
 
-/* hover effect */
-.role-card:hover {
-  border-color: #c9a44c;
-  transform: translateY(-2px);
+/* Selected chips and toggles (a checked input just before them) */
+.role-group-head input[type="checkbox"]:checked + .role-card,
+.quest-box input[type="radio"]:checked + .df-toggle,
+.pick input:checked + span,
+.count-chip input:checked + span {
+    border-color: var(--gold);
+    background: var(--gold-fill);
+    color: var(--gold-bright);
 }
-
-/* checked state */
-.role-list input[type="checkbox"]:checked + .role-card {
-  background: #2c2416;
-  border-color: #c9a44c;
-  color: #ffd86b;
-  box-shadow: 0 0 10px rgba(201,164,76,0.4);
+.role-group-head input[type="checkbox"]:checked + .role-card {
+    box-shadow: 0 0 10px rgba(201, 164, 76, 0.4);
 }
 
 footer {
@@ -478,14 +415,6 @@ footer a {
 
 footer a:hover {
     color: white;
-}
-
-/* ====== Team colours: muted to sit with the gold palette ====== */
-:root {
-    --team-good: #9fb9c9;     /* pale steel blue */
-    --team-evil: #c98a76;     /* faded madder red */
-    --team-neutral: #b3a6c6;  /* dusty lavender */
-    --team-either: #c3a9b0;   /* between steel blue and madder: Gareth */
 }
 
 /* ====== Rules pages ====== */
@@ -523,13 +452,13 @@ footer a:hover {
     color: rgba(244, 241, 230, 0.7);
     text-decoration: none;
 }
-.rules-meta {
+.rules .rules-meta {
     text-align: center;
-    margin-bottom: 1rem !important;
+    margin-bottom: 1rem;
 }
 .rules-note {
     opacity: 0.7;
-    font-size: 0.95rem !important;
+    font-size: 0.95rem;
     margin-top: 1rem;
 }
 .badge {
@@ -539,7 +468,7 @@ footer a:hover {
     border-radius: 999px;
     font-size: 0.85rem;
     border: 1px solid rgba(202, 168, 74, 0.5);
-    color: #e6c36f;
+    color: var(--gold-light);
 }
 .badge-good    { border-color: var(--team-good);    color: var(--team-good); }
 .badge-evil    { border-color: var(--team-evil);    color: var(--team-evil); }
@@ -561,7 +490,7 @@ ol.steps > li::before {
     left: 0.8rem;
     top: 0.75rem;
     font-family: 'Cinzel', serif;
-    color: #caa84a;
+    color: var(--gold);
 }
 
 /* Compact tables that fit a phone */
@@ -581,7 +510,7 @@ ol.steps > li::before {
 .rules th, .role-rules th {
     font-family: 'Cinzel', serif;
     font-size: 0.85rem;
-    color: #caa84a;
+    color: var(--gold);
     font-weight: 600;
 }
 
@@ -608,38 +537,39 @@ ul.chips > li > a.term {
 
 /* ====== Rule term links ====== */
 a.term {
-    color: #e6c36f;
+    color: var(--gold-light);
     text-decoration: underline dotted;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
     font-weight: 600;
     -webkit-tap-highlight-color: rgba(202, 168, 74, 0.25);
 }
-.term-good    { color: var(--team-good) !important; }
-.term-evil    { color: var(--team-evil) !important; }
-.term-neutral { color: var(--team-neutral) !important; }
-.term-either  { color: var(--team-either) !important; }
+/* Team colours, on links (beating a.term's gold) and on plain text */
+.term-good, a.term.term-good       { color: var(--team-good); }
+.term-evil, a.term.term-evil       { color: var(--team-evil); }
+.term-neutral, a.term.term-neutral { color: var(--team-neutral); }
+.term-either, a.term.term-either   { color: var(--team-either); }
 
 /* On role cards everything stays gold, so nobody can read your team from
    coloured text across the room. */
 #role-card a.term {
-    color: #e6c36f !important;
+    color: var(--gold-light);
 }
 .card-rules-link {
     margin-top: 1.2rem;
     text-align: center;
 }
 .card-rules-link a {
-    color: #e6c36f;
+    color: var(--gold-light);
     font-family: 'Cinzel', serif;
     font-size: 0.95rem;
 }
 
 /* Host page: game name */
 .rename-form {
-    flex-direction: row !important;
-    gap: 0.5rem !important;
-    margin-top: 0 !important;
+    flex-direction: row;
+    gap: 0.5rem;
+    margin-top: 0;
 }
 .rename-form input[type="text"] {
     flex: 1;
@@ -662,15 +592,12 @@ body > .term-sheet {
     justify-content: center;
     background: rgba(0, 0, 0, 0.45);
 }
-body > .term-sheet[hidden] {
-    display: none;
-}
 .term-sheet-panel {
     width: 100%;
     max-width: 600px;
     padding: 1.2rem 1.4rem calc(1.4rem + env(safe-area-inset-bottom));
     background: #221e2c;
-    border-top: 2px solid #caa84a;
+    border-top: 2px solid var(--gold);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.6);
     text-align: left;
@@ -687,8 +614,8 @@ body > .term-sheet[hidden] {
     border-radius: 10px;
     font-family: 'Cinzel', serif;
     text-decoration: none;
-    background: linear-gradient(145deg, #caa84a, #a3842f);
-    color: #14121c;
+    background: var(--gold-button);
+    color: var(--ink);
 }
 @keyframes sheet-up {
     from { transform: translateY(100%); }
@@ -707,9 +634,9 @@ select {
     padding: 0.8rem 1rem;
     font-size: 1rem;
     font-family: 'Crimson Text', serif;
-    color: #f4f1e6;
+    color: var(--text);
     background: #2a2635;
-    border: 1px solid rgba(202, 168, 74, 0.4);
+    border: 1px solid var(--gold-line);
     border-radius: 10px;
 }
 label.setting-check {
@@ -720,7 +647,7 @@ label.setting-check {
 }
 label.setting-check input { width: auto; margin: 0; }
 .setting-note, .game-summary {
-    font-size: 0.95rem !important;
+    font-size: 0.95rem;
     opacity: 0.75;
 }
 .form-error {
@@ -751,11 +678,12 @@ label.setting-check input { width: auto; margin: 0; }
     text-align: center;
     font-size: 1.2rem;
     font-family: 'Crimson Text', serif;
-    color: #f4f1e6;
+    color: var(--text);
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(202, 168, 74, 0.4);
+    border: 1px solid var(--gold-line);
     border-radius: 10px;
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 .quest-box input[type="number"]::-webkit-inner-spin-button,
 .quest-box input[type="number"]::-webkit-outer-spin-button {
@@ -775,11 +703,6 @@ label.setting-check input { width: auto; margin: 0; }
     color: #666;
     cursor: pointer;
 }
-.quest-box input[type="radio"]:checked + .df-toggle {
-    border-color: #c9a44c;
-    color: #ffd86b;
-    background: #2c2416;
-}
 .setting-row {
     display: flex;
     justify-content: space-between;
@@ -793,7 +716,7 @@ button.link-btn {
     padding: 0.3rem 0.6rem;
     font-size: 0.9rem;
     background: none;
-    color: #e6c36f;
+    color: var(--gold-light);
     text-decoration: underline;
 }
 .game-list > li {
@@ -807,9 +730,6 @@ button.link-btn {
 /* ====== Player page: Game / Role tabs ====== */
 body:has(> nav.tab-bar) {
     padding-bottom: 5rem;              /* room for the tab bar */
-}
-.tab-page[hidden] {
-    display: none;
 }
 body > nav.tab-bar {
     position: fixed;
@@ -829,18 +749,18 @@ body > nav.tab-bar {
     flex: 1;
     padding: 0.8rem 0.5rem;
     background: transparent;
-    color: #e6c36f;
+    color: var(--gold-light);
     border: 1px solid rgba(202, 168, 74, 0.35);
 }
 .tab-bar button[aria-selected="true"] {
-    background: linear-gradient(145deg, #caa84a, #a3842f);
-    color: #14121c;
+    background: var(--gold-button);
+    color: var(--ink);
 }
 .tab-bar button:hover { transform: none; box-shadow: none; }
 /* A vote is waiting for this player. */
 .tab-bar button.attention:not([aria-selected="true"]) {
-    border-color: #ffd86b;
-    color: #ffd86b;
+    border-color: var(--gold-bright);
+    color: var(--gold-bright);
     animation: tab-attention 1.2s ease-in-out infinite alternate;
 }
 @keyframes tab-attention {
@@ -878,26 +798,26 @@ body > nav.tab-bar {
     color: rgba(244, 241, 230, 0.75);
 }
 .quest-token.current {
-    border-color: #e6c36f;
+    border-color: var(--gold-light);
     box-shadow: 0 0 10px rgba(230, 195, 111, 0.45);
-    color: #e6c36f;
+    color: var(--gold-light);
 }
 .quest-token.success {
     background: radial-gradient(circle at 35% 30%, #b9d2df, var(--team-good) 55%, #5d7686);
     border-color: var(--team-good);
-    color: #14121c;
+    color: var(--ink);
 }
 .quest-token.fail {
     background: radial-gradient(circle at 35% 30%, #e0ab9a, var(--team-evil) 55%, #7d4a3d);
     border-color: var(--team-evil);
-    color: #14121c;
+    color: var(--ink);
 }
 .quest-df {
     position: absolute;
     top: -0.35rem;
     right: -0.2rem;
     font-size: 0.85rem;
-    color: #ffd86b;
+    color: var(--gold-bright);
 }
 .proposal-track {
     display: flex;
@@ -917,7 +837,7 @@ body > nav.tab-bar {
     color: rgba(244, 241, 230, 0.6);
 }
 .proposal-dot.used { background: rgba(202, 168, 74, 0.25); }
-.proposal-dot.now { background: #caa84a; color: #14121c; font-weight: 700; }
+.proposal-dot.now { background: var(--gold); color: var(--ink); font-weight: 700; }
 
 .game-section {
     margin-top: 1rem;
@@ -928,18 +848,18 @@ body > nav.tab-bar {
 .game-section h4 {
     font-family: 'Cinzel', serif;
     font-size: 0.95rem;
-    color: #caa84a;
+    color: var(--gold);
     margin-bottom: 0.3rem;
 }
 .game-section p { margin-bottom: 0.4rem; }
 .game-section .name { font-weight: 600; }
-.hint { font-size: 0.95rem !important; opacity: 0.7; }
+.hint { font-size: 0.95rem; opacity: 0.7; }
 .lady-holder { text-align: center; font-size: 0.95rem; margin: 0.3rem 0 0; }
 .lady-holder .name { font-weight: 600; }
 .result-success { color: var(--team-good); font-weight: 700; }
 .result-fail { color: var(--team-evil); font-weight: 700; }
-.winner-good { color: var(--team-good) !important; }
-.winner-evil { color: var(--team-evil) !important; }
+.winner-good { color: var(--team-good); }
+.winner-evil { color: var(--team-evil); }
 
 ul.detail-list, ol.proposal-list { margin: 0.3rem 0; }
 ul.detail-list > li, ol.proposal-list > li {
@@ -963,7 +883,7 @@ ul.detail-list > li, ol.proposal-list > li {
 }
 .card-success { color: var(--team-good); }
 .card-fail { color: var(--team-evil); }
-.card-reversal { color: #e6c36f; }
+.card-reversal { color: var(--gold-light); }
 .card-questing-beast-was-here { color: var(--team-neutral); }
 
 /* Actions */
@@ -982,20 +902,15 @@ ul.detail-list > li, ol.proposal-list > li {
     cursor: pointer;
     user-select: none;
 }
-.pick input:checked + span {
-    border-color: #c9a44c;
-    background: #2c2416;
-    color: #ffd86b;
-}
 .vote-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
 .vote-buttons.two { flex-direction: row; }
 .vote-buttons.two button { flex: 1; }
-.vote-buttons button.chosen { outline: 3px solid #ffd86b; outline-offset: 2px; }
+.vote-buttons button.chosen { outline: 3px solid var(--gold-bright); outline-offset: 2px; }
 button.approve { background: linear-gradient(145deg, #b9d2df, #7f9aab); }
 button.reject { background: linear-gradient(145deg, #e0ab9a, #a76654); }
 button.secondary {
     background: transparent;
-    color: #e6c36f;
+    color: var(--gold-light);
     border: 1px solid rgba(202, 168, 74, 0.5);
 }
 .card-picker summary {
@@ -1003,25 +918,25 @@ button.secondary {
     text-align: center;
     border-radius: 10px;
     font-family: 'Cinzel', serif;
-    background: linear-gradient(145deg, #caa84a, #a3842f);
-    color: #14121c;
+    background: var(--gold-button);
+    color: var(--ink);
     cursor: pointer;
     list-style: none;
 }
 .card-picker summary::-webkit-details-marker { display: none; }
-.card-buttons { flex-direction: row !important; flex-wrap: wrap; }
+.card-buttons { flex-direction: row; flex-wrap: wrap; }
 .card-buttons button {
     flex: 1;
     background: #1f1d27;
     border: 1px solid #555;
 }
 .card-buttons .card-token { border: none; font-size: 1.05rem; }
-.this-game summary { cursor: pointer; color: #caa84a; }
+.this-game summary { cursor: pointer; color: var(--gold); }
 .ability {
     margin-top: 1rem;
     padding: 0.8rem;
     border-radius: 10px;
-    border: 1px solid rgba(202, 168, 74, 0.4);
+    border: 1px solid var(--gold-line);
     text-align: left;
 }
 .ability h3 { font-size: 1.15rem; margin: 0 0 0.3rem; }
@@ -1037,7 +952,7 @@ button.secondary {
 .vote-box .name { font-weight: 600; }
 .vote-box form { margin-top: 0.6rem; gap: 0.6rem; }
 button.goto-vote { width: 100%; margin-top: 0.4rem; }
-.host-vote-start summary { cursor: pointer; color: #caa84a; }
+.host-vote-start summary { cursor: pointer; color: var(--gold); }
 .host-vote-start h4 { margin-top: 0.8rem; }
 .host-vote .vote-buttons form { flex: 1; margin: 0; }
 .host-vote .vote-buttons form button { width: 100%; }
@@ -1053,7 +968,7 @@ button.goto-vote { width: 100%; margin-top: 0.4rem; }
     border-radius: 10px;
     background: #3a1f1a;
     border: 1px solid var(--team-evil);
-    color: #f4f1e6;
+    color: var(--text);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s, transform 0.2s;
@@ -1061,7 +976,7 @@ button.goto-vote { width: 100%; margin-top: 0.4rem; }
 .game-toast.show { opacity: 1; transform: translate(-50%, 0); }
 body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 
-/* ====== Dev site only (templates/dev) ====== */
+/* ====== Dev site only (web/templates/dev) ====== */
 .dev-bar {
     max-width: none;
     margin: 0 0 1rem;
@@ -1074,12 +989,12 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .dev-bar a { color: #e0b0ff; }
 .dev-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
 .dev-bar-row + .dev-bar-row { margin-top: 0.4rem; }
-.dev-tag {
+.dev-bar .dev-tag {
     font-weight: 700;
     padding: 0.05rem 0.4rem;
     border-radius: 4px;
     background: #c77dff;
-    color: #14121c !important;
+    color: var(--ink);
     text-decoration: none;
 }
 .dev-push { margin-left: auto; }
@@ -1093,8 +1008,8 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     line-height: 1.2;
 }
 .dev-seat small { opacity: 0.7; }
-.dev-seat.me { background: #c77dff; color: #14121c !important; }
-.dev-seat.waiting { border-color: #ffd86b; box-shadow: 0 0 0 1px #ffd86b; }
+.dev-bar .dev-seat.me { background: #c77dff; color: var(--ink); }
+.dev-seat.waiting { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright); }
 .dev-about { margin: 0.4rem 0 0; opacity: 0.8; }
 .dev-list { text-align: left; }
 .dev-list li { margin-bottom: 0.6rem; }
@@ -1104,15 +1019,14 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .dev-feedback form { text-align: left; }
 .dev-feedback textarea {
     width: 100%;
-    box-sizing: border-box;
     margin: 0.4rem 0 0.8rem;
     padding: 0.6rem;
     font: inherit;
     border-radius: 10px;
-    border: 1px solid rgba(202, 168, 74, 0.4);
+    border: 1px solid var(--gold-line);
     background: rgba(255, 255, 255, 0.08);
     color: inherit;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .dev-feedback textarea::placeholder {
     color: rgba(244, 241, 230, 0.5);
@@ -1120,13 +1034,13 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 /* Host page: closing the lobby */
 .close-lobby-form { margin: 0.4rem 0 0.8rem; }
 
-/* ====== Admin pages (templates/admin) ====== */
+/* ====== Admin pages (web/templates/admin) ====== */
 .admin-bar { background: #3a1410; border-bottom-color: #ff8a65; }
 .admin-bar a { color: #ffc4a8; }
-.admin-tag { background: #ff8a65; }
+.admin-bar .admin-tag { background: #ff8a65; }
 .admin-bar .dev-btn { border-color: #ff8a65; }
 .admin-bar .dev-seat { border-color: rgba(255, 138, 101, 0.5); }
-.admin-bar .dev-seat.me { background: #ff8a65; }
+.admin-bar .dev-seat.me { background: #ff8a65; color: var(--ink); }
 .admin { text-align: left; }
 .admin-table-wrap { overflow-x: auto; }
 .admin-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
@@ -1192,12 +1106,6 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     width: auto;
     padding: 0.6rem 0.8rem;
 }
-.role-group-head input[type="checkbox"]:checked + .role-card {
-    background: #2c2416;
-    border-color: #c9a44c;
-    color: #ffd86b;
-    box-shadow: 0 0 10px rgba(201, 164, 76, 0.4);
-}
 .role-availability {
     display: block;
     font-size: 0.8rem;
@@ -1208,7 +1116,7 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .rule-editor > summary {
     margin-top: 0.4rem;
     cursor: pointer;
-    color: #caa84a;
+    color: var(--gold);
     font-size: 0.95rem;
 }
 .rule-editor h4 { margin: 0.7rem 0 0.2rem; font-size: 1rem; }
@@ -1217,8 +1125,8 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     margin-left: 0.3rem;
     padding: 0 0.45rem;
     border-radius: 999px;
-    background: #ffd86b;
-    color: #14121c;
+    background: var(--gold-bright);
+    color: var(--ink);
     font-size: 0.75rem;
     vertical-align: middle;
 }
@@ -1230,7 +1138,7 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     padding: 0.45rem 0 0.45rem 0.6rem;
     border-left: 3px solid transparent;
 }
-.rule-setting.changed { border-left-color: #ffd86b; }
+.rule-setting.changed { border-left-color: var(--gold-bright); }
 .rule-check {
     display: flex;
     align-items: center;
@@ -1253,11 +1161,6 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     color: #888;
     cursor: pointer;
 }
-.count-chip input:checked + span {
-    border-color: #c9a44c;
-    color: #ffd86b;
-    background: #2c2416;
-}
 .rule-editor .link-btn { margin-top: 0.4rem; }
 
 /* "In your current game" notes on rules pages and the Role tab */
@@ -1269,14 +1172,14 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     background: rgba(255, 216, 107, 0.07);
     text-align: left;
 }
-.game-rule-notes h4 { margin: 0 0 0.3rem; font-size: 1rem; color: #ffd86b; }
+.game-rule-notes h4 { margin: 0 0 0.3rem; font-size: 1rem; color: var(--gold-bright); }
 .game-rule-notes ul { margin: 0; }
 
 /* Role tab: the role's rules as they are in this game. */
 .role-rules h2.role-rules-title {
     margin: 0.4rem 0 0.4rem;
     font-size: 1.15rem;
-    color: #ffd86b;
+    color: var(--gold-bright);
 }
 /* A rule the host changed for this game: tagged "changed". */
 .changed-tag, .rule-changed::after {
@@ -1285,7 +1188,7 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
     padding: 0 0.4rem;
     border-radius: 6px;
     border: 1px solid rgba(255, 216, 107, 0.6);
-    color: #ffd86b;
+    color: var(--gold-bright);
     font-size: 0.75rem;
     line-height: 1.4;
     vertical-align: 0.1em;
