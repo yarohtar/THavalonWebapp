@@ -8,7 +8,7 @@
     <ul class="game-list">
         {% for lobby in lobbies %}
         <li>
-            <form method="POST" action="{{ url_for('join_lobby', lobby_id = lobby.id) }}">
+            <form method="POST" action="{{ url_for('player.join_lobby', lobby_id = lobby.id) }}">
                 <button type="submit">
                     {{ lobby.name }} ({{ lobby|length }} players)
                     {% if current and current.id == lobby.id %} · current{% endif %}
@@ -20,7 +20,7 @@
     {% else %}
     <p>Nobody is hosting a game yet. This page will refresh when someone does.</p>
     {% endif %}
-    <p><a href="{{ url_for('lobby_api') }}">Host a game</a> · <a href="{{ url_for('register_api') }}">Change your name</a></p>
+    <p><a href="{{ url_for('host.page') }}">Host a game</a> · <a href="{{ url_for('player.register') }}">Change your name</a></p>
 </div>
 {% endblock %}
 {% block scripts %}

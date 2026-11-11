@@ -136,3 +136,16 @@ def play_randomly(state, rng, max_steps=3000):
         else:
             ctl.act(p, action)
     raise AssertionError("game did not finish")
+
+
+def web_site():
+    """The web app's pieces tests use, with an empty store."""
+    from types import SimpleNamespace
+    from web import games, host_settings, lobbies
+    from web.app import app
+    lobbies.LOBBIES.store.redis.flushdb()
+    app.config.update(TESTING=True)
+    return SimpleNamespace(app=app, LOBBIES=lobbies.LOBBIES, GAME_NAMES=lobbies.GAME_NAMES,
+                           Lobbies=lobbies.Lobbies, AvalonGame=games.AvalonGame,
+                           GameSettings=games.GameSettings,
+                           ruleset_from_form=host_settings.ruleset_from_form)

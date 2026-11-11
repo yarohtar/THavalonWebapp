@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from markupsafe import Markup
 
-from rule_notes import _and, expand, format_counts
+from web.rules.notes import _and, expand, format_counts
 from thavalon.assassination import assassination_help
 from thavalon.ruleset import ASSASSINATION_TARGETS, COUNTS, DEFAULT, RuleSet, SETTINGS
 

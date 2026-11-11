@@ -3,7 +3,7 @@
 {% block body %}
 {% from "_game_rules.html" import team_sizes, sides %}
 {% if host_panel %}
-<div class="card game-card" data-panels-url="{{ url_for('host_game_panels') }}">
+<div class="card game-card" data-panels-url="{{ url_for('host.game_panels') }}">
     <h2>Game in progress</h2>
     <div data-panel="host">{{ host_panel|safe }}</div>
 </div>
@@ -24,12 +24,12 @@
     {% endif %}
     {% endif %}
     <h1>{{ lobby.name }}</h1>
-    <form method="POST" action="{{ url_for('lobby_api') }}" class="rename-form">
+    <form method="POST" action="{{ url_for('host.page') }}" class="rename-form">
         <input type="text" name="game_name" maxlength="40" value="{{ lobby.name }}" aria-label="Game name">
         <button type="submit" class="small-btn">Rename</button>
     </form>
     {% if rename_error %}<p class="form-error">{{ rename_error }}</p>{% endif %}
-    <form method="POST" action="{{ url_for('host_close') }}" class="close-lobby-form"
+    <form method="POST" action="{{ url_for('host.close') }}" class="close-lobby-form"
           onsubmit="return confirm('Close {{ lobby.name|e }}? Everyone in it loses the game.')">
         <button type="submit" class="small-btn">Close lobby</button>
     </form>
@@ -43,7 +43,7 @@
             <div class="player-row">
                 {{ players[player] }}
             <form method="POST"
-                  action="{{ url_for('lobby_api') }}">
+                  action="{{ url_for('host.page') }}">
 
                 <input type="hidden" name="player" value="{{ player }}">
                 <button type="submit" class="remove-btn">❌</button>
@@ -59,10 +59,10 @@
 
 
     <p class="form-error" id="players-changed" hidden>
-        Players have changed. <a href="{{ url_for('lobby_api') }}">Refresh</a> to update the list and team sizes.
+        Players have changed. <a href="{{ url_for('host.page') }}">Refresh</a> to update the list and team sizes.
     </p>
     <form method="POST"
-          action="{{ url_for('restart') }}"
+          action="{{ url_for('host.restart') }}"
           id="start-form">
         <input type="hidden" name="rules_form" value="1">
         {% macro setting_input(key, label=None) %}
@@ -146,7 +146,7 @@
         </div>
         <p class="setting-row">
             <button type="button" class="link-btn" id="reset-all-rules">Reset all rules to default</button>
-            <button type="submit" class="link-btn" formaction="{{ url_for('host_save') }}">Save without starting</button>
+            <button type="submit" class="link-btn" formaction="{{ url_for('host.save') }}">Save without starting</button>
         </p>
         {% if saved %}<p class="setting-note">Saved. These roles and rules are remembered for next time.</p>{% endif %}
 

@@ -30,5 +30,5 @@
     <p>The host changed these rules:</p>
     <ul>{% for n in changes %}<li>{{ expand_note(n.text) }}</li>{% endfor %}</ul>
     {% endif %}
-    <p><a href="{{ url_for('rules_page') }}">All rules →</a></p>
+    <p><a href="{{ url_for('rules.page') }}">All rules →</a></p>
 </details>

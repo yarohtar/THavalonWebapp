@@ -1,8 +1,8 @@
-"""Games stored before the engine became the thavalon package still load
-(store.MOVED_MODULES) and play on."""
+"""Games stored before the engine and the web app became packages still load
+(web.store.MOVED) and play on."""
 import os
 
-import store
+from web import store
 from helpers import everyone
 from thavalon import GameController, Phase
 from thavalon import roles as T
@@ -34,3 +34,19 @@ def test_old_role_info_holds_the_new_roles():
     evil_roles = infos["p3"]["evil_roles"]          # Colgrevance's view, by player
     assert evil_roles["p4"] == T.mordred and isinstance(evil_roles["p4"], T.Mordred)
     assert isinstance(evil_roles["p6"], T.MoM) and evil_roles["p6"] == T.MoM(0)
+
+
+def test_old_lobby_loads_into_the_web_package():
+    """A lobby pickled by the old webapp module (with a host vote under way)."""
+    from web.games import AvalonGame, RoleInfo
+    from web.host_votes import HostVote
+    from web.lobbies import Lobby
+    with open(os.path.join(os.path.dirname(PICKLE), "lobby_before_package.pickle"), "rb") as f:
+        lobby = store.loads(f.read())
+    game = lobby.current_game
+    assert type(lobby) is Lobby and type(game) is AvalonGame
+    assert type(game.host_vote) is HostVote and game.host_vote.ballots == {"Ann": "approve"}
+    assert all(type(i) is RoleInfo for i in game.player_info.values())
+    assert len(lobby) == 7 and game.controller.state.phase == Phase.FIRST_ROUND_PROPOSING
+    game.cast_host_vote("u1", game.host_vote.id, "reject")
+    assert game.host_vote.ballots["Bob"] == "reject"

@@ -14,7 +14,7 @@ run more than once and must not have side effects (publish events after).
 Pickles depend on the classes' code. If a deploy changes stored classes in
 a way old pickles can't load into, bump SCHEMA: stored games are then
 ignored (they expire on their own) instead of crashing pages. Modules that
-moved are listed in MOVED_MODULES, so their old pickles still load.
+moved are listed in MOVED, so their old pickles still load.
 """
 from __future__ import annotations
 
@@ -32,19 +32,26 @@ T = TypeVar("T")
 log = logging.getLogger(__name__)
 
 
-# Old module name -> where its classes live now (the game engine moved into
-# the thavalon package; games pickled before that name the old modules).
-MOVED_MODULES = {
+# Where stored classes live now, for objects pickled under their old homes:
+# old module -> new module, or (old module, class) -> new module.
+MOVED = {
+    # the game engine became the thavalon package
     "THavalon": "thavalon.roles",
     "game": "thavalon.state",
     "actions": "thavalon.controller",
     "ruleset": "thavalon.ruleset",
+    # the web app became the web package
+    ("webapp", "Lobby"): "web.lobbies",
+    ("webapp", "AvalonGame"): "web.games",
+    ("webapp", "RoleInfo"): "web.games",
+    "votes": "web.host_votes",
 }
 
 
 class _Unpickler(pickle.Unpickler):
     def find_class(self, module, name):
-        return super().find_class(MOVED_MODULES.get(module, module), name)
+        module = MOVED.get((module, name)) or MOVED.get(module, module)
+        return super().find_class(module, name)
 
 
 def loads(raw : bytes):

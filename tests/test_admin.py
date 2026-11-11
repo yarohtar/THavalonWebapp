@@ -12,11 +12,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 @pytest.fixture
 def web():
-    import webapp
-    webapp.LOBBIES.store.redis.flushdb()
-    webapp.app.config.update(TESTING=True, DEV_FAKE_PLAYERS=0, ADMIN_NO_AUTH=True)
-    yield webapp
-    webapp.app.config["ADMIN_NO_AUTH"] = False
+    from helpers import web_site
+    site = web_site()
+    site.app.config.update(DEV_FAKE_PLAYERS=0, ADMIN_NO_AUTH=True)
+    yield site
+    site.app.config["ADMIN_NO_AUTH"] = False
 
 
 def new_game(web, name="Camelot", players=("Ann", "Bob", "Cat", "Dan", "Eve"), start=True):
@@ -180,8 +180,8 @@ def run(code, **env):
     env = {**{k: v for k, v in os.environ.items()
               if k not in ("AVALON_DEV", "CF_ACCESS_TEAM_DOMAIN", "ADMIN_ACCESS_AUD",
                            "ADMIN_EMAILS")}, **env}
-    prelude = "import sys; sys.path.insert(0, '.'); import webapp\n" \
-              "app = webapp.app; app.config.update(TESTING=True)\nc = app.test_client()\n"
+    prelude = "import sys; sys.path.insert(0, '.'); from web.app import app\n" \
+              "app.config.update(TESTING=True)\nc = app.test_client()\n"
     r = subprocess.run([sys.executable, "-c", prelude + textwrap.dedent(code)],
                        cwd=ROOT, env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]

@@ -13,10 +13,9 @@ from werkzeug.datastructures import MultiDict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import helpers
-import rule_notes
-import rules as rules_mod
+from web.rules import notes as rule_notes, pages as rules_mod
 from helpers import T, build, deal, everyone, info, play_cards, play_randomly
-from rule_notes import format_counts
+from web.rules.notes import format_counts
 from thavalon.assassination import assassination_help
 from thavalon.cards import Card
 from thavalon.dealing import DEFAULT_TEAM_SIZES
@@ -421,7 +420,7 @@ def test_every_setting_change_is_explained(key):
     if key == "Oberon.announced":       # matters only when Oberon isn't seen
         assert notes
     assert notes, key
-    with __import__("webapp").app.test_request_context():
+    with helpers.web_site().app.test_request_context():
         for n in notes:
             assert n.pages and set(n.pages) <= set(rules_mod.PAGES), n
             rule_notes.expand(n.text)    # unknown terms raise
@@ -429,8 +428,8 @@ def test_every_setting_change_is_explained(key):
 
 def test_notes_with_everything_changed_render():
     rng = random.Random(3)
-    import webapp
-    with webapp.app.test_request_context():
+    site = helpers.web_site()
+    with site.app.test_request_context():
         for _ in range(100):
             for n in rule_notes.game_notes(random_rules(rng)):
                 assert set(n.pages) <= set(rules_mod.PAGES)
@@ -445,7 +444,7 @@ def test_note_wording_examples():
     texts = [n.text for n in rule_notes.game_notes(rs(**{"assassination.enabled": False}))]
     assert texts == ["There is no [[Assassination]]: Good wins as soon as 3 Quests succeed.",
                      "[[Gareth]] learns their team when the game ends."]
-    with __import__("webapp").app.test_request_context():
+    with helpers.web_site().app.test_request_context():
         html_ = str(rule_notes.expand("A <b> [[Merlin]] & [[Lovers|the Lovers]]"))
     assert "&lt;b&gt;" in html_ and "&amp;" in html_ and 'data-term="merlin"' in html_
 
@@ -454,10 +453,7 @@ def test_note_wording_examples():
 
 @pytest.fixture
 def web():
-    import webapp
-    webapp.app.config.update(TESTING=True)
-    webapp.LOBBIES.store.redis.flushdb()
-    return webapp
+    return helpers.web_site()
 
 
 class FormFields(html.parser.HTMLParser):
@@ -522,8 +518,8 @@ def test_host_page_with_defaults_submits_the_default_rules(web):
     host, lobby_id, _ = lobby_with_players(web, 7)
     form = host_form(host.get("/host").get_data(as_text=True))
     assert form.get("rules_form") == "1"
-    import webapp
-    assert webapp.ruleset_from_form(form) == DEFAULT
+    from web.host_settings import ruleset_from_form
+    assert ruleset_from_form(form) == DEFAULT
     assert host.post("/restart", data=form).status_code == 302
     game = web.LOBBIES.get(lobby_id).current_game
     assert game.ruleset == DEFAULT and game.controller.state.rules == DEFAULT
@@ -617,26 +613,27 @@ def test_every_page_renders_under_random_rules(web):
 
 def test_role_tab_text_follows_the_rules(web):
     """Role pages render the right sentences for changed rules."""
-    import webapp
+    site = helpers.web_site()
     from flask import render_template
-    with webapp.app.test_request_context():
+    with site.app.test_request_context():
         r = rs(**{"Percival.sees.Morgana": False})
         b = deal({"a": "Percival", "b": "Merlin", "c": "Mordred", "d": "Minion",
                   "e": "Servant"}, r)
-        game = webapp.AvalonGame()
+        from web.panels import role_page
+        game = site.AvalonGame()
         game.install(b, T.all_roles, {f"u{p}": p for p in "abcde"}, dict(
             num_players=5, num_evils=2, gareth=False, num_others=3,
             team_sizes=[2, 3, 2, 3, 3], double_fail=None, proposals=3, lady=False,
             inquisition="none"))
-        page = game.render_html_info("ua")
+        page = role_page(game, "ua")
         assert "You see the following players as" in page and "Morgana</a>:" not in page
         assert "[[Percival]] sees only [[Merlin]]" not in page        # expanded
         # The role's rules as they are in this game, the changes marked.
         assert 'class="rule-changed">Sees only <a' in page
         assert "Rules marked" in page and "In this game" not in page
-        merlin = game.render_html_info("ub")
+        merlin = role_page(game, "ub")
         assert 'class="rule-changed">Is seen by <a' in merlin and "who knows that player is Merlin" in merlin
-        mordred = game.render_html_info("uc")
+        mordred = role_page(game, "uc")
         assert "rule-changed" not in mordred and "Rules marked" not in mordred  # nothing for Mordred
 
 
@@ -644,10 +641,10 @@ def test_role_rules_text_under_any_rules(web):
     """Every rules template renders under random rules; with the default rules
     nothing is marked as changed, and a changed setting marks something on
     the pages its notes belong to (most of them)."""
-    import webapp
+    site = helpers.web_site()
     from flask import render_template_string
     rng = random.Random(11)
-    with webapp.app.test_request_context():
+    with site.app.test_request_context():
         def render(slug, r):
             return render_template_string(
                 '{% include "rules/" ~ slug ~ ".html" %}', slug=slug, ruleset=r)

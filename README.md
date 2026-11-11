@@ -32,8 +32,8 @@ See `python tools/bots.py --help` for options (`--game NAME` if several games
 are open, `--delay`, `--no-abilities`, ...).
 
 Pages update live (players joining, games starting) using Server-Sent Events;
-see `events.py` and `static/events.js`. Games and events are kept in Redis
-(`REDIS_URL`, see `store.py`), so they survive restarts and redeploys and
+see `web/events.py` and `web/static/events.js`. Games and events are kept in Redis
+(`REDIS_URL`, see `web/store.py`), so they survive restarts and redeploys and
 several gunicorn workers can serve the same games. Without `REDIS_URL` an
 in-memory stand-in (fakeredis) is used: fine for running locally and for
 tests, but then nothing is kept and there must be one process. In production,
@@ -43,8 +43,8 @@ gunicorn picks up `gunicorn.conf.py` (2 workers with Redis, many threads).
 Test scenarios: the dev site (same code, run with `AVALON_DEV=1`, behind
 Cloudflare Access) has premade games at `/dev/`, e.g. an Assassination or
 Gawain's Inquisition, with a bar to view the game as any player and reset it.
-Locally: `AVALON_DEV=1 python webapp.py`, then open http://127.0.0.1:5000/dev/.
-See `dev.py` to add scenarios.
+Locally: `AVALON_DEV=1 python -m web.app`, then open http://127.0.0.1:5000/dev/.
+See `web/dev.py` to add scenarios.
 
 
 # THavalon

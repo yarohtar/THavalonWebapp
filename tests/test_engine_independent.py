@@ -6,7 +6,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 WEB = ["flask", "werkzeug", "jinja2", "markupsafe", "redis", "fakeredis", "dotenv",
-       "webapp", "store", "events", "dev", "admin", "rules", "rule_notes", "rule_text",
+       "web", "webapp", "store", "events", "dev", "admin", "rules", "rule_notes", "rule_text",
        "votes", "access"]
 
 

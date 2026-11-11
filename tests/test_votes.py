@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from thavalon import RuleError
-from votes import HostVote, mission_cards, MISSION, PROPOSAL
+from web.host_votes import HostVote, mission_cards, MISSION, PROPOSAL
 
 PLAYERS = ["a", "b", "c", "d", "e"]
 
@@ -88,14 +88,14 @@ def test_mission_needs_players():
 @pytest.fixture
 def table():
     """A host and five registered players in a started game."""
-    import webapp
-    webapp.LOBBIES.store.redis.flushdb()
-    webapp.app.config.update(TESTING=True, DEV_FAKE_PLAYERS=0)
-    host = webapp.app.test_client()
+    from helpers import web_site
+    site = web_site()
+    site.app.config.update(DEV_FAKE_PLAYERS=0)
+    host = site.app.test_client()
     host.post("/host/create", data={"game_name": "Camelot"})
     players = {}
     for name in ["Ann", "Bob", "Cat", "Dan", "Eve"]:
-        c = webapp.app.test_client()
+        c = site.app.test_client()
         c.post("/register", data={"player": name})
         c.get("/")
         players[name] = c

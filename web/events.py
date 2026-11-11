@@ -16,7 +16,7 @@ import json
 
 from flask import Blueprint, Response, request, stream_with_context
 
-import store
+from web import store
 
 HEARTBEAT_SECONDS = 15   # Cloudflare drops connections idle for ~100s
 BUFFER_SIZE = 100        # events kept per channel for replay

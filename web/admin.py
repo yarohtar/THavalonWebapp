@@ -32,18 +32,21 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 
 import flask
 from flask import Blueprint, g, request, session, url_for
+from flask.sessions import SecureCookieSession, SecureCookieSessionInterface
 from markupsafe import Markup
 
-from access import AccessCheck, email_from_any_team
 from thavalon import RuleError
-
-import re
-
-from flask.sessions import SecureCookieSession, SecureCookieSessionInterface
+from web import events
+from web.access import AccessCheck, email_from_any_team
+from web.dev import game_snapshot
+from web.host_settings import evils_key
+from web.lobbies import LOBBIES, LOBBIES_CHANNEL, close_lobby
+from web.store import Conflict
 
 VIEW_AS = re.compile(r"^/admin/as/([^/]+)/([^/]+)(/.*)?$")
 
@@ -81,12 +84,10 @@ def ago(seconds : int | None) -> str:
     return f"{minutes // 60} h {minutes % 60:02d} min"
 
 
-def init_app(app, web):
-    """`web` is the webapp module (passed in to avoid a circular import)."""
-    from dev import game_snapshot
-
+def init_app(app, registration_exempt : list[str]):
+    """Add the admin pages to the app; `registration_exempt`: the app's paths
+    that need no player name."""
     bp = Blueprint("admin", __name__, url_prefix="/admin")
-    LOBBIES = web.LOBBIES
 
     access = AccessCheck(os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
                          os.environ.get("ADMIN_ACCESS_AUD", ""))
@@ -178,7 +179,7 @@ def init_app(app, web):
 
     @bp.route("/lobby/<lobby_id>/close", methods=["POST"])
     def close(lobby_id):
-        lobby = web.close_lobby(lobby_id)
+        lobby = close_lobby(lobby_id)
         return flask.redirect(url_for("admin.index",
                                       closed=lobby.name if lobby else None))
 
@@ -193,7 +194,7 @@ def init_app(app, web):
         names = []
         for l in lobbies:
             if idle.get(l.id) is not None and idle[l.id] >= hours * 3600:
-                if web.close_lobby(l.id) is not None:
+                if close_lobby(l.id) is not None:
                     names.append(l.name)
         return flask.redirect(url_for("admin.index",
                                       closed=", ".join(names) or "nothing"))
@@ -237,11 +238,11 @@ def init_app(app, web):
             lobby, message = LOBBIES.update(lobby_id, lambda l: fn(l, form))
         except KeyError:
             flask.abort(404)
-        except (RuleError, web.Conflict) as e:
+        except (RuleError, Conflict) as e:
             error = e.args[0] if isinstance(e, RuleError) else "Conflict, try again."
             return flask.redirect(url_for("admin.lobby_page", lobby_id=lobby_id, error=error))
         if event:
-            web.new_event(event, lobby.id if on_lobby else web.LOBBIES_CHANNEL)
+            events.publish(lobby.id if on_lobby else LOBBIES_CHANNEL, event)
         return flask.redirect(url_for("admin.lobby_page", lobby_id=lobby_id, msg=message))
 
     # ---- viewing as someone ----
@@ -256,7 +257,7 @@ def init_app(app, web):
         n, evils = rules["num_players"], rules["num_evils"]
         return dict(roles=[str(r) for r in game.roles_in_game], gareth_offered=True,
                     lady=rules["lady"], rules=game.game_ruleset.to_json(),
-                    evils={web._evils_key(n, rules["gareth"]): evils},
+                    evils={evils_key(n, rules["gareth"]): evils},
                     quests={f"{n}-{evils}": dict(sizes=rules["team_sizes"],
                                                  double_fail=rules["double_fail"] or 0)})
 
@@ -333,5 +334,5 @@ def init_app(app, web):
     def inject_admin_bar():
         return dict(admin_bar=admin_bar)
 
-    web.REGISTRATION_EXEMPT.append("/admin")
+    registration_exempt.append("/admin")
     app.register_blueprint(bp)

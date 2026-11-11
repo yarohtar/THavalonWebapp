@@ -10,9 +10,8 @@ import redis
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import events
-import store
-from store import Store
+from web import events, store
+from web.store import Store
 from thavalon.roles import roles_named
 
 
@@ -122,18 +121,19 @@ def test_events_resync_when_id_unknown_or_trimmed(server, monkeypatch):
 
 def test_lobbies_survive_restart_of_the_app(server, monkeypatch):
     """A game in progress is still there for a fresh Lobbies (a new process)."""
-    import webapp
-    lobbies = webapp.Lobbies(Store(server(), "t"))
-    with webapp.app.test_request_context():
+    from helpers import web_site
+    site = web_site()
+    lobbies = site.Lobbies(Store(server(), "t"))
+    with site.app.test_request_context():
         lobby, created = lobbies.open("host-1", "Camelot")
         assert created
         for i, name in enumerate(["Ann", "Bob", "Cat", "Dan", "Eve"]):
             lobbies.update(lobby.id, lambda l: l.__setitem__(f"u{i}", name))
-        settings = webapp.GameSettings()
+        settings = site.GameSettings()
         lobbies.update(lobby.id, lambda l: l.restart_game(
             roles_named(["Merlin", "Percival", "Morgana", "Mordred"]),
             settings))
-        again = webapp.Lobbies(Store(server(), "t"))
+        again = site.Lobbies(Store(server(), "t"))
         found = again.hosted_by("host-1")
         assert found.id == lobby.id and len(found) == 5
         assert found.current_game.controller.state.phase.value == "first_round_proposing"

@@ -4,11 +4,11 @@
 <div class="card">
     <h1>Host a game</h1>
     <p>Open a lobby for the players to join. You can rename it later.</p>
-    <form method="POST" action="{{ url_for('host_create') }}">
+    <form method="POST" action="{{ url_for('host.create') }}">
         <input type="text" name="game_name" maxlength="40" value="{{ name }}" aria-label="Game name" required>
         <button type="submit">Create lobby</button>
     </form>
     {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-    <p><a href="{{ url_for('games') }}">Back to the games</a></p>
+    <p><a href="{{ url_for('player.games') }}">Back to the games</a></p>
 </div>
 {% endblock %}

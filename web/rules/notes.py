@@ -294,7 +294,7 @@ _MARKUP = re.compile(r"\[\[([^\[\]|]+?)(?:\|([^\[\]]+?))?\]\]")
 
 def expand(text : str) -> Markup:
     """[[Term]] markup -> links; everything else escaped."""
-    from rules import term_link
+    from web.rules.pages import term_link
     out, pos = [], 0
     for m in _MARKUP.finditer(text):
         out.append(escape(text[pos:m.start()]))

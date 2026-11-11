@@ -1,4 +1,4 @@
-# THavalon webapp — handover notes for Claude
+# THavalon web app — handover notes for Claude
 
 A Flask app for playing THavalon (an extended Resistance: Avalon) **in person**:
 everyone sits at a table with their phone; the app deals roles, runs proposals,
@@ -18,23 +18,25 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `thavalon/roles.py` | Roles (identified by `name`) and the info each is told (`get_info(deal)`); lonely transformations. |
 | `thavalon/dealing.py` | Defaults (Evil count, team sizes, double-Fail quest), `generate_roles`, `AvalonBuilder` (a deal; `AvalonBuilder.with_roles({...})` for a fixed deal). Randomness from `rng` (default: the `random` module). |
 | `thavalon/cards.py`, `assassination.py`, `scoring.py`, `errors.py` | Quest results (Reversal, QBWH); assassin ranking and guesses; Neutral scores; `RuleError`/`NotAllowed`. |
-| `rule_notes.py` | Turns a `RuleSet`'s changes into sentences tagged with rules pages ("In your current game"). |
-| `rule_text.py` | Sentence helpers for role rules templates rendered under a game's `RuleSet` (Role tab). |
-| `thavalon/state.py` | `GameState`: the rules of play (phases, teams, cards, Inquisition, pauses, abilities, end of game). Does **not** check who is acting. |
-| `thavalon/views.py` | Per-player views of a `GameState` that hide secrets. |
-| `thavalon/controller.py` | `GameController`: who may act (`available_actions`), `act()`, `view()`, and host **undo** (snapshots; cleared after anything that reveals information). |
-| `votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
-| `webapp.py` | Flask routes; `AvalonGame` (a lobby's game), `Lobby`, `Lobbies` (Redis-backed), `vote_status()` (drives the Vote tab), `GameSettings`. |
-| `store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions). |
-| `events.py` | Live updates: Server-Sent Events over Redis Streams. |
-| `dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
-| `admin.py` | Admin pages `/admin` (all sites): list/inspect/change/close lobbies, close idle ones, "view as" any player or host under `/admin/as/<lobby>/<who>/…` (WSGI middleware sets the prefix as SCRIPT_NAME; those requests get a throwaway session, nothing saved). |
-| `access.py` | `AccessCheck`: verifies Cloudflare Access JWTs (dev site and admin). |
-| `rules.py` | Rules pages and `[[Term]]` link markup used in templates. |
-| `templates/role.html` | Player page: **Game / Role / Vote** tabs, tab switching and Vote-tab auto-open logic. |
-| `templates/game/` | Live panels: `panel.html` (Game tab), `abilities.html` (Role tab, private), `vote.html` (Vote tab), `host_panel.html`, shared `_now.html` / `_macros.html`. |
-| `static/game.js` | Fetches/re-renders panels on `game-update`, submits `form.game-action`, keeps ticked players across re-renders, fires `panels-rendered`. |
-| `static/events.js` | SSE client (`Events.on`, `Events.reloadOn`). |
+| `web/` | **The website** (overview in `web/__init__.py`). Templates and static files are in `web/templates/`, `web/static/`. |
+| `web/app.py` | The Flask app: secret key, session identity (`g.uuid`, `g.name`), registration check, template globals, blueprints, dev/admin. `wsgi.py` imports it; `python -m web.app` runs it locally. |
+| `web/routes/` | Blueprints: `player` (start page, join, register, `/donotread`), `host` (host page, create/close, restart, save, host game commands), `play` (`/game/*` JSON: panels, state, actions, host votes), `rules` (rules pages). Endpoints are `blueprint.name`, e.g. `url_for('host.page')`. |
+| `web/lobbies.py` | `Lobby`, `Lobbies` (Redis-backed; `LOBBIES`), `close_lobby`, lobby names. |
+| `web/games.py` | `AvalonGame` (a lobby's game: deal, role info, controller, host votes), `RoleInfo`, `GameSettings` (host's game settings, `resolve()`). |
+| `web/panels.py` | Rendering: `role_page()`, `panels()` (Game/Role/Vote tabs, host panel), `vote_status()` (drives the Vote tab). |
+| `web/visitor.py` | This browser's lobby/game: `joined_lobby`, `join`, `my_lobby`, `playing_lobby`, `viewer_game`. |
+| `web/host_settings.py` | Host preferences in the cookie (`pref_*`, `save_*`) and the rules editor layout (`HOST_GROUPS`, `ruleset_from_form`). |
+| `web/host_votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
+| `web/rules/` | `pages.py`: rules pages and `[[Term]]` link markup; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages; `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab). |
+| `web/store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions); `MOVED` maps old pickled class homes. |
+| `web/events.py` | Live updates: Server-Sent Events over Redis Streams (`events.publish(channel, event)`). |
+| `web/dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
+| `web/admin.py` | Admin pages `/admin` (all sites): list/inspect/change/close lobbies, close idle ones, "view as" any player or host under `/admin/as/<lobby>/<who>/…` (WSGI middleware sets the prefix as SCRIPT_NAME; those requests get a throwaway session, nothing saved). |
+| `web/access.py` | `AccessCheck`: verifies Cloudflare Access JWTs (dev site and admin). |
+| `web/templates/role.html` | Player page: **Game / Role / Vote** tabs, tab switching and Vote-tab auto-open logic. |
+| `web/templates/game/` | Live panels: `panel.html` (Game tab), `abilities.html` (Role tab, private), `vote.html` (Vote tab), `host_panel.html`, shared `_now.html` / `_macros.html`. |
+| `web/static/game.js` | Fetches/re-renders panels on `game-update`, submits `form.game-action`, keeps ticked players across re-renders, fires `panels-rendered`. |
+| `web/static/events.js` | SSE client (`Events.on`, `Events.reloadOn`). |
 | `tools/bots.py` | Bot players (also vote in host votes). `python tools/bots.py 6 --url https://avalon.iammerlin.fyi --game NAME` |
 
 ## How things work (and rules to keep)
@@ -44,11 +46,11 @@ for friends and playtests alone with bots (`tools/bots.py`).
   so it must be side-effect free — publish events (`new_event(...)`) *after* it returns.
   Idle lobbies expire after 12 h.
 - **Pickles depend on class code.** If a change makes old stored games unloadable, bump
-  `SCHEMA` in `store.py` (old games are then ignored, not crashing). Adding a new attribute to
+  `SCHEMA` in `web/store.py` (old games are then ignored, not crashing). Adding a new attribute to
   a stored class usually needs a class-level default so old pickles still work. Renaming a
   stored class's attributes breaks old pickles. A module that moves goes into
-  `store.MOVED_MODULES` (the engine's old top-level modules are there;
-  `tests/test_old_pickles.py` loads a game pickled before the move).
+  `web.store.MOVED` (the old top-level engine and web modules are there;
+  `tests/test_old_pickles.py` loads a game and a lobby pickled before the moves).
 - **Engine behaviour is pinned** by `tests/test_golden.py`: digests of deals, role info and
   every step of 150 random games (`tests/golden_engine.json`). A refactor must keep it green;
   for an intended behaviour change, regenerate with
@@ -74,38 +76,38 @@ for friends and playtests alone with bots (`tools/bots.py`).
 - **Inquisition / Gawain results** show immediately in the reveal/result pauses
   (`inquisition_notes` macro).
 - **Rule settings:** the host edits rules per role on the host page (fields `rule:<key>`,
-  `webapp.ruleset_from_form`); saved in the host's cookie (`host_prefs['rules']`, only changes).
+  `web.host_settings.ruleset_from_form`); saved in the host's cookie (`host_prefs['rules']`, only changes).
   A game's `RuleSet` lives on `AvalonGame.ruleset`, `AvalonBuilder.rules` and
   `GameState.rules` (class-level defaults keep old pickles loading). **Default rules must
   behave exactly as before**: checked by comparing deals/role info/random-game logs over many
   seeds with `PYTHONHASHSEED=0` (now `tests/test_golden.py`), and by
   `tests/test_rule_settings.py`. New setting = entry in `ruleset._settings()`, the engine/role
-  code reading it, a note in `rule_notes.game_notes`, and a place in `webapp.HOST_GROUPS`
+  code reading it, a note in `web.rules.notes.game_notes`, and a place in `web.host_settings.HOST_GROUPS`
   (tests check every setting is on the host page once and produces a note).
 - **Rules pages** show the usual (default) rules, with the viewer's current game's changes
   in a box at the top (`viewer_game()`). The **Role tab** instead renders the role's rules
   template with the game's `RuleSet` ("Rules for X", changed lines tagged "changed"): role
-  templates in `templates/rules/` read `ruleset` (helpers in `rule_text.py` and
+  templates in `web/templates/rules/` read `ruleset` (helpers in `web/rules/role_text.py` and
   `rules/_lines.html`) and must give exactly the usual text under the default rules (tested).
   The tap-preview sheet lists the game's changes for the term's page (`term_ruleset` passed by
   the role, rules and host pages → `game_notes_json`). The game summary lists them too.
 
-## Admin pages (`admin.py`)
+## Admin pages (`web/admin.py`)
 
 - Protected by a Cloudflare Access self-hosted application on `avalon.iammerlin.fyi/admin`
   (the owner's policy). No server settings needed: the app only checks each request carries a
   validly signed Access token (`access.email_from_any_team`). Optionally `CF_ACCESS_TEAM_DOMAIN`
   + `ADMIN_ACCESS_AUD` pin the application and `ADMIN_EMAILS` the emails. POST forms carry a
-  session CSRF token. Locally (`python webapp.py`) `ADMIN_NO_AUTH` skips the check.
+  session CSRF token. Locally (`python -m web.app`) `ADMIN_NO_AUTH` skips the check.
 - View-as pages must build links with `url_for` (keeps the prefix); the admin bar uses plain
   paths on purpose. Game actions there are real; host preferences changed there are dropped
   (the admin's own cookie is never touched). View-as POSTs need `Sec-Fetch-Site: same-origin`.
-- Closing a lobby (`webapp.close_lobby`, also the host page's "Close lobby") deletes it and
+- Closing a lobby (`web.lobbies.close_lobby`, also the host page's "Close lobby") deletes it and
   publishes `new-game`/`new-player` on its channel and `new-lobby` on `lobbies`.
 - `/host` no longer creates a lobby by itself: it shows a "Create lobby" form (`host_create.html`)
   with a free random name; `/host/create` creates it.
 
-## Dev site (`dev.py`)
+## Dev site (`web/dev.py`)
 
 - Only active with `AVALON_DEV=1`. The live site must not expose it (`/dev` → 404; tested).
 - `/dev/` lists ~22 scenarios (`changed-rules` and `gareth-changed-rules` use changed rules; a "Gareth" group) (`SCENARIOS`), each a game driven to a situation by `Drive`.
@@ -121,7 +123,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
   refuses everything if `CF_ACCESS_*` aren't set. `DEV_ALLOWED_EMAILS` is optional (empty).
 - Feedback (✎ in the bar) emails the description plus the scenario, viewer, page and the game's
   full state (incl. secrets) via SES. Recipient/sender come from env, not the repo.
-- Local: `AVALON_DEV=1 python webapp.py` → http://127.0.0.1:5000/dev/ (no login check locally).
+- Local: `AVALON_DEV=1 python -m web.app` → http://127.0.0.1:5000/dev/ (no login check locally).
 
 ## Running and testing locally
 
@@ -131,7 +133,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).
 - Node is installed via nvm but isn't on non-login shells' PATH:
-  `~/.nvm/versions/node/v26.13.0/bin/node --check static/game.js`. Inline scripts in templates
+  `~/.nvm/versions/node/v26.13.0/bin/node --check web/static/game.js`. Inline scripts in templates
   can be extracted and checked the same way.
 - The Vote-tab switching has been checked with a fake-DOM simulation in node, not yet in a
   real browser.
@@ -185,6 +187,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Recent history (newest first)
 
+- Web app moved into the `web/` package (routes as blueprints; no behaviour change).
 - Engine moved into the `thavalon/` package (no behaviour change; golden test, more engine tests).
 - Admin pages (`/admin`); hosts create lobbies explicitly and can close them.
 - Host-changeable rules (`ruleset.py`), host page rules editor, changes shown on rules pages.

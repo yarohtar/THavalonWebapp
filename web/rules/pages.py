@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from flask import url_for
 from jinja2.ext import Extension
@@ -41,7 +41,7 @@ class Term:
         return self.page or self.slug
 
     def url(self) -> str:
-        u = url_for("rules_page", slug=self.page_slug)
+        u = url_for("rules.page", slug=self.page_slug)
         return f"{u}#{self.anchor}" if self.anchor else u
 
 
@@ -229,7 +229,7 @@ def terms_json() -> Markup:
 def game_notes_json(ruleset) -> Markup:
     """{page slug: [note HTML, ...]} of a game's rule changes, for the
     tap-preview sheet. {} with the default rules."""
-    from rule_notes import expand, game_notes
+    from web.rules.notes import expand, game_notes
     data : dict[str, list[str]] = {}
     for note in game_notes(ruleset):
         html = str(expand(note.text))

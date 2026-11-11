@@ -1,7 +1,7 @@
-"""Tests for the dev site's test scenarios (dev.py).  Run: python -m pytest
+"""Tests for the dev site's test scenarios (web/dev.py).  Run: python -m pytest
 
 Each check runs in a fresh Python process, because whether dev features
-exist is decided when webapp is imported (AVALON_DEV)."""
+exist is decided when web.app is imported (AVALON_DEV)."""
 import os
 import subprocess
 import sys
@@ -14,11 +14,12 @@ def run(code, **env):
     env = {**{k: v for k, v in os.environ.items()
               if k not in ("AVALON_DEV", "CF_ACCESS_AUD", "CF_ACCESS_TEAM_DOMAIN",
                            "DEV_ALLOWED_EMAILS")}, **env}
-    prelude = "import sys; sys.path.insert(0, '.'); import webapp\n" \
-              "app = webapp.app; app.config.update(TESTING=True)\nc = app.test_client()\n" \
-              "webapp.LOBBIES.store.redis.flushdb()\n" \
+    prelude = "import sys; sys.path.insert(0, '.'); from web.app import app\n" \
+              "from web.lobbies import LOBBIES\n" \
+              "app.config.update(TESTING=True)\nc = app.test_client()\n" \
+              "LOBBIES.store.redis.flushdb()\n" \
               "def dev_lobby(slug):\n" \
-              "    return next(l for l in webapp.LOBBIES.active() if l.id.endswith('-' + slug))\n"
+              "    return next(l for l in LOBBIES.active() if l.id.endswith('-' + slug))\n"
     r = subprocess.run([sys.executable, "-c", prelude + textwrap.dedent(code)],
                        cwd=ROOT, env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]
@@ -48,7 +49,7 @@ def test_dev_site_accepts_valid_access_tokens_only():
     code = """
         import json, time, jwt
         from cryptography.hazmat.primitives.asymmetric import rsa
-        import dev
+        from web import dev
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
         jwk['kid'] = 'k1'
@@ -82,7 +83,7 @@ def test_dev_site_refuses_bad_tokens():
 
 def test_every_scenario_starts_in_its_situation():
     out = run("""
-        import dev
+        from web import dev
         app.config['DEV_NO_AUTH'] = True
         expected = {
             'start': ('first_round_proposing', 'Ann', 'propose_first_round'),
@@ -173,7 +174,7 @@ def test_testers_get_separate_games():
         # Resetting one tester's game leaves the other's alone.
         b.get('/dev/sorceress')
         assert a.get('/game/state').get_json()['phase'] == 'voting'
-        ids = {l.id for l in webapp.LOBBIES.active()}
+        ids = {l.id for l in LOBBIES.active()}
         assert len([i for i in ids if i.endswith('-sorceress')]) == 2
     """, AVALON_DEV="1")
 
@@ -240,7 +241,7 @@ def test_feedback_without_email_setting_is_not_lost_silently():
 
 def test_dev_gareth_has_a_knight_and_rival():
     run("""
-        import dev
+        from web import dev
         nine = ["Merlin", "Percival", "Tristan", "Iseult", "Servant of Camelot",
                 "Mordred", "Morgana", "Maelegant", "Gareth (Good)"]
         b = dev.make_builder(list("ABCDEFGHI"), nine)

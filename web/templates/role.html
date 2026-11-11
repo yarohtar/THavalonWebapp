@@ -2,8 +2,8 @@
 {% block title %}Avalon{% endblock %}
 {% block body %}
 {% set role_term = get_term(info['role']) %}
-<div class="player-page" data-panels-url="{{ url_for('game_panels') }}"
-     data-action-url="{{ url_for('game_action') }}">
+<div class="player-page" data-panels-url="{{ url_for('play.panels') }}"
+     data-action-url="{{ url_for('play.action') }}">
 
     <section class="tab-page" id="tab-game">
         <div class="card game-card" data-panel="game">{{ panels.game|safe }}</div>

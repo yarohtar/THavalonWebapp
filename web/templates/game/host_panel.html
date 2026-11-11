@@ -6,13 +6,13 @@
 </section>
 <section class="game-section host-controls">
     {% if view.phase in ('team_announced', 'reveal', 'result') %}
-    {% call action_form('skip', url=url_for('host_game_command', command='skip'),
+    {% call action_form('skip', url=url_for('host.game_command', command='skip'),
                         confirm='Stop waiting for players who are not ready?') %}
         <button type="submit" class="secondary">Skip waiting</button>
     {% endcall %}
     {% endif %}
     {% if undo_label %}
-    {% call action_form('undo', url=url_for('host_game_command', command='undo'),
+    {% call action_form('undo', url=url_for('host.game_command', command='undo'),
                         confirm='Undo: ' ~ undo_label ~ '?') %}
         <button type="submit" class="secondary">Undo: {{ undo_label }}</button>
     {% endcall %}
@@ -24,11 +24,11 @@
     {% if host_vote %}{{ host_vote_result(host_vote) }}{% endif %}
     {% if host_vote and host_vote.open %}
     <div class="vote-buttons two">
-        {% call action_form('vote-end', url=url_for('host_game_command', command='vote-end'),
+        {% call action_form('vote-end', url=url_for('host.game_command', command='vote-end'),
                             confirm='End the vote now? Missing votes are left out.') %}
             <button type="submit" class="secondary">End vote now</button>
         {% endcall %}
-        {% call action_form('vote-cancel', url=url_for('host_game_command', command='vote-cancel'),
+        {% call action_form('vote-cancel', url=url_for('host.game_command', command='vote-cancel'),
                             confirm='Cancel this vote? No results are shown.') %}
             <button type="submit" class="secondary">Cancel vote</button>
         {% endcall %}
@@ -39,14 +39,14 @@
         <p class="hint">If the game gets stuck, run votes here and carry on by hand.
             These votes don't change the game above; everyone sees their results.</p>
         <h4>Team proposal vote</h4>
-        {% call action_form('vote-start', url=url_for('host_game_command', command='vote-start')) %}
+        {% call action_form('vote-start', url=url_for('host.game_command', command='vote-start')) %}
             <input type="hidden" name="kind" value="proposal">
             <p class="hint">Everyone votes. Optionally mark the team being voted on:</p>
             {{ pick_players('team', view.seating, 'checkbox') }}
             <button type="submit">Start team vote</button>
         {% endcall %}
         <h4>Mission vote</h4>
-        {% call action_form('vote-start', url=url_for('host_game_command', command='vote-start')) %}
+        {% call action_form('vote-start', url=url_for('host.game_command', command='vote-start')) %}
             <input type="hidden" name="kind" value="mission">
             <p class="hint">Who plays a card:</p>
             {{ pick_players('team', view.seating, 'checkbox') }}

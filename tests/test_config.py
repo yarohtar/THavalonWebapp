@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CODE = "import sys; sys.path.insert(0, '.'); import webapp; print(webapp.app.secret_key)"
+CODE = "import sys; sys.path.insert(0, '.'); from web.app import app; print(app.secret_key)"
 
 
 def run(**env):

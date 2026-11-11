@@ -6,15 +6,15 @@
     {% if in_lobby %}
     <p>You're in {{ lobby.name }}. Wait for the host to start the game.</p>
     {% else %}
-    <form method="POST" action="{{ url_for('join_lobby', lobby_id = lobby.id) }}">
+    <form method="POST" action="{{ url_for('player.join_lobby', lobby_id = lobby.id) }}">
         <button type="submit">
             Join {{ lobby.name }}
         </button>
     </form>
     {% endif %}
-    <p class="wait-actions"><a class="button-link secondary" href="{{ url_for('register_api') }}">Change Your Name</a></p>
+    <p class="wait-actions"><a class="button-link secondary" href="{{ url_for('player.register') }}">Change Your Name</a></p>
     {% if other_games %}
-    <p><a href="{{ url_for('games') }}">Switch to another game</a></p>
+    <p><a href="{{ url_for('player.games') }}">Switch to another game</a></p>
     {% endif %}
 </div>
 {% endblock %}

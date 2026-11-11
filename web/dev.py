@@ -32,17 +32,27 @@ Without the first two settings below, everything is refused.
 """
 from __future__ import annotations
 
+import json
 import os
+import secrets
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable
 
 import flask
-from flask import Blueprint, request, session, url_for
+from flask import Blueprint, g, request, session, url_for
 from markupsafe import Markup
 
 from thavalon import PAUSES, Phase, RuleSet
 from thavalon import roles as T
 from thavalon.dealing import AvalonBuilder
+from web import events
+from web.access import AccessCheck
+from web.games import GameSettings
+from web.lobbies import LOBBIES, Lobby
 
 PLAYER_NAMES = ["Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "Gus", "Hal", "Ivy", "Jon"]
 
@@ -347,10 +357,6 @@ def send_email(to : str, subject : str, text : str, reply_to : str | None = None
                sender : str | None = None):
     """Through Amazon SES with the server's instance role (aws CLI), like the
     maths site's feedback emails. Raises on failure."""
-    import json
-    import shutil
-    import subprocess
-    import tempfile
     # The service's PATH is only the app's virtualenv; the CLI is a system tool.
     aws = shutil.which("aws", path=os.environ.get("PATH", "") + ":/usr/local/bin:/usr/bin")
     if aws is None:
@@ -372,12 +378,9 @@ def send_email(to : str, subject : str, text : str, reply_to : str | None = None
 
 # ---------------------------------------------------------------- the app
 
-def init_app(app, web):
-    """`web` is the webapp module (passed in to avoid a circular import)."""
-    import json
-    import secrets
-    from datetime import datetime, timezone
-    from flask import g
+def init_app(app, registration_exempt : list[str]):
+    """Add the dev pages to the app; `registration_exempt`: the app's paths
+    that need no player name."""
 
     bp = Blueprint("dev", __name__, url_prefix="/dev")
 
@@ -397,15 +400,15 @@ def init_app(app, web):
     def build(sc : Scenario):
         """A fresh lobby with the scenario's game, replacing this tester's earlier one."""
         players = {uuid_of(sc.slug, n): n for n in sc.players}
-        lobby = web.Lobby(uuid_of(sc.slug, "host"), f"Test: {sc.title}")
+        lobby = Lobby(uuid_of(sc.slug, "host"), f"Test: {sc.title}")
         lobby.id = lobby_id(sc.slug)
         lobby._players = dict(players)
-        old = web.LOBBIES.get(lobby.id)
+        old = LOBBIES.get(lobby.id)
         if old is not None:      # keep counting games, so vote keys never repeat
             lobby.current_game.game_number = old.current_game.game_number
         ruleset = RuleSet(sc.rules)
         roles = [r for r in make_builder(sc.players, sc.roles)]
-        settings = web.GameSettings()
+        settings = GameSettings()
         settings.num_evils = sum(r.allegiance() == "Evil" and str(r) != "Gareth" for r in roles)
         settings.team_sizes = sc.sizes
         settings.double_fail = sc.double_fail
@@ -414,9 +417,9 @@ def init_app(app, web):
         builder = make_builder(sc.players, sc.roles, ruleset)
         lobby.current_game.install(builder, roles, players, rules)
         sc.setup(Drive(lobby.current_game.controller))
-        web.LOBBIES.add(lobby)
-        web.new_event("new-game", lobby.id)
-        web.new_event("game-update", lobby.id)
+        LOBBIES.add(lobby)
+        events.publish(lobby.id, "new-game")
+        events.publish(lobby.id, "game-update")
         return lobby
 
     def current():
@@ -424,7 +427,7 @@ def init_app(app, web):
         sc = BY_SLUG.get(session.get("dev_slug"))
         if sc is None:
             return None, None, None
-        return sc, web.LOBBIES.get(lobby_id(sc.slug)), session.get("dev_as")
+        return sc, LOBBIES.get(lobby_id(sc.slug)), session.get("dev_as")
 
     def view_as(sc : Scenario, lobby, who : str):
         session["dev_slug"] = sc.slug
@@ -433,7 +436,7 @@ def init_app(app, web):
         session["game_id"] = lobby.id
         if who != "host":
             session["name"] = who
-        return flask.redirect(url_for("lobby_api") if who == "host" else url_for("index"))
+        return flask.redirect(url_for("host.page") if who == "host" else url_for("player.index"))
 
     @bp.route("/")
     def index():
@@ -457,7 +460,7 @@ def init_app(app, web):
         sc = BY_SLUG.get(slug) or flask.abort(404)
         if who != "host" and who not in sc.players:
             flask.abort(404)
-        lobby = web.LOBBIES.get(lobby_id(slug)) or build(sc)
+        lobby = LOBBIES.get(lobby_id(slug)) or build(sc)
         return view_as(sc, lobby, who)
 
     @bp.route("/bar")
@@ -530,7 +533,6 @@ def init_app(app, web):
 
     # ---- access check: runs before everything else ----
 
-    from access import AccessCheck
     access = AccessCheck(os.environ.get("CF_ACCESS_TEAM_DOMAIN", ""),
                          os.environ.get("CF_ACCESS_AUD", ""))
     allowed = {e.strip().lower() for e in os.environ.get("DEV_ALLOWED_EMAILS", "").split(",")
@@ -549,5 +551,5 @@ def init_app(app, web):
 
     app.before_request_funcs.setdefault(None, []).insert(0, check_access)
     # The dev pages don't need a player name.
-    web.REGISTRATION_EXEMPT.append("/dev")
+    registration_exempt.append("/dev")
     app.register_blueprint(bp)
