@@ -731,11 +731,17 @@ class GameState:
         }
 
 
-def assassination_help(kinds : list[str]) -> str:
-    """'Name one player as Merlin or Nilrem, two as the Lovers, or no one.'"""
-    ones = [ASSASSINATION_TARGETS[k][1] for k in kinds
+def assassination_help(kinds : list[str], link : bool = False) -> str:
+    """'Name one player as Merlin or Nilrem, two as the Lovers, or no one.'
+    link: with [[Term]] markup (see rule_notes)."""
+    def label(k):
+        roles, text = ASSASSINATION_TARGETS[k]
+        if not link:
+            return text
+        return f"[[{roles[0]}]]" if len(roles) == 1 else f"[[the Lovers|{text}]]"
+    ones = [label(k) for k in kinds
             if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 1]
-    twos = [ASSASSINATION_TARGETS[k][1] for k in kinds
+    twos = [label(k) for k in kinds
             if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 2]
     def either(names):
         return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]

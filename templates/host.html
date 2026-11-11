@@ -115,6 +115,7 @@
             <details class="rule-editor">
                 <summary>Rules for {{ grp.title }}
                     <span class="changed-count" {% if not grp['keys']|select('in', ruleset.values)|list %}hidden{% endif %}>changed</span></summary>
+                {% if grp.note %}<p class="setting-note">{{ grp.note }}</p>{% endif %}
                 {% for heading, keys in grp.rows %}
                 {% if heading %}<h4>{{ heading }}</h4>{% endif %}
                 {% for key in keys %}{{ setting_input(key, grp.labels.get(key)) }}{% endfor %}

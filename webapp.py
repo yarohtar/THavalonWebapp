@@ -495,7 +495,10 @@ HOST_GROUPS = [
     dict(title='Gareth', team='either', roles=['Gareth'], rows=[
         (None, ['Gareth.players', 'Gareth.knows', 'Gareth.lady']),
         ('When Gareth is blue (Good)', _keys('Gareth.Good.')),
-        ('When Gareth is red (Evil)', _keys('Gareth.Evil.'))]),
+        ('When Gareth is red (Evil)', _keys('Gareth.Evil.'))],
+         note="Careful: a rule that differs between blue and red Gareth tells whoever "
+              "it applies to which team Gareth is on (by default Merlin and Evil see "
+              "a red Gareth among the Evil players, as if Evil, but never a blue one)."),
     dict(title='Pellinore & the Questing Beast', team='neutral',
          roles=['Pellinore', 'The Questing Beast'], rows=[(None, ['Pellinore.players'])],
          labels={'Pellinore.players': 'Player counts (they always play together)'}),

@@ -13,7 +13,9 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 | File | What it is |
 |---|---|
-| `THavalon.py` | Roles and `AvalonBuilder` (deals roles, lonely-role transformations, Gareth). |
+| `THavalon.py` | Roles and `AvalonBuilder` (deals roles, lonely-role transformations, Gareth). Roles read `builder.rules`. |
+| `ruleset.py` | `RuleSet`: host-changeable rules (`SETTINGS` registry: player counts, lonely counts, who sees whom, Gareth, cards/abilities, Assassination). Stores only changes from the defaults. |
+| `rule_notes.py` | Turns a `RuleSet`'s changes into sentences tagged with rules pages ("In your current game"). |
 | `game.py` | `GameState`: the rules engine (phases, teams, cards, Inquisition, pauses, scoring). Does **not** check who is acting. |
 | `actions.py` | `GameController`: who may act (`available_actions`), `act()`, per-player `view()` that hides secrets, and host **undo** (snapshots; cleared after anything that reveals information). |
 | `votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
@@ -57,11 +59,22 @@ for friends and playtests alone with bots (`tools/bots.py`).
   QBWH if the Beast is possible) to everyone — players are trusted.
 - **Inquisition / Gawain results** show immediately in the reveal/result pauses
   (`inquisition_notes` macro).
+- **Rule settings:** the host edits rules per role on the host page (fields `rule:<key>`,
+  `RuleSet.from_form`); saved in the host's cookie (`host_prefs['rules']`, only changes).
+  A game's `RuleSet` lives on `AvalonGame.ruleset`, `AvalonBuilder.rules` and
+  `GameState.rules` (class-level defaults keep old pickles loading). **Default rules must
+  behave exactly as before**: checked by comparing deals/role info/random-game logs over many
+  seeds with `PYTHONHASHSEED=0` (see the commit adding `ruleset.py`), and by
+  `tests/test_rule_settings.py`. New setting = entry in `ruleset._settings()`, the engine/role
+  code reading it, a note in `rule_notes.game_notes`, and a place in `webapp.HOST_GROUPS`
+  (tests check every setting is on the host page once and produces a note).
+- **Rules pages** show the viewer's current game's rule changes at the top (`viewer_game()`);
+  the Role tab shows them under the role's rules; the game summary lists them.
 
 ## Dev site (`dev.py`)
 
 - Only active with `AVALON_DEV=1`. The live site must not expose it (`/dev` → 404; tested).
-- `/dev/` lists ~17 scenarios (`SCENARIOS`), each a game driven to a situation by `Drive`.
+- `/dev/` lists ~18 scenarios (one, `changed-rules`, uses changed rules) (`SCENARIOS`), each a game driven to a situation by `Drive`.
   Opening one (or ↺ Reset) rebuilds it. The purple bar switches "view as" any player or host —
   it literally makes the browser session that player. Each tester (session id `dev_tester`)
   gets their own copies, so testers never share games.
@@ -77,7 +90,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Running and testing locally
 
-- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (102 tests).
+- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (234 tests).
 - `tests/test_dev.py` runs each check in a fresh subprocess (dev features are decided at import).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).
@@ -136,6 +149,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Recent history (newest first)
 
+- Host-changeable rules (`ruleset.py`), host page rules editor, changes shown on rules pages.
 - Redis storage + Redis Streams events; 2 workers; fixed redis-py 5 s timeout.
 - Dev site: per-tester games, feedback form (SES), Access-policy-only access.
 - Inquisition/Gawain results shown immediately; dev test scenarios (`dev.py`).

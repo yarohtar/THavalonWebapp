@@ -533,9 +533,10 @@ def test_note_wording_examples():
     texts = [n.text for n in rule_notes.game_notes(rs(**{"Merlin.sees.Mordred": True}))]
     assert any("[[Merlin]] sees [[Mordred]] as Evil." == t for t in texts)
     texts = [n.text for n in rule_notes.game_notes(rs(**{"Gawain.players": [7, 8, 9, 10]}))]
-    assert texts == ["[[Gawain]] can be dealt only in 7–10-player games."]
+    assert texts == ["[[Gawain]] can be dealt only in games with 7–10 players."]
     texts = [n.text for n in rule_notes.game_notes(rs(**{"assassination.enabled": False}))]
-    assert texts == ["There is no [[Assassination]]: Good wins as soon as 3 Quests succeed."]
+    assert texts == ["There is no [[Assassination]]: Good wins as soon as 3 Quests succeed.",
+                     "[[Gareth]] learns their team when the game ends."]
     with __import__("webapp").app.test_request_context():
         html_ = str(rule_notes.expand("A <b> [[Merlin]] & [[Lovers|the Lovers]]"))
     assert "&lt;b&gt;" in html_ and "&amp;" in html_ and 'data-term="merlin"' in html_

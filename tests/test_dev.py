@@ -101,6 +101,7 @@ def test_every_scenario_starts_in_its_situation():
             'pellinore-guess': ('pellinore_guess', 'Gus', 'pellinore_guess'),
             'assassination': ('assassination', 'Eve', 'assassinate'),
             'evil-wins': ('game_over', None, None),
+            'changed-rules': ('assassination', 'Eve', 'assassinate'),
             'host-votes': ('proposing', 'Cat', 'propose'),
         }
         assert set(expected) == set(dev.BY_SLUG)
@@ -201,6 +202,21 @@ def test_feedback_email_has_scenario_and_full_state():
         print('ok')
     """, AVALON_DEV="1", DEV_FEEDBACK_EMAIL="dev@example.com")
     assert "ok" in out
+
+
+def test_changed_rules_scenario_uses_its_rules():
+    run("""
+        app.config['DEV_NO_AUTH'] = True
+        c.get('/dev/changed-rules')
+        game = dev_lobby('changed-rules').current_game
+        assert game.ruleset['Merlin.sees.Mordred'] and game.controller.state.rules == game.ruleset
+        kinds = game.controller.available_actions('Eve')['assassinate']['kinds']
+        assert kinds == ['merlin', 'nilrem', 'lovers', 'percival'], kinds
+        c.get('/dev/changed-rules/as/Ann')
+        page = c.get('/').get_data(as_text=True)
+        assert 'In this game' in page and 'Mordred' in page
+        assert 'In your current game' in c.get('/rules/merlin').get_data(as_text=True)
+    """, AVALON_DEV="1")
 
 
 def test_feedback_without_email_setting_is_not_lost_silently():

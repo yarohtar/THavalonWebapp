@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from markupsafe import Markup, escape
 
+from game import assassination_help
 from ruleset import (ASSASSINATION_TARGETS, DEFAULT, GARETH_TEAMS, GUINEVERE_SEES,
                      MERLIN_SEES, PERCIVAL_SEES, SETTINGS, TRANSFORMS, RuleSet,
                      format_counts)
@@ -74,16 +75,12 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         if not kinds:
             add(Note(("assassination", "overview", "mordred", "gareth") + every_target_page,
                      "There is no [[Assassination]]: Good wins as soon as 3 Quests succeed."))
+            add(Note(("gareth",), "[[Gareth]] learns their team when the game ends.",
+                     summary=False))
         else:
-            choices = []
-            for k in targets:
-                roles, label = ASSASSINATION_TARGETS[k]
-                choices.append(f"{'two players' if len(roles) == 2 else 'one player'} "
-                               f"as [[{roles[0] if len(roles) == 1 else 'the Lovers'}|{label}]]")
-            if "none" in kinds:
-                choices.append("no one")
+            help_text = assassination_help(kinds, link=True)
             add(Note(("assassination", "overview"),
-                     f"In the [[Assassination]], Evil's choices are: {_and(choices, 'or')}."))
+                     f"In the [[Assassination]], Evil must {help_text[0].lower()}{help_text[1:]}"))
             if not rules["assassination.none"]:
                 add(Note(("assassination",), "Evil may not name no one: they must name "
                          "someone, even if no target is in the game."))
@@ -117,12 +114,13 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         role = key[:-len(".players")]
         counts = rules[key]
         if role == "Pellinore":
-            who, pages = "[[Pellinore]] and [[The Questing Beast]]", ("pellinore", "questing-beast")
+            who, pages = ("[[Pellinore]] and [[The Questing Beast|the Questing Beast]]",
+                          ("pellinore", "questing-beast"))
             verb = "are"
         else:
             who, pages, verb = f"[[{role}]]", (PAGE[role],), "is"
         if counts:
-            add(Note(pages, f"{who} can be dealt only in {format_counts(counts)}-player games."
+            add(Note(pages, f"{who} can be dealt only in games with {format_counts(counts)} players."
                      if len(counts) < 6 else f"{who} can be dealt in games of any size."))
         else:
             add(Note(pages, f"{who} {verb} never dealt."))
@@ -152,24 +150,27 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         elif len(counts) == 6:
             add(Note(pages, f"{who} becomes {becomes}{when} in games of any size."))
         else:
-            add(Note(pages, f"{who} becomes {becomes}{when} only in "
-                     f"{format_counts(counts)}-player games."))
+            add(Note(pages, f"{who} becomes {becomes}{when} only in games with "
+                     f"{format_counts(counts)} players."))
 
     # ---- Merlin's sight
     merlin_changed = [r for r in MERLIN_SEES if rules.changed(f"Merlin.sees.{r}")]
     if merlin_changed:
-        seen = [r for r in MERLIN_SEES if rules.merlin_sees(r)]
-        hidden = [r for r in MERLIN_SEES if not rules.merlin_sees(r)]
-        text = (f"[[Merlin]] sees these roles as Evil: {_and(_links(seen))}."
+        # Balin isn't played: leave them out unless their rule changed.
+        listed = [r for r in MERLIN_SEES
+                  if r != "Balin the Savage" or r in merlin_changed]
+        seen = [_role(r) for r in listed if rules.merlin_sees(r)]
+        hidden = [_role(r) for r in listed if not rules.merlin_sees(r)]
+        text = (f"[[Merlin]] sees these roles as Evil: {_and(seen)}."
                 if seen else "[[Merlin]] doesn't see anyone as Evil.")
         if seen and hidden:
-            text += f" Merlin doesn't see {_and(_links(hidden), 'or')}."
+            text += f" Merlin doesn't see {_and(hidden, 'or')}."
         add(Note(("merlin",), text))
         for r in merlin_changed:
             if rules.merlin_sees(r):
-                add(Note((PAGE[r],), f"[[Merlin]] sees [[{r}]] as Evil.", summary=False))
+                add(Note((PAGE[r],), f"[[Merlin]] sees {_role(r)} as Evil.", summary=False))
             else:
-                add(Note((PAGE[r],), f"[[Merlin]] doesn't see [[{r}]].", summary=False))
+                add(Note((PAGE[r],), f"[[Merlin]] doesn't see {_role(r)}.", summary=False))
 
     # ---- Percival's and Guinevere's sight
     for viewer, options, getter in (("Percival", PERCIVAL_SEES, rules.percival_sees),
@@ -182,7 +183,8 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         pages = (PAGE[viewer], PAGE[becomes])
         if seen:
             sight = (f"sees only {_and(_links(seen))}, but not which is which"
-                     if len(seen) > 1 else f"sees only [[{seen[0]}]], and knows it is {seen[0]}")
+                     if len(seen) > 1 else
+                     f"sees only [[{seen[0]}]], and knows that player is {seen[0]}")
             missing = "none of them is" if len(seen) > 1 else f"{seen[0]} is not"
             add(Note(pages, f"[[{viewer}]] {sight}. {viewer} counts as lonely (and becomes "
                      f"[[{becomes}]] where lonely roles change) when {missing} in the game."))
@@ -240,22 +242,37 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         if not any(rules.changed(k) for k in keys):
             continue
         g = lambda what: rules.gareth(team, what)
-        facts = [
-            ("[[Merlin]] sees Gareth as Evil" if g("merlin_sees")
-             else "[[Merlin]] doesn't see Gareth"),
-            ("Merlin is told which player is Gareth" if g("merlin_knows_role") else None),
-            ("the Evil players see Gareth as one of them" if g("evil_sees")
-             else "the Evil players don't see Gareth"),
-            ("the Evil players are told which player is Gareth" if g("evil_knows_role")
-             else None),
-        ]
+        merlin = _sight("[[Merlin]]", "sees Gareth as Evil", "doesn't see Gareth",
+                        g("merlin_sees"), g("merlin_knows_role"), plural=False)
+        evil = _sight("the Evil players", "see Gareth as one of them", "don't see Gareth",
+                      g("evil_sees"), g("evil_knows_role"), plural=True)
         color = "Good (blue)" if team == "Good" else "Evil (red)"
-        add(Note(("gareth",), f"When [[Gareth]] is {color}: "
-                 f"{_and([f for f in facts if f])}."))
+        evil_pages = (("overview",) if any(rules.changed(k) for k in keys[2:]) else ())
+        add(Note(("gareth",) + evil_pages, f"When [[Gareth]] is {color}: {merlin}; {evil}."))
         if any(rules.changed(k) for k in keys[:2]):
-            add(Note(("merlin",), f"When [[Gareth]] is {color}, "
-                     f"{_and([f for f in facts[:2] if f])}.", summary=False))
+            add(Note(("merlin",), f"When [[Gareth]] is {color}, {merlin}.", summary=False))
     return notes
+
+
+def _role(name : str) -> str:
+    """A role as a link, plural for the Minions."""
+    if name == "Minion of Mordred":
+        return "the [[Minion of Mordred|Minions of Mordred]]"
+    return f"[[{name}]]"
+
+
+def _sight(who, sees, not_seen, see : bool, told : bool, plural : bool) -> str:
+    """'Merlin sees Gareth as Evil, without being told which player is Gareth', etc."""
+    are = "are" if plural else "is"
+    if see and told:
+        return f"{who} {sees} and {are} told which player is Gareth"
+    if see:
+        return f"{who} {sees}, without being told which player is Gareth"
+    if told:
+        return (f"{who} {are} told which player is Gareth, but "
+                f"{'don' if plural else 'doesn'}'t see Gareth "
+                f"{'as one of them' if plural else 'as Evil'}")
+    return f"{who} {not_seen}"
 
 
 def notes_for(rules : RuleSet | None, page : str) -> list[Note]:
