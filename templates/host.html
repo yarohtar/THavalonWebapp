@@ -15,6 +15,13 @@
         {{ sides(game_rules) }},
         teams {{ team_sizes(game_rules) }}
     </p>
+    {% set changes = rule_summary_notes(current_ruleset) %}
+    {% if changes %}
+    <details class="this-game game-summary">
+        <summary>Current game's rule changes ({{ changes|length }})</summary>
+        <ul>{% for n in changes %}<li>{{ expand_note(n.text) }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
     {% endif %}
     <h1>{{ lobby.name }}</h1>
     <form method="POST" action="{{ url_for('lobby_api') }}" class="rename-form">
@@ -53,32 +60,95 @@
     <form method="POST"
           action="{{ url_for('restart') }}"
           id="start-form">
-        <h2>Roles</h2>
-        <ul>
-            <li>
-                <div class="role-list">
-                    {% for role in all_roles %}
-                    <input type="checkbox"
-                           name="items"
-                           id="{{ role }}"
-                           value="{{ role }}"
-                           {% if role|string in active_roles %}
-                           checked
-                           {% endif %}
-                           >
-                    <label class="role-card"
-                           for="{{ role }}">
-                    {{ role }}
-                    </label>
+        <input type="hidden" name="rules_form" value="1">
+        {% macro setting_input(key, label=None) %}
+        {% set s = settings[key] %}
+        {% set value = ruleset[key] %}
+        <div class="rule-setting {{ s.kind }}{% if ruleset.changed(key) %} changed{% endif %}"
+             data-key="{{ key }}">
+            {% if s.kind == 'bool' %}
+            <label class="rule-check">
+                <input type="checkbox" name="rule:{{ key }}" value="1" {% if value %}checked{% endif %}>
+                <span>{{ label or s.label }}</span>
+            </label>
+            {% elif s.kind == 'counts' %}
+            <span class="rule-label">{{ label or s.label }}</span>
+            <span class="count-chips">
+                {% for k in range(5, 11) %}
+                <label class="count-chip"><input type="checkbox" name="rule:{{ key }}" value="{{ k }}"
+                    {% if k in value %}checked{% endif %}><span>{{ k }}</span></label>
+                {% endfor %}
+            </span>
+            {% else %}
+            <label class="rule-choice">
+                <span class="rule-label">{{ label or s.label }}</span>
+                <select name="rule:{{ key }}">
+                    {% for v, text in s.options %}
+                    <option value="{{ v }}" {% if v == value %}selected{% endif %}>{{ text }}</option>
                     {% endfor %}
-                </div>
-            </li>
-            {% if gareth_possible %}
-            <li class="setting-note">[[Gareth]] plays on top of the Evil players chosen below.</li>
+                </select>
+            </label>
             {% endif %}
-        </ul>
+            {% if s.help %}<span class="rule-help">{{ s.help }}</span>{% endif %}
+        </div>
+        {% endmacro %}
+
+        <h2>Roles and rules</h2>
+        <p class="setting-note">Tick the roles to play. Open a role's rules to change them;
+            changed rules are marked <span class="changed-dot"></span>.
+            Unchanged rules are the normal THavalon rules.</p>
+        {% set team_titles = {'good': 'Good', 'evil': 'Evil', 'either': 'Either team', 'neutral': 'Neutral'} %}
+        {% for team, title in team_titles.items() %}
+        <h3 class="term-{{ team }} team-heading">{{ title }}</h3>
+        <div class="role-groups">
+        {% for grp in groups if grp.team == team %}
+        <div class="role-group" data-group="{{ loop.index }}">
+            <div class="role-group-head">
+                {% for role in grp.roles %}
+                <input type="checkbox" name="items" id="{{ role }}" value="{{ role }}"
+                       {% if role in active_roles %}checked{% endif %}>
+                <label class="role-card" for="{{ role }}">{{ role }}
+                    <small class="role-availability" data-players-key="{{ 'Pellinore.players' if role == 'The Questing Beast' else role ~ '.players' }}"></small>
+                </label>
+                {% endfor %}
+            </div>
+            <details class="rule-editor">
+                <summary>Rules for {{ grp.title }}
+                    <span class="changed-count" {% if not grp['keys']|select('in', ruleset.values)|list %}hidden{% endif %}>changed</span></summary>
+                {% for heading, keys in grp.rows %}
+                {% if heading %}<h4>{{ heading }}</h4>{% endif %}
+                {% for key in keys %}{{ setting_input(key, grp.labels.get(key)) }}{% endfor %}
+                {% endfor %}
+                <button type="button" class="link-btn reset-group">Reset {{ grp.title }} to default</button>
+                <p class="setting-note"><a href="{{ get_term(grp.roles[0]).url() }}" target="avalon-rules">Rules page →</a></p>
+            </details>
+        </div>
+        {% endfor %}
+        </div>
+        {% endfor %}
+
+        <h3 class="team-heading">Assassination</h3>
+        <div class="role-group">
+            <details class="rule-editor" {% if assassination_keys|select('in', ruleset.values)|list %}open{% endif %}>
+                <summary>Who Evil can assassinate
+                    <span class="changed-count" {% if not assassination_keys|select('in', ruleset.values)|list %}hidden{% endif %}>changed</span></summary>
+                {{ setting_input('assassination.enabled') }}
+                <h4>Targets</h4>
+                {% for key in assassination_keys if key.startswith('assassination.target.') %}{{ setting_input(key) }}{% endfor %}
+                {{ setting_input('assassination.none') }}
+                <button type="button" class="link-btn reset-group">Reset the Assassination to default</button>
+            </details>
+        </div>
+        <p class="setting-row">
+            <button type="button" class="link-btn" id="reset-all-rules">Reset all rules to default</button>
+            <button type="submit" class="link-btn" formaction="{{ url_for('host_save') }}">Save without starting</button>
+        </p>
+        {% if saved %}<p class="setting-note">Saved. These roles and rules are remembered for next time.</p>{% endif %}
 
         <h2>Game Settings</h2>
+        {% if gareth_possible %}
+        <p class="setting-note">[[Gareth]] plays on top of the Evil players chosen below.</p>
+        {% endif %}
         {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
         {% if valid_count %}
         <label class="setting">
@@ -120,7 +190,8 @@
             <input type="checkbox" name="lady" value="1" {% if lady %}checked{% endif %}>
             Play with the [[Lady of the Lake]]
         </label>
-        <p class="setting-note">Your choices are remembered for each player count and Evil count.
+        <p class="setting-note">Your choices are remembered for each player count and Evil count;
+            roles and rules are remembered too.
             Proposals per round and [[Inquisition]] follow the number of Evil players.</p>
         <button type="submit">Start New Game</button>
         {% else %}
@@ -139,7 +210,10 @@
     const GARETH_EVILS = {{ gareth_evils|tojson }};   // remembered count with/without Gareth
     const evils = document.getElementById('evils');
     const garethBox = {{ 'true' if gareth_possible else 'false' }} && document.getElementById('Gareth');
-    function garethPlays() { return !!(garethBox && garethBox.checked); }
+    function garethPlays() {
+        const here = document.querySelector('input[name="rule:Gareth.players"][value="' + N + '"]');
+        return !!(garethBox && garethBox.checked && here && here.checked);
+    }
     function defaultEvils() {
         return garethPlays() ? DEFAULTS.evils_with_gareth : DEFAULTS.evils_without_gareth;
     }
@@ -156,10 +230,15 @@
         }
         evils.value = Math.min(selected, N - 1 - g);
     }
-    if (garethBox) garethBox.addEventListener('change', function () {
+    let garethWas = garethPlays();
+    function garethChanged() {
+        if (garethPlays() === garethWas) return;
+        garethWas = garethPlays();
         labelOptions(GARETH_EVILS[garethPlays() ? 'on' : 'off']);
         fill(PREFS[evils.value]);
-    });
+    }
+    if (garethBox) garethBox.addEventListener('change', garethChanged);
+    document.getElementById('start-form').addEventListener('rules-changed', garethChanged);
     function fill(q) {
         for (let i = 1; i <= 5; i++) {
             document.getElementById('size' + i).value = q.sizes[i - 1];
@@ -177,6 +256,75 @@
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='game.js') }}"></script>
+<script>
+(function () {
+    // Rules editor: mark changed rules, reset to defaults, and show where
+    // each role can't be dealt at the current player count.
+    const DEFAULTS = {{ rule_defaults|tojson }};
+    const N = {{ num_players }};
+    const form = document.getElementById('start-form');
+    function inputs(el) { return el.querySelectorAll('[name^="rule:"]'); }
+    function valueOf(setting) {
+        const els = inputs(setting);
+        if (setting.classList.contains('bool')) return els[0].checked;
+        if (setting.classList.contains('counts')) {
+            return Array.from(els).filter(function (e) { return e.checked; })
+                        .map(function (e) { return Number(e.value); });
+        }
+        return els[0].value;
+    }
+    function isDefault(setting) {
+        const d = DEFAULTS[setting.dataset.key];
+        const v = valueOf(setting);
+        if (Array.isArray(d)) return JSON.stringify(v) === JSON.stringify(d);
+        return typeof d === 'boolean' ? v === d : String(v) === String(d);
+    }
+    function setDefault(setting) {
+        const d = DEFAULTS[setting.dataset.key];
+        inputs(setting).forEach(function (e) {
+            if (e.type === 'checkbox') {
+                e.checked = Array.isArray(d) ? d.indexOf(Number(e.value)) >= 0 : !!d;
+            } else {
+                e.value = String(d);
+            }
+        });
+    }
+    function counts(key) {
+        return Array.from(document.querySelectorAll('input[name="rule:' + key + '"]:checked'))
+                    .map(function (e) { return Number(e.value); });
+    }
+    function refresh() {
+        document.querySelectorAll('.rule-setting').forEach(function (s) {
+            s.classList.toggle('changed', !isDefault(s));
+        });
+        document.querySelectorAll('.rule-editor').forEach(function (d) {
+            const badge = d.querySelector('.changed-count');
+            if (badge) badge.hidden = !d.querySelector('.rule-setting.changed');
+        });
+        document.querySelectorAll('.role-availability').forEach(function (el) {
+            const c = counts(el.dataset.playersKey);
+            el.textContent = c.length === 0 ? 'never dealt'
+                : (N >= 5 && N <= 10 && c.indexOf(N) < 0) ? 'not at ' + N + ' players' : '';
+        });
+        form.dispatchEvent(new Event('rules-changed'));
+    }
+    form.addEventListener('change', function (e) {
+        if (e.target.closest('.rule-setting')) refresh();
+    });
+    form.querySelectorAll('.reset-group').forEach(function (b) {
+        b.addEventListener('click', function () {
+            b.closest('.rule-editor').querySelectorAll('.rule-setting').forEach(setDefault);
+            refresh();
+        });
+    });
+    document.getElementById('reset-all-rules').addEventListener('click', function () {
+        if (!confirm('Reset every rule to the normal THavalon rules?')) return;
+        document.querySelectorAll('.rule-setting').forEach(setDefault);
+        refresh();
+    });
+    refresh();
+})();
+</script>
 <script>
 (function () {
     // Reload to show new players, unless the host is halfway through editing

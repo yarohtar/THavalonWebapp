@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask.views import MethodView
 import rules
+import rule_notes
+from ruleset import RuleSet, SETTINGS, DEFAULT as DEFAULT_RULES, ASSASSINATION_TARGETS
 import events
 from game import GameState, RuleError
 from actions import GameController
@@ -41,6 +43,12 @@ def _secret_key() -> str:
 
 app.secret_key = _secret_key()
 rules.init_app(app)
+app.jinja_env.globals.update(
+    rule_notes_for = rule_notes.notes_for,
+    rule_summary_notes = rule_notes.summary_notes,
+    expand_note = rule_notes.expand,
+    assassination_label = lambda kind: ASSASSINATION_TARGETS[kind][1],
+    assassination_size = lambda kind: len(ASSASSINATION_TARGETS[kind][0]))
 
 app.register_blueprint(events.blueprint)
 
@@ -85,12 +93,13 @@ class GameSettings:
         settings.lady = form.get('lady') == '1'
         return settings
 
-    def resolve(self, num_players : int, roles : list[Role]) -> dict:
+    def resolve(self, num_players : int, roles : list[Role],
+                ruleset : RuleSet | None = None) -> dict:
         """The rules actually in effect for a game of this size and roles."""
         n = num_players
         if n not in DEFAULT_TEAM_SIZES:
             raise ValueError("A game needs 5 to 10 players.")
-        gareth = has_gareth(n, roles)
+        gareth = has_gareth(n, roles, ruleset)
         evils = self.num_evils if self.num_evils is not None else default_num_evils(n, gareth)
         sizes = self.team_sizes or DEFAULT_TEAM_SIZES[n]
         if any(not 2 <= k <= n for k in sizes):
@@ -125,24 +134,32 @@ class AvalonGame:
         self.game_number = 0        # counts restarts, so vote keys never repeat
         self._host_vote_ids = 0
     rules : dict | None = None
+    ruleset : RuleSet | None = None     # the host's rules (None in games from before)
     controller : GameController | None = None
     names : dict[str, str]          # uuid -> player name (names are the game's ids)
     host_vote : HostVote | None = None   # the latest vote the host started
 
     def restart(self, roles_in_game : list[Role], players : dict[str,str],
-                settings : GameSettings):
+                settings : GameSettings, ruleset : RuleSet | None = None):
         # Build everything first, so a bad setting leaves the old game intact.
-        rules = settings.resolve(len(players), roles_in_game)
+        ruleset = ruleset or DEFAULT_RULES
+        rules = settings.resolve(len(players), roles_in_game, ruleset)
         builder = AvalonBuilder(list(players.values()), roles_in_game,
-                                rules['num_evils'])
+                                rules['num_evils'], rules = ruleset)
         self.install(builder, roles_in_game, players, rules)
+
+    @property
+    def game_ruleset(self) -> RuleSet:
+        return self.ruleset or DEFAULT_RULES
 
     def install(self, builder : AvalonBuilder, roles_in_game : list[Role],
                 players : dict[str,str], rules : dict):
-        """Start a game from roles already dealt (restart, or a dev scenario)."""
+        """Start a game from roles already dealt (restart, or a dev scenario).
+        The game's rule settings are the builder's."""
         self.player_info = {}
         self.roles_in_game = roles_in_game
         self.rules = rules
+        self.ruleset = builder.rules
         for role in builder:
             self.player_info[next(p for p in players if players[p] == builder[role])] = RoleInfo(role, builder)
         proposers = builder.get_first_mission_proposers()
@@ -165,6 +182,7 @@ class AvalonGame:
                                info = player_info.info,
                                proposers = self.proposers,
                                game_rules = self.rules,
+                               ruleset = self.game_ruleset,
                                image = 'round_table.jpg',
                                num_players = len(self.player_info),
                                panels = self.render_panels(uuid))
@@ -179,7 +197,7 @@ class AvalonGame:
         view = ctl.view(name)
         hv = self.host_vote.view(name) if self.host_vote else None
         ctx = dict(view = view, me = name, game_rules = self.rules,
-                   host_vote = hv,
+                   ruleset = self.game_ruleset, host_vote = hv,
                    undo_label = ctl.undo_label() if uuid is None else None)
         if uuid is None:
             return dict(host = render_template('game/host_panel.html', **ctx))
@@ -285,8 +303,9 @@ class Lobby:
         return len(self._players)
     def __contains__(self, uuid : str):
         return uuid in self._players
-    def restart_game(self, roles : list[Role], settings : GameSettings):
-        self.current_game.restart(roles, self._players, settings)
+    def restart_game(self, roles : list[Role], settings : GameSettings,
+                     ruleset : RuleSet | None = None):
+        self.current_game.restart(roles, self._players, settings, ruleset)
 
 class Lobbies:
     """All open games, kept in Redis (see store.py). Each host (browser
@@ -411,6 +430,17 @@ def pref_quests(n : int, evils : int) -> dict:
 def pref_lady() -> bool:
     return _prefs().get('lady', False)
 
+def pref_ruleset() -> RuleSet:
+    """The host's rule changes, kept in their cookie (only what differs from
+    the defaults)."""
+    return RuleSet.from_json(_prefs().get('rules'))
+
+def save_pref_ruleset(ruleset : RuleSet):
+    prefs = _prefs()
+    prefs['rules'] = ruleset.to_json()
+    session['host_prefs'] = prefs
+    session.modified = True
+
 def save_prefs(roles : list[str], rules_used : dict):
     n, evils = rules_used['num_players'], rules_used['num_evils']
     prefs = _prefs()
@@ -422,6 +452,69 @@ def save_prefs(roles : list[str], rules_used : dict):
         sizes = rules_used['team_sizes'], double_fail = rules_used['double_fail'] or 0)
     session['host_prefs'] = prefs
     session.modified = True
+
+# ---- the host page's rules editor ----
+
+def _keys(prefix : str) -> list[str]:
+    return [k for k in SETTINGS if k.startswith(prefix)]
+
+# Roles as the host chooses them, each with the rules shown under it.
+# rows: (subheading or None, setting keys).
+HOST_GROUPS = [
+    dict(title='Merlin', team='good', roles=['Merlin'], rows=[
+        (None, ['Merlin.players', 'Merlin.lonely', 'Nilrem.known']),
+        ('Merlin sees as Evil', _keys('Merlin.sees.'))]),
+    dict(title='Percival', team='good', roles=['Percival'], rows=[
+        (None, ['Percival.players', 'Percival.lonely']),
+        ('Percival sees (as Merlin or Morgana)', _keys('Percival.sees.'))]),
+    dict(title='The Lovers', team='good', roles=['Tristan', 'Iseult'], rows=[
+        (None, ['Tristan.players', 'Iseult.players', 'Lovers.lonely'])],
+         labels={'Tristan.players': 'Tristan: player counts',
+                 'Iseult.players': 'Iseult: player counts'}),
+    dict(title='Arthur', team='good', roles=['Arthur'], rows=[
+        (None, ['Arthur.players', 'Arthur.proclaim_after'])]),
+    dict(title='Lancelot', team='good', roles=['Lancelot'], rows=[
+        (None, ['Lancelot.players', 'Lancelot.reversal'])]),
+    dict(title='Guinevere', team='good', roles=['Guinevere'], rows=[
+        (None, ['Guinevere.players', 'Guinevere.lonely']),
+        ('Guinevere sees', _keys('Guinevere.sees.'))]),
+    dict(title='Gawain', team='good', roles=['Gawain'], rows=[(None, ['Gawain.players'])]),
+    dict(title='Balin the Savage', team='good', roles=['Balin the Savage'],
+         rows=[(None, ['Balin the Savage.players'])]),
+    dict(title='Mordred', team='evil', roles=['Mordred'], rows=[(None, ['Mordred.players'])]),
+    dict(title='Morgana', team='evil', roles=['Morgana'], rows=[(None, ['Morgana.players'])]),
+    dict(title='Maelegant', team='evil', roles=['Maelegant'], rows=[
+        (None, ['Maelegant.players', 'Maelegant.reversal'])]),
+    dict(title='Agravaine', team='evil', roles=['Agravaine'], rows=[
+        (None, ['Agravaine.players', 'Agravaine.must_fail'])]),
+    dict(title='Colgrevance', team='evil', roles=['Colgrevance'],
+         rows=[(None, ['Colgrevance.players'])]),
+    dict(title='Oberon', team='evil', roles=['Oberon'], rows=[
+        (None, ['Oberon.players', 'Oberon.seen_by_evil', 'Oberon.sees_evil',
+                'Oberon.announced'])]),
+    dict(title='Gareth', team='either', roles=['Gareth'], rows=[
+        (None, ['Gareth.players', 'Gareth.knows', 'Gareth.lady']),
+        ('When Gareth is blue (Good)', _keys('Gareth.Good.')),
+        ('When Gareth is red (Evil)', _keys('Gareth.Evil.'))]),
+    dict(title='Pellinore & the Questing Beast', team='neutral',
+         roles=['Pellinore', 'The Questing Beast'], rows=[(None, ['Pellinore.players'])],
+         labels={'Pellinore.players': 'Player counts (they always play together)'}),
+]
+for _g in HOST_GROUPS:
+    _g['keys'] = [k for _, keys in _g['rows'] for k in keys]
+    _g.setdefault('labels', {})
+ASSASSINATION_KEYS = _keys('assassination.')
+SELECTABLE_ROLES = [r for g_ in HOST_GROUPS for r in g_['roles']]
+
+def form_ruleset(form) -> RuleSet:
+    """Rules from the host form, or the saved ones if the form had no rules."""
+    return RuleSet.from_form(form) if form.get('rules_form') else pref_ruleset()
+
+def ordered_roles(role_names : list[str]) -> list[Role]:
+    """Selected roles in the usual order (dealing is random, but this keeps
+    it exactly as it always was)."""
+    names = set(role_names)
+    return [r for r in all_roles if str(r) in names]
 
 # ---- request setup ----
 
@@ -523,14 +616,27 @@ app.add_url_rule('/register', view_func=RegisterView.as_view('register_api'))
 
 # ---- host pages ----
 
-def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
+def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
+                saved = False):
     players = lobby.snapshot()
     n = len(players)
+    ruleset = pref_ruleset()
+    if form is not None:
+        try:
+            ruleset = form_ruleset(form)
+        except ValueError:
+            pass
     ctx = dict(lobby = lobby,
                players = players,
-               all_roles = all_roles,
-               gareth_possible = gareth.can_appear(n),
+               groups = HOST_GROUPS,
+               assassination_keys = ASSASSINATION_KEYS,
+               settings = SETTINGS,
+               ruleset = ruleset,
+               saved = saved,
+               rule_defaults = {k: s.to_json(s.default) for k, s in SETTINGS.items()},
+               gareth_possible = gareth.can_appear(n, ruleset),
                game_rules = lobby.current_game.rules,
+               current_ruleset = lobby.current_game.game_ruleset,
                error = error,
                rename_error = rename_error,
                num_players = n,
@@ -542,7 +648,7 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None):
         ctx['active_roles'] = pref_roles()
         ctx['lady'] = pref_lady()
     if ctx['valid_count']:
-        gareth_plays = gareth.can_appear(n) and str(gareth) in ctx['active_roles']
+        gareth_plays = gareth.can_appear(n, ruleset) and str(gareth) in ctx['active_roles']
         evil_options = list(range(1, min(5, n - 1 - gareth_plays) + 1))
         quests = {e: pref_quests(n, e) for e in range(1, 6)}
         evils = pref_evils(n, gareth_plays)
@@ -595,13 +701,32 @@ def restart():
     role_names = request.form.getlist('items')
     try:
         settings = GameSettings.from_form(request.form)
-        roles = convert_strings_to_roles(role_names)
-        lobby, _ = LOBBIES.update(lobby.id, lambda l: l.restart_game(roles, settings))
+        ruleset = form_ruleset(request.form)
+        roles = ordered_roles(role_names)
+        lobby, _ = LOBBIES.update(lobby.id,
+                                  lambda l: l.restart_game(roles, settings, ruleset))
     except ValueError as e:
         return render_host(lobby, error = str(e), form = request.form), 400
     save_prefs(role_names, lobby.current_game.rules)
+    save_pref_ruleset(ruleset)
     new_event('new-game', lobby.id)
     return flask.redirect(url_for('lobby_api'))
+
+@app.route("/host/save", methods=["POST"])
+def host_save():
+    """Remember the roles and rules without starting a game."""
+    lobby, _ = LOBBIES.open(g.uuid, session.get('game_name'))
+    try:
+        ruleset = form_ruleset(request.form)
+    except ValueError as e:
+        return render_host(lobby, error = str(e), form = request.form), 400
+    prefs = _prefs()
+    prefs['roles'] = request.form.getlist('items')
+    prefs['gareth_offered'] = True
+    prefs['lady'] = request.form.get('lady') == '1'
+    session['host_prefs'] = prefs
+    save_pref_ruleset(ruleset)
+    return render_host(lobby, saved = True)
 
 # ---- live game ----
 
@@ -709,9 +834,23 @@ def host_game_command(command):
 def rules_page(slug = "overview"):
     if slug not in rules.PAGES:
         flask.abort(404)
+    lobby = viewer_game()
     return flask.render_template('rules/page.html',
                                  page = rules.BY_SLUG[slug],
-                                 terms = rules.TERMS)
+                                 terms = rules.TERMS,
+                                 game_lobby = lobby,
+                                 ruleset = lobby.current_game.game_ruleset if lobby else None)
+
+def viewer_game() -> Lobby | None:
+    """The game this browser is playing in or hosting right now, if any."""
+    lobby = LOBBIES.hosted_by(g.uuid)
+    if lobby is not None and lobby.current_game.controller is not None:
+        return lobby
+    lobby = joined_lobby()
+    if lobby is not None and g.uuid in lobby.current_game \
+            and lobby.current_game.controller is not None:
+        return lobby
+    return None
 
 @app.route("/donotread")
 def all_info():

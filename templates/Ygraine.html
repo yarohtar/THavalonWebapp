@@ -1,5 +1,11 @@
 {% extends "role.html" %}
 {% block content %}
+{% if info['stalked_evil'] %}
 <p>You are stalking {{ info['stalked_evil'] }}; they are evil.</p>
-<p>[[Guinevere]], [[Lancelot]], [[Arthur]], and [[Maelegant]] are not in the game.</p>
+{% else %}
+<p>There is no Evil player you could stalk.</p>
+{% endif %}
+{% set missing = ['Guinevere'] + ruleset.guinevere_sees() %}
+<p>{% for r in missing %}{{ term(r) }}{% if not loop.last %}{{ ', and ' if loop.revindex == 2 and missing|length > 2 else ' and ' if loop.revindex == 2 else ', ' }}{% endif %}{% endfor %}
+    {{ 'are' if missing|length > 1 else 'is' }} not in the game.</p>
 {% endblock %}

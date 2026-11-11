@@ -151,6 +151,10 @@ class Uther(GoodRole):
                        if role.allegiance() == "Good" 
                        and role != uther 
                        and role != nilrem]
+        # Nobody to stalk can only happen with unusual settings.
+        if not other_goods:
+            info['stalked_good'] = None
+            return info
         stalked_role = random.sample(other_goods, 1)[0]
         info['stalked_good'] = game[stalked_role]
         return info
@@ -192,6 +196,9 @@ class Ygraine(GoodRole):
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
         evils = [role for role in game if role.allegiance() == "Evil" and role != mordred]
+        if not evils:         # e.g. Mordred is the only Evil player
+            info['stalked_evil'] = None
+            return info
         stalked_role = random.sample(evils, 1)[0]
         info['stalked_evil'] = game[stalked_role]
         return info
@@ -204,6 +211,9 @@ class Gawain(GoodRole):
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
         goods = [role for role in game if role.allegiance() == "Good" and role != gawain]
+        if not goods or len(game.role_to_player) < 4:
+            info['seen'] = []
+            return info
         good_role_seen = random.sample(goods,1)[0]
         everyone_else = [role for role in game if role != gawain and role != good_role_seen]
         seen = random.sample(everyone_else, 2)

@@ -13,6 +13,10 @@
         {% if page.retired %}<span class="badge">Not currently played</span>{% endif %}
     </p>
     {% endif %}
+    {% from "_rule_notes.html" import game_notes %}
+    {{ game_notes(ruleset, page.slug,
+                  'In your current game' ~ (' (' ~ game_lobby.name ~ ')' if game_lobby else ''),
+                  'The host changed some rules. Where they differ, these apply instead of the rules below.') }}
     {% include "rules/" ~ page.slug ~ ".html" %}
 </div>
 {% endblock %}

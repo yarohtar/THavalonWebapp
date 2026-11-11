@@ -25,5 +25,10 @@
         <li>The {{ ordinal[game_rules.double_fail - 1] }} [[Quest]] needs 2 [[Fail|Fails]] to fail.</li>
         {% endif %}
     </ul>
+    {% set changes = rule_summary_notes(ruleset) %}
+    {% if changes %}
+    <p>The host changed these rules:</p>
+    <ul>{% for n in changes %}<li>{{ expand_note(n.text) }}</li>{% endfor %}</ul>
+    {% endif %}
     <p><a href="{{ url_for('rules_page') }}">All rules →</a></p>
 </details>

@@ -1,5 +1,10 @@
 {% extends "role.html" %}
 {% block content %}
+{% set sees = ruleset.guinevere_sees() %}
+{% if not info['seen'] %}
+<p>{% if sees %}{% for r in sees %}{{ term(r) }}{% if not loop.last %}{{ ' and ' if loop.revindex == 2 else ', ' }}{% endif %}{% endfor %}
+    {{ 'are' if sees|length > 1 else 'is' }} not in this game.{% else %}You don't see anyone.{% endif %}</p>
+{% else %}
 <ul>
     <li>You see the following players:
         <ul>
@@ -11,9 +16,13 @@
         </ul>
     </li>
 </ul>
+{% set desc = {'Lancelot': 'your luscious ' ~ term('Lancelot'),
+                'Arthur': 'your lawfully wedded ' ~ term('Arthur'),
+                'Maelegant': 'your kidnapper ' ~ term('Maelegant')} %}
 <p>
-Each of them is either your luscious [[Lancelot]], 
-your lawfully wedded [[Arthur]],
-or your kidnapper [[Maelegant]].
+{% if sees|length == 1 %}They are {{ desc[sees[0]]|safe }}.
+{% else %}Each of them is either {% for r in sees %}{{ desc[r]|safe }}{% if not loop.last %}{{ ', or ' if loop.revindex == 2 else ', ' }}{% endif %}{% endfor %}.
+{% endif %}
 </p>
+{% endif %}
 {% endblock %}
