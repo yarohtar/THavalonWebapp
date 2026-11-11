@@ -1,5 +1,8 @@
 {% extends "role.html" %}
 {% block content %}
+{% if not info['seen'] %}
+<p>You don't see anyone as evil.</p>
+{% else %}
 <ul>
     <li>You see the following players as evil:
         <ul>
@@ -11,4 +14,5 @@
         </ul>
     </li>
 </ul>
+{% endif %}
 {% endblock %}

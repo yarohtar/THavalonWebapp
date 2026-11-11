@@ -160,8 +160,12 @@ class Bot:
         if "pellinore_guess" in acts:
             return "pellinore_guess", {"target": rng.choice(acts["pellinore_guess"]["choices"])}
         if "assassinate" in acts:
-            return "assassinate", {"kind": "merlin",
-                                   "targets": rng.choice([p for p in view["seating"] if p != me])}
+            # The host's rules decide the choices: Merlin if allowed, else the first.
+            kinds = acts["assassinate"]["kinds"]
+            kind = "merlin" if "merlin" in kinds else kinds[0]
+            others = [p for p in view["seating"] if p != me]
+            count = 0 if kind == "none" else 2 if kind == "lovers" else 1
+            return "assassinate", {"kind": kind, "targets": rng.sample(others, count)}
         return None
 
     def host_vote(self, view, hv) -> dict:

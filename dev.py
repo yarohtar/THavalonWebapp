@@ -42,6 +42,7 @@ from markupsafe import Markup
 
 import THavalon as T
 from game import Phase, PAUSES
+from ruleset import RuleSet
 
 PLAYER_NAMES = ["Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "Gus", "Hal", "Ivy", "Jon"]
 
@@ -140,6 +141,7 @@ class Scenario:
     double_fail : int | None = None     # None: default; 0: no quest needs 2 Fails
     lady : bool = False
     group : str = "Game flow"
+    rules : dict | None = None          # rule changes (see ruleset.SETTINGS)
 
     @property
     def players(self) -> list[str]:
@@ -240,6 +242,17 @@ SCENARIOS = [
              lambda d: (d.quest(P(0, 4), fails=P(4)), d.quest(P(0, 1, 4), fails=P(4)),
                         d.quest(P(0, 1, 5), fails=P(5))),
              view="Ann", group="End of game"),
+    Scenario("changed-rules", "Changed rules",
+             "The host changed rules: Merlin sees Mordred but not Lancelot, Percival sees "
+             "only Merlin, Evil may not name no one and may also assassinate Percival. "
+             "Good won 3 quests; Mordred (Eve) decides. Check the Role tabs and rules pages.",
+             ["Merlin", "Percival", "Lancelot", "Servant of Camelot", "Mordred", "Morgana",
+              "Maelegant"],
+             lambda d: (d.quest(P(0, 1)), d.quest(P(0, 1, 2)), d.quest(P(0, 1, 2))),
+             rules={"Merlin.sees.Mordred": True, "Merlin.sees.Lancelot": False,
+                    "Percival.sees.Morgana": False, "assassination.none": False,
+                    "assassination.target.percival": True},
+             group="End of game"),
     Scenario("host-votes", "Host votes",
              "Round 2, Cat proposing. Use the host page to start votes by hand.", SEVEN,
              lambda d: d.quest(P(0, 1)), view="host", group="Host"),
@@ -353,14 +366,17 @@ def init_app(app, web):
         old = web.LOBBIES.get(lobby.id)
         if old is not None:      # keep counting games, so vote keys never repeat
             lobby.current_game.game_number = old.current_game.game_number
+        ruleset = RuleSet(sc.rules)
         roles = [r for r in make_builder(sc.players, sc.roles)]
         settings = web.GameSettings()
         settings.num_evils = sum(r.allegiance() == "Evil" for r in roles)
         settings.team_sizes = sc.sizes
         settings.double_fail = sc.double_fail
         settings.lady = sc.lady
-        rules = settings.resolve(len(players), roles)
-        lobby.current_game.install(make_builder(sc.players, sc.roles), roles, players, rules)
+        rules = settings.resolve(len(players), roles, ruleset)
+        builder = make_builder(sc.players, sc.roles)
+        builder.rules = ruleset
+        lobby.current_game.install(builder, roles, players, rules)
         sc.setup(Drive(lobby.current_game.controller))
         web.LOBBIES.add(lobby)
         web.new_event("new-game", lobby.id)

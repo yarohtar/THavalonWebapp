@@ -4,7 +4,7 @@
 {% if view.you and view.you.team %}
 <div class="ability">
     <h3>Your team</h3>
-    <p>Evil have revealed themselves: you are
+    <p>{% if view.phase == 'game_over' %}The game is over: you were{% else %}Evil have revealed themselves: you are{% endif %}
         <b class="term-{{ view.you.team|lower }}">{{ view.you.team }}</b>
         ({{ 'blue' if view.you.team == 'Good' else 'red' }}).</p>
     {% if view.phase == 'assassination' %}

@@ -107,8 +107,9 @@
     {% if 'assassinate' in acts %}
     {% call action_form('assassinate', confirm='This is final. Assassinate?', cls='assassinate-form') %}
         <div class="pick-list">
-            {% for kind, label in [('merlin', 'One as Merlin'), ('nilrem', 'One as Nilrem'),
-                                   ('lovers', 'Two as the Lovers'), ('none', 'No one')] %}
+            {% for kind in acts.assassinate.kinds %}
+            {% set label = 'No one' if kind == 'none'
+                else ('Two' if assassination_size(kind) == 2 else 'One') ~ ' as ' ~ assassination_label(kind) %}
             <label class="pick"><input type="radio" name="kind" value="{{ kind }}" required><span>{{ label }}</span></label>
             {% endfor %}
         </div>
@@ -123,7 +124,7 @@
     {% if view.assassination %}
     <p>[[Assassination]]:
         {% if view.assassination.kind == 'none' %}no one{% else %}{{ names(view.assassination.targets) }} as
-        {{ {'merlin': 'Merlin', 'nilrem': 'Nilrem', 'lovers': 'the Lovers'}[view.assassination.kind] }}{% endif %}
+        {{ assassination_label(view.assassination.kind) }}{% endif %}
         — {{ 'correct' if view.assassination.correct else 'wrong' }}.</p>
     {% endif %}
     {% if o.gareth %}

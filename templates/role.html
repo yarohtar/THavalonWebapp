@@ -2,6 +2,7 @@
 {% block title %}Avalon{% endblock %}
 {% block body %}
 {% set role_term = get_term(info['role']) %}
+{% from "_rule_notes.html" import game_notes %}
 <div class="player-page" data-panels-url="{{ url_for('game_panels') }}"
      data-action-url="{{ url_for('game_action') }}">
 
@@ -15,6 +16,11 @@
                 <h1>You are {{ info['role'] }}</h1>
 
             {% if info['allegiance'] == 'Evil'
+                and info['role'] != 'Colgrevance'
+                and not info['other_evils'] and not info['oberon'] %}
+            <p>{% if info['role'] == 'Oberon' and not ruleset['Oberon.sees_evil'] %}You don't know who the other Evil players are.
+               {% else %}You don't see any other Evil players.{% endif %}</p>
+            {% elif info['allegiance'] == 'Evil'
                 and info['role'] != 'Colgrevance' %}
             <ul>
                 <li>
@@ -37,9 +43,13 @@
                 {% if 'nilrem' in info %}
                     <p>{{ info['nilrem'] }} is [[Nilrem]]. 
                     [[Merlin]] and [[Percival]] are not in this game.</p>
-                {% elif info['role'] != 'Nilrem' %}
+                {% elif info['role'] != 'Nilrem' and ruleset['Nilrem.known'] %}
                     <p>[[Nilrem]] is not in this game.</p>
                 {% endif %}
+            {% endif %}
+
+            {% if 'gareth' in info %}
+                <p>{{ info['gareth'] }} is [[Gareth]].</p>
             {% endif %}
 
             {% block content %}
@@ -52,6 +62,7 @@
                 <div class="role-rules">
                     {% include "rules/" ~ role_term.page_slug ~ ".html" %}
                 </div>
+                {{ game_notes(ruleset, role_term.page_slug, 'In this game') }}
                 <p class="card-rules-link"><a href="{{ role_term.url() }}">Rules for {{ info['role'] }} →</a></p>
             </div>
 

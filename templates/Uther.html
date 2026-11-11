@@ -1,5 +1,9 @@
 {% extends "role.html" %}
 {% block content %}
 <p>Nobody loves you. [[Tristan]] and [[Iseult]] are not in this game.</p>
+{% if info['stalked_good'] %}
 <p>You are stalking {{ info['stalked_good'] }}; they are also good.</p>
+{% else %}
+<p>There is no other Good player for you to stalk.</p>
+{% endif %}
 {% endblock %}

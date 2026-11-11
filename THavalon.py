@@ -4,6 +4,8 @@ from __future__ import annotations
 import random
 import sys
 
+from ruleset import RuleSet, DEFAULT as DEFAULT_RULES
+
 class Role:
     def __str__(self) -> str:
         assert(False)
@@ -15,8 +17,10 @@ class Role:
         return "none"
     def transform_if_lonely(self, game : AvalonBuilder) -> Role:
         return self
-    def can_appear(self, num_players : int) -> bool:
-        return True
+    def can_appear(self, num_players : int, rules : RuleSet | None = None) -> bool:
+        """Whether this role can be dealt in a game of this size (see ruleset)."""
+        allowed = (rules or DEFAULT_RULES).can_appear(str(self), num_players)
+        return True if allowed is None else allowed
 
     def __eq__(self, other) -> bool:
         return str(self) == str(other)
@@ -34,7 +38,7 @@ class GoodRole(Role):
         return "Good"
     def get_info(self, game : AvalonBuilder) -> dict:
         info = super().get_info(game)
-        if nilrem in game:
+        if nilrem in game and game.rules['Nilrem.known']:
             info['nilrem'] = game[nilrem]
         return info
 
@@ -57,15 +61,14 @@ class Percival(GoodRole):
 
     def get_info(self, game : AvalonBuilder) -> dict:
         info = super().get_info(game)
-        seen = game.get_players_with_roles([merlin,morgana])
+        seen = game.get_players_with_roles(convert_strings_to_roles(game.rules.percival_sees()))
         info['seen'] = seen
         return info
 
     def transform_if_lonely(self, game : AvalonBuilder) -> Role:
-        n = len(game.players)
-        if n < 7:
+        if len(game.players) not in game.rules.lonely_counts(str(self)):
             return self
-        if merlin in game or morgana in game:
+        if any(string_to_role[r] in game for r in game.rules.percival_sees()):
             return self
         return galahad
 
@@ -84,17 +87,20 @@ class Merlin(GoodRole):
         return "Merlin"
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
-        evils = [game[role] for role in game 
-                if role.allegiance() == "Evil" and role != mordred]
-        if lancelot in game:
+        rules = game.rules
+        evils = [game[role] for role in game
+                 if (rules.gareth(role.team, 'merlin_sees') if isinstance(role, Gareth)
+                     else role.allegiance() == "Evil" and rules.merlin_sees(str(role)))]
+        if lancelot in game and rules.merlin_sees(str(lancelot)):
             evils.append(game[lancelot])
-        if balin in game:
+        if balin in game and rules.merlin_sees(str(balin)):
             evils.append(game[balin])
         random.shuffle(evils)
         info['seen'] = evils
+        add_gareth_role(info, game, 'merlin_knows_role')
         return info
     def transform_if_lonely(self, game: AvalonBuilder) -> Role:
-        if len(game.players) < 7:
+        if len(game.players) not in game.rules.lonely_counts(str(self)):
             return self
         if percival not in game:
             return nilrem
@@ -112,7 +118,7 @@ class Tristan(GoodRole):
         return info
 
     def transform_if_lonely(self, game: AvalonBuilder) -> Role:
-        if len(game.players) < 7: 
+        if len(game.players) not in game.rules.lonely_counts(str(self)):
             return self
         if iseult not in game:
             return uther
@@ -130,7 +136,7 @@ class Iseult(GoodRole):
         return info
 
     def transform_if_lonely(self, game: AvalonBuilder) -> Role:
-        if len(game.players) < 7: 
+        if len(game.players) not in game.rules.lonely_counts(str(self)):
             return self
         if tristan not in game:
             return uther
@@ -145,6 +151,10 @@ class Uther(GoodRole):
                        if role.allegiance() == "Good" 
                        and role != uther 
                        and role != nilrem]
+        # Nobody to stalk can only happen with unusual settings.
+        if not other_goods:
+            info['stalked_good'] = None
+            return info
         stalked_role = random.sample(other_goods, 1)[0]
         info['stalked_good'] = game[stalked_role]
         return info
@@ -169,17 +179,16 @@ class Guinevere(GoodRole):
 
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
-        seen = game.get_players_with_roles([lancelot, arthur, maelegant])
+        seen = game.get_players_with_roles(convert_strings_to_roles(game.rules.guinevere_sees()))
         info['seen'] = seen
         return info
 
     def transform_if_lonely(self, game: AvalonBuilder) -> Role:
-        if lancelot in game or arthur in game or maelegant in game:
+        if len(game.players) not in game.rules.lonely_counts(str(self)):
+            return self
+        if any(string_to_role[r] in game for r in game.rules.guinevere_sees()):
             return self
         return ygraine
-
-    def can_appear(self, num_players: int) -> bool:
-        return num_players >= 7
 
 class Ygraine(GoodRole):
     def __str__(self) -> str:
@@ -187,6 +196,9 @@ class Ygraine(GoodRole):
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
         evils = [role for role in game if role.allegiance() == "Evil" and role != mordred]
+        if not evils:         # e.g. Mordred is the only Evil player
+            info['stalked_evil'] = None
+            return info
         stalked_role = random.sample(evils, 1)[0]
         info['stalked_evil'] = game[stalked_role]
         return info
@@ -199,6 +211,9 @@ class Gawain(GoodRole):
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
         goods = [role for role in game if role.allegiance() == "Good" and role != gawain]
+        if not goods or len(game.role_to_player) < 4:
+            info['seen'] = []
+            return info
         good_role_seen = random.sample(goods,1)[0]
         everyone_else = [role for role in game if role != gawain and role != good_role_seen]
         seen = random.sample(everyone_else, 2)
@@ -208,8 +223,6 @@ class Gawain(GoodRole):
         info['seen'] = seen_players
         return info
 
-    def can_appear(self, num_players: int) -> bool:
-        return num_players >= 10
 
 class Nilrem(GoodRole):
     def __str__(self) -> str:
@@ -218,8 +231,6 @@ class Nilrem(GoodRole):
         info = super().get_info(game)
         info.pop('nilrem', None)
         return info
-    def can_appear(self, num_players: int) -> bool:
-        return num_players >= 7
     def is_base_role(self) -> bool:
         return False
 
@@ -231,24 +242,47 @@ class Balin(GoodRole):
         if agravaine in game:
             info['agravaine'] = game[agravaine]
         return info
-    def can_appear(self, num_players: int) -> bool:
-        return num_players == 6 or num_players == 9
 
 class EvilRole(Role):
     def allegiance(self)-> str:
         return "Evil"
 
     def get_visible_evils(self, game : AvalonBuilder) -> list[str]:
-        evil_roles = [role for role in game 
-                if role != self and role != oberon and role.allegiance()=="Evil"]
-        return game.get_players_with_roles(evil_roles)
+        if self == oberon and not game.rules['Oberon.sees_evil']:
+            return []
+        return game.get_players_with_roles(visible_evil_roles(game, self))
 
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
         info['other_evils'] = self.get_visible_evils(game)
-        info['oberon'] = oberon in game
+        # Told that an Oberon lurks, when they don't see Oberon themselves.
+        info['oberon'] = (oberon in game and game.rules['Oberon.announced']
+                          and not game.rules['Oberon.seen_by_evil'])
+        add_gareth_role(info, game, 'evil_knows_role')
         print(info)
         return info
+
+
+def visible_evil_roles(game : AvalonBuilder, viewer : Role) -> list[Role]:
+    """Roles an Evil player sees as fellow Evil (in the builder's order)."""
+    rules = game.rules
+    seen = []
+    for role in game:
+        if role == viewer:
+            continue
+        if isinstance(role, Gareth):
+            if rules.gareth(role.team, 'evil_sees'):
+                seen.append(role)
+        elif role.allegiance() == "Evil" and (role != oberon or rules['Oberon.seen_by_evil']):
+            seen.append(role)
+    return seen
+
+
+def add_gareth_role(info : dict, game : AvalonBuilder, rule : str):
+    """Tell this player which player is Gareth, if the rules say so."""
+    for role in game:
+        if isinstance(role, Gareth) and game.rules.gareth(role.team, rule):
+            info['gareth'] = game[role]
 
 class MoM(EvilRole):
     index : int
@@ -286,15 +320,16 @@ class Agravaine(EvilRole):
             info['balin'] = game[balin]
         return info
 
-    def can_appear(self, num_players: int) -> bool:
-        return num_players >= 7
 
 class Colgrevance(EvilRole):
     def __str__(self) -> str:
         return "Colgrevance"
     def get_info(self, game: AvalonBuilder) -> dict:
         info = super().get_info(game)
-        evil_roles = [role for role in game if role.allegiance() == "Evil" and role != colgrevance]
+        # Every Evil role Colgrevance could see (Oberon included), by role.
+        evil_roles = [role for role in game if role != colgrevance and (
+            role.allegiance() == "Evil" and not isinstance(role, Gareth)
+            or isinstance(role, Gareth) and game.rules.gareth(role.team, 'evil_sees'))]
         player_roles = {}
         for role in evil_roles:
             player_roles[game[role]] = role
@@ -302,8 +337,6 @@ class Colgrevance(EvilRole):
         info['evil_roles'] = player_roles
         return info
 
-    def can_appear(self, num_players: int) -> bool:
-        return num_players >= 10
 
 class Oberon(EvilRole):
     def __str__(self) -> str:
@@ -331,9 +364,13 @@ class Gareth(Role):
         return self.team or "none"
     def get_info(self, game : AvalonBuilder) -> dict:
         # No Nilrem, no fellow Evil: anything more would reveal the team.
-        return {'allegiance': 'Unknown', 'knight': self.knight, 'rival': self.rival}
-    def can_appear(self, num_players : int) -> bool:
-        return num_players == 9
+        knows = game.rules['Gareth.knows']
+        info = {'allegiance': 'Unknown'}
+        if knows in ('both', 'knight'):
+            info['knight'] = self.knight
+        if knows in ('both', 'rival'):
+            info['rival'] = self.rival
+        return info
 
 class NeutralRole(Role):
     def allegiance(self) -> str:
@@ -344,8 +381,6 @@ class Pellinore(NeutralRole):
     def __str__(self) -> str:
         return "Pellinore"
 
-    def can_appear(self, num_players: int) -> bool:
-        return num_players == 9
 
 class TheBeast(NeutralRole):
     def __str__(self) -> str:
@@ -356,8 +391,6 @@ class TheBeast(NeutralRole):
         info['pellinore'] = game[pellinore]
         return info
 
-    def can_appear(self, num_players: int) -> bool:
-        return num_players == 9
 
 
 percival = Percival()
@@ -419,9 +452,9 @@ string_to_role : dict[str, Role] = { str(role): role for role in all_roles }
 def convert_strings_to_roles(str_roles : list[str]):
     return [string_to_role[str_role] for str_role in str_roles]
 
-def has_gareth(num_players : int, roles : list[Role]) -> bool:
-    """Gareth plays (in 9-player games only) when the host selected them."""
-    return gareth in roles and gareth.can_appear(num_players)
+def has_gareth(num_players : int, roles : list[Role], rules : RuleSet | None = None) -> bool:
+    """Gareth plays when the host selected them and the player count allows (9 by default)."""
+    return gareth in roles and gareth.can_appear(num_players, rules)
 
 def default_num_evils(num_players : int, gareth_plays : bool = False) -> int:
     """Evil players, not counting Gareth. Gareth takes the place of one."""
@@ -445,11 +478,12 @@ def default_double_fail_quest(num_players : int) -> int | None:
     return 4 if num_players >= 7 else None
 
 def generate_roles(num_players : int, base_roles : list[Role],
-                   num_evils : int | None = None) -> list[Role]:
-    gareth_plays = has_gareth(num_players, base_roles)
+                   num_evils : int | None = None,
+                   rules : RuleSet | None = None) -> list[Role]:
+    gareth_plays = has_gareth(num_players, base_roles, rules)
     base_roles = [role for role in base_roles
                   if role.is_base_role() and role != gareth]
-    possible_roles = [role for role in base_roles if role.can_appear(num_players)]
+    possible_roles = [role for role in base_roles if role.can_appear(num_players, rules)]
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
@@ -490,22 +524,23 @@ def generate_roles(num_players : int, base_roles : list[Role],
 class AvalonBuilder:
     players : list[str]
     role_to_player : dict[Role,str]
+    rules : RuleSet = DEFAULT_RULES     # what roles see; read by Role.get_info
 
     def __init__(self, players: list[str], roles_in_play : list[Role],
-                 num_evils : int | None = None):
+                 num_evils : int | None = None, rules : RuleSet | None = None):
+        self.rules = rules or DEFAULT_RULES
         players = list(set(players))
         random.shuffle(players)
         self.players = players
 
         n = len(players)
         assert(5 <= n <= 12)
-        roles = generate_roles(n, roles_in_play, num_evils)
+        roles = generate_roles(n, roles_in_play, num_evils, self.rules)
         self.role_to_player = {}
 
         for (player, role) in zip(players, roles):
             self[role] = player
-        for role in roles:
-            self.transform_lonely(role)
+        self.transform_lonely_roles(roles)
         if gareth in self:
             self.choose_gareth_team()
 
@@ -527,8 +562,14 @@ class AvalonBuilder:
     def pop(self, role : Role) -> str:
         return self.role_to_player.pop(role)
 
-    def transform_lonely(self, role : Role):
-        self[role.transform_if_lonely(self)] = self.pop(role)
+    def transform_lonely_roles(self, roles : list[Role]):
+        """Lonely roles change, all judged on the roles as dealt (so the
+        order doesn't matter, e.g. when Percival is set not to see Merlin)."""
+        changes = [(role, role.transform_if_lonely(self)) for role in roles]
+        # Every role is re-added in deal order (the order roles are listed
+        # in, which later random choices depend on).
+        for role, new in changes:
+            self[new] = self.pop(role)
 
     def choose_gareth_team(self):
         """Gareth joins the Knight's team; the Rival is from the other team."""

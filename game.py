@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from THavalon import AvalonBuilder, Role, all_roles
+from ruleset import ASSASSINATION_TARGETS, RuleSet, DEFAULT as DEFAULT_RULES
 
 
 class RuleError(Exception):
@@ -105,6 +106,9 @@ class Quest:
 
 
 class GameState:
+    # Games stored before rule settings existed play by the default rules.
+    rules : RuleSet = DEFAULT_RULES
+
     def __init__(self,
                  seating : list[str],
                  roles : dict[str, Role],
@@ -114,8 +118,10 @@ class GameState:
                  round2_starter : str,
                  role_pool : list[Role] | None = None,
                  rng : random.Random | None = None,
-                 lady_of_the_lake : bool = False):
+                 lady_of_the_lake : bool = False,
+                 rules : RuleSet | None = None):
         assert len(team_sizes) == 5
+        self.rules = rules or DEFAULT_RULES
         assert set(roles) == set(seating)
         self.seating = list(seating)            # proposal order
         self.roles = dict(roles)                # player -> Role
@@ -126,7 +132,7 @@ class GameState:
         # host's selection, limited to roles allowed at this player count.
         # Pauses are skipped when no role that could act in them is possible.
         n = len(seating)
-        self.possible_roles = {str(r) for r in (role_pool or all_roles) if r.can_appear(n)}
+        self.possible_roles = {str(r) for r in (role_pool or all_roles) if r.can_appear(n, self.rules)}
         self.possible_roles |= {str(r) for r in roles.values()}
         # Gareth counts as Evil here whichever team they're on, so the number
         # of proposals doesn't give their team away.
@@ -171,7 +177,9 @@ class GameState:
     def from_builder(cls, builder : AvalonBuilder, team_sizes : list[int],
                      double_fail_quest : int | None, **kw) -> GameState:
         """Pass role_pool= (the host's selected roles) so that pauses for
-        roles that can't be in the game are skipped."""
+        roles that can't be in the game are skipped. The rules default to
+        the builder's."""
+        kw.setdefault("rules", builder.rules)
         roles = {builder[role]: role for role in builder}
         a, b = builder.get_first_mission_proposers()
         return cls(builder.players, roles, team_sizes, double_fail_quest,
@@ -234,11 +242,9 @@ class GameState:
             return [Card.QBWH]
         if role == "Pellinore":
             return [Card.FAIL] if self.qbwh_seen() >= 2 else [Card.SUCCESS]
-        if role == "Agravaine":
+        if role == "Agravaine" and self.rules["Agravaine.must_fail"]:
             return [Card.FAIL]
-        if role == "Maelegant":
-            return [Card.SUCCESS, Card.FAIL, Card.REVERSAL]
-        if role == "Lancelot":
+        if role in self.rules.reversal_roles():
             return [Card.SUCCESS, Card.FAIL, Card.REVERSAL]
         # Everyone else, Good or Evil, may play Success or Fail.
         return [Card.SUCCESS, Card.FAIL]
@@ -605,12 +611,15 @@ class GameState:
         self._next_round()
 
     def lady_team(self, player : str) -> str:
-        """The team the Lady shows: the true one, except Gareth always shows Good."""
-        return "Good" if self.role(player) == "Gareth" else self.allegiance(player)
+        """The team the Lady shows: the true one, except Gareth shows Good
+        (unless the rules say Gareth shows their real team)."""
+        if self.role(player) == "Gareth" and self.rules["Gareth.lady"] == "good":
+            return "Good"
+        return self.allegiance(player)
 
     def gareth_knows_team(self) -> bool:
         """Gareth learns their team once Evil reveal themselves for the
-        Assassination (or the game ends)."""
+        Assassination, or when the game ends."""
         return self.phase in (Phase.ASSASSINATION, Phase.GAME_OVER)
 
     def lady_choices(self) -> list[str]:
@@ -631,11 +640,15 @@ class GameState:
 
     # ------------------------------------------------------------- anytime
 
+    def proclamation_available(self) -> bool:
+        return (self.player_with_role("Arthur") is not None and not self.proclaimed
+                and self.failures >= self.rules["Arthur.proclaim_after"]
+                and self.phase != Phase.GAME_OVER)
+
     def proclaim(self):
-        """Arthur declares as Arthur (after two failed quests)."""
+        """Arthur declares as Arthur (after two failed quests, by default)."""
         arthur = self.player_with_role("Arthur")
-        if arthur is None or self.proclaimed or self.failures < 2 \
-                or self.phase == Phase.GAME_OVER:
+        if not self.proclamation_available():
             raise RuleError("Proclamation isn't available.")
         self.proclaimed = True
         self._emit("proclamation", arthur=arthur)
@@ -658,31 +671,33 @@ class GameState:
         self._after_pellinore()
 
     def _after_pellinore(self):
-        if self.successes >= 3 and self.assassin() is not None:
+        if self.successes >= 3 and self.rules.assassination_on \
+                and self.assassin() is not None:
             self._set_phase(Phase.ASSASSINATION)
         else:
             self._finish_game()
 
     def assassinate(self, kind : str, targets : list[str] = ()):
-        """kind: 'merlin' or 'nilrem' (one target), 'lovers' (two), 'none'."""
+        """kind: one of rules.assassination_kinds(), e.g. 'merlin' (one
+        target), 'lovers' (two), or 'none' (no targets)."""
         self._require(Phase.ASSASSINATION)
         targets = list(dict.fromkeys(targets))
-        expected = {"merlin": 1, "nilrem": 1, "lovers": 2, "none": 0}
-        if kind not in expected or len(targets) != expected[kind] \
+        kinds = self.rules.assassination_kinds()
+        needed = 0 if kind == "none" else len(ASSASSINATION_TARGETS.get(kind, ((),))[0])
+        if kind not in kinds or len(targets) != needed \
                 or any(t not in self.roles for t in targets):
-            raise RuleError("Name one player as Merlin or Nilrem, two as the Lovers, or no one.")
-        roles = {self.role(t) for t in targets}
-        lovers_present = self.player_with_role("Tristan") and self.player_with_role("Iseult")
-        correct = {
-            "merlin": roles == {"Merlin"},
-            "nilrem": roles == {"Nilrem"},
-            "lovers": roles == {"Tristan", "Iseult"},
-            "none": not (self.player_with_role("Merlin") or self.player_with_role("Nilrem")
-                         or lovers_present),
-        }[kind]
+            raise RuleError(assassination_help(kinds))
+        if kind == "none":
+            # Correct only if no target this game allows is (wholly) present.
+            correct = not any(self._target_present(k) for k in kinds if k != "none")
+        else:
+            correct = sorted(self.role(t) for t in targets) == sorted(ASSASSINATION_TARGETS[kind][0])
         self.assassination = dict(kind=kind, targets=targets, correct=correct)
         self._emit("assassination", assassin=self.assassin(), **self.assassination)
         self._finish_game()
+
+    def _target_present(self, kind : str) -> bool:
+        return all(self.player_with_role(r) for r in ASSASSINATION_TARGETS[kind][0])
 
     def _finish_game(self):
         good_won = self.successes >= 3 and not (self.assassination or {}).get("correct")
@@ -714,6 +729,35 @@ class GameState:
             "The Questing Beast": dict(player=beast, points=points,
                                        won=quests_on >= 1 and points >= 5),
         }
+
+
+def assassination_help(kinds : list[str], link : bool = False) -> str:
+    """'Name one player as Merlin or Nilrem, two as the Lovers, or no one.'
+    link: with [[Term]] markup (see rule_notes)."""
+    def label(k):
+        roles, text = ASSASSINATION_TARGETS[k]
+        if not link:
+            return text
+        return f"[[{roles[0]}]]" if len(roles) == 1 else f"[[the Lovers|{text}]]"
+    ones = [label(k) for k in kinds
+            if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 1]
+    twos = [label(k) for k in kinds
+            if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 2]
+    def either(names):
+        return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]
+    parts = []
+    if ones:
+        parts.append("one player as " + either(ones))
+    if twos:
+        parts.append("two as " + either(twos))
+    if "none" in kinds:
+        parts.append("no one")
+    if not parts:
+        return "There is no Assassination."
+    text = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + ", or " + parts[-1]
+    if len(parts) == 2:
+        text = f"{parts[0]}{',' if ' or ' in parts[0] else ''} or {parts[1]}"
+    return "Name " + text + "."
 
 
 def quest_succeeds(cards : list[Card], fails_needed : int,
