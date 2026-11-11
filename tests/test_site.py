@@ -47,3 +47,24 @@ def test_head(client):
     assert '<meta charset="utf-8">' in html
     assert '<link rel="canonical" href="https://localhost/rules/merlin">' in html
     assert '<meta name="description" content="THavalon rules: Merlin.' in html
+
+
+def test_security_headers(client):
+    for path in ("/register", "/no-such-page", "/static/style.css"):
+        r = client.get(path)
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert r.headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]
+        assert r.headers["Strict-Transport-Security"].startswith("max-age=")
+
+
+def test_http_visitors_are_sent_to_https(client):
+    r = client.get("/rules/merlin?x=1", base_url="http://avalon.iammerlin.fyi",
+                   headers={"CF-Visitor": '{"scheme":"http"}'})
+    assert r.status_code == 301
+    assert r.headers["Location"] == "https://avalon.iammerlin.fyi/rules/merlin?x=1"
+
+
+def test_https_visitors_are_served(client):
+    r = client.get("/rules/merlin", headers={"CF-Visitor": '{"scheme":"https"}'})
+    assert r.status_code == 200

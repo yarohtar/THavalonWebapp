@@ -64,6 +64,36 @@ def inject_events_url():
                                      last_id = events.bus.current_id(channel)))
 
 
+# ---- security headers (Avalon is served straight from gunicorn, no nginx) ----
+
+SECURITY_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "X-Frame-Options": "DENY",
+    # Templates use inline scripts and Google Fonts, so only framing, <base>
+    # and plugins are restricted.
+    "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+}
+
+
+@app.before_request
+def force_https():
+    """Cloudflare reports how the visitor connected (everything reaches the app as
+    plain http through the tunnel); send http visitors to https."""
+    if '"scheme":"http"' in request.headers.get('CF-Visitor', ''):
+        return flask.redirect(request.url.replace('http://', 'https://', 1), code=301)
+    return None
+
+
+@app.after_request
+def security_headers(response):
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
+
 # ---- who is asking ----
 
 # Paths anyone may open without a player name (hosts don't need one).
