@@ -29,11 +29,10 @@
             <ul class="player-list">
     {% for player in players %}
         <li>
-            <div style="display:flex; justify-content: space-between;">
+            <div class="player-row">
                 {{ players[player] }}
             <form method="POST"
-                  action="{{ url_for('lobby_api') }}"
-                  style="display:inline;">
+                  action="{{ url_for('lobby_api') }}">
 
                 <input type="hidden" name="player" value="{{ player }}">
                 <button type="submit" class="remove-btn">❌</button>
@@ -53,8 +52,7 @@
     </p>
     <form method="POST"
           action="{{ url_for('restart') }}"
-          id="start-form"
-          style="display:inline;">
+          id="start-form">
         <h2>Roles</h2>
         <ul>
             <li>

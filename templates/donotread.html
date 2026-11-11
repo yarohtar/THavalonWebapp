@@ -21,15 +21,15 @@
 {% endif %}
 
 {% if 'lover' in game[player] %}
-{{ game[player]['lover'] }} was their lover.
+<p>{{ game[player]['lover'] }} was their lover.</p>
 {% endif %}
 
 {% if 'stalked_good' in game[player] %}
-They stalked {{ game[player]['stalked_good'] }} as another good player.
+<p>They stalked {{ game[player]['stalked_good'] }} as another good player.</p>
 {% endif %}
 
 {% if 'stalked_evil' in game[player] %}
-They stalked {{ game[player]['stalked_evil'] }} as an evil player.
+<p>They stalked {{ game[player]['stalked_evil'] }} as an evil player.</p>
 {% endif %}
 
 {% endif %}

@@ -1,6 +1,7 @@
 {% extends "template.html" %}
 {% block title %}Avalon{% endblock %}
 {% block body %}
+<div class="card">
     <p>Welcome {{ name }}!</p>
     {% if in_lobby %}
     <p>You're in {{ lobby.name }}. Wait for the host to start the game.</p>
@@ -11,14 +12,11 @@
         </button>
     </form>
     {% endif %}
-    <a href="{{ url_for('register_api') }}">
-        <button>
-            Change Your Name
-        </button>
-    </a>
+    <p class="wait-actions"><a class="button-link secondary" href="{{ url_for('register_api') }}">Change Your Name</a></p>
     {% if other_games %}
     <p><a href="{{ url_for('games') }}">Switch to another game</a></p>
     {% endif %}
+</div>
 {% endblock %}
 {% block scripts %}
 <script>Events.reloadOn('new-game');</script>
