@@ -20,7 +20,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `thavalon/cards.py`, `assassination.py`, `scoring.py`, `errors.py` | Quest results (Reversal, QBWH); assassin ranking and guesses; Neutral scores; `RuleError`/`NotAllowed`. |
 | `web/` | **The website** (overview in `web/__init__.py`). Templates and static files are in `web/templates/`, `web/static/`. |
 | `web/app.py` | The Flask app: secret key, session identity (`g.uuid`, `g.name`), registration check, template globals, blueprints, dev/admin. `wsgi.py` imports it; `python -m web.app` runs it locally. |
-| `web/routes/` | Blueprints: `player` (start page, join, register, `/donotread`), `host` (host page, create/close, restart, save, host game commands), `play` (`/game/*` JSON: panels, state, actions, host votes), `rules` (rules pages). Endpoints are `blueprint.name`, e.g. `url_for('host.page')`. |
+| `web/routes/` | Blueprints: `player` (start page, join, register, `/donotread`), `host` (host page, create/close, restart, save, host game commands), `play` (`/game/*` JSON: panels, state, actions, host votes), `rules` (rules pages), `site` (`/favicon.ico`, `/apple-touch-icon.png`, `/robots.txt`, `/sitemap.xml`; exempt from registration). Endpoints are `blueprint.name`, e.g. `url_for('host.page')`. |
 | `web/lobbies.py` | `Lobby`, `Lobbies` (Redis-backed; `LOBBIES`), `close_lobby`, lobby names. |
 | `web/games.py` | `AvalonGame` (a lobby's game: deal, role info, controller, host votes), `RoleInfo`, `GameSettings` (host's game settings, `resolve()`). |
 | `web/panels.py` | Rendering: `role_page()`, `panels()` (Game/Role/Vote tabs, host panel), `vote_status()` (drives the Vote tab). |

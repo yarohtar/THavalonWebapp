@@ -4,4 +4,5 @@
     host     creating, running and closing a lobby; host-only game commands
     play     a player's live game requests (panels, actions, host votes)
     rules    the rules pages
+    site     favicon, robots.txt and sitemap.xml for browsers and search engines
 """

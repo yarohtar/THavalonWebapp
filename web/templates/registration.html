@@ -1,7 +1,6 @@
 {% extends "template.html" %}
-{% block title %}
-Registration
-{% endblock %}
+{% block title %}THavalon{% endblock %}
+{% block canonical %}<link rel="canonical" href="{{ url_for('player.register', _external=True, _scheme='https') }}">{% endblock %}
 {% block body %}
 <div>
     <h1>Enter Your Name</h1>

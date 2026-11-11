@@ -1,5 +1,7 @@
 {% extends "template.html" %}
 {% block title %}{{ page.title }} · THavalon rules{% endblock %}
+{% block description %}THavalon rules: {{ page.title }}. {{ page.summary | striptags }}{% endblock %}
+{% block canonical %}<link rel="canonical" href="{{ url_for('rules.page', slug=page.slug, _external=True, _scheme='https') }}">{% endblock %}
 {% block body %}
 <div class="card rules">
     {% if page.slug != 'overview' %}

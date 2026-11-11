@@ -19,7 +19,7 @@ load_dotenv()
 
 from thavalon.ruleset import ASSASSINATION_TARGETS      # noqa: E402
 from web import admin, dev, events                       # noqa: E402
-from web.routes import host, play, player, rules         # noqa: E402
+from web.routes import host, play, player, rules, site   # noqa: E402
 from web.rules import notes as rule_notes, pages as rule_pages, role_text  # noqa: E402
 
 # Templates and static files live in the web package.
@@ -68,7 +68,8 @@ def inject_events_url():
 
 # Paths anyone may open without a player name (hosts don't need one).
 REGISTRATION_EXEMPT = ['/register', '/static', '/rules', '/events',
-                       '/host', '/restart', '/donotread']
+                       '/host', '/restart', '/donotread',
+                       '/favicon.ico', '/apple-touch-icon.png', '/robots.txt', '/sitemap.xml']
 
 
 @app.before_request
@@ -85,6 +86,8 @@ def require_registration():
     """Players need a name (g.name) before anything else."""
     if any(request.path.startswith(p) for p in REGISTRATION_EXEMPT):
         return None
+    if request.url_rule is None:      # no such page: a real 404, not a redirect
+        return None
     if 'name' not in session:
         next_page = request.full_path.rstrip('?') if request.method == 'GET' else None
         return flask.redirect(url_for('player.register', next = next_page))
@@ -95,7 +98,7 @@ def require_registration():
 # ---- the site ----
 
 app.register_blueprint(events.blueprint)
-for blueprint in (player.bp, host.bp, play.bp, rules.bp):
+for blueprint in (player.bp, host.bp, play.bp, rules.bp, site.bp):
     app.register_blueprint(blueprint)
 
 # Test scenarios, only on the dev site (AVALON_DEV=1). See dev.py.
