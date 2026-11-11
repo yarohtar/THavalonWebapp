@@ -18,10 +18,9 @@ from dataclasses import dataclass
 
 from markupsafe import Markup, escape
 
-from game import assassination_help
-from ruleset import (ASSASSINATION_TARGETS, DEFAULT, GARETH_TEAMS, GUINEVERE_SEES,
-                     MERLIN_SEES, PERCIVAL_SEES, SETTINGS, TRANSFORMS, RuleSet,
-                     format_counts)
+from thavalon.assassination import assassination_help
+from thavalon.ruleset import (ASSASSINATION_TARGETS, GARETH_TEAMS, GUINEVERE_SEES,
+                              MERLIN_SEES, PERCIVAL_SEES, SETTINGS, RuleSet)
 
 
 @dataclass
@@ -304,3 +303,23 @@ def expand(text : str) -> Markup:
         pos = m.end()
     out.append(escape(text[pos:]))
     return Markup("").join(out)
+
+
+def format_counts(counts) -> str:
+    """{7, 8, 9, 10} -> '7–10', {6, 9} -> '6 or 9', {} -> 'no'."""
+    counts = sorted(counts)
+    if not counts:
+        return "no"
+    parts, start = [], counts[0]
+    for i, n in enumerate(counts):
+        if i + 1 < len(counts) and counts[i + 1] == n + 1:
+            continue
+        if n - start >= 2:
+            parts.append(f"{start}–{n}")
+        else:
+            parts.extend(str(k) for k in range(start, n + 1))
+        if i + 1 < len(counts):
+            start = counts[i + 1]
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " or " + parts[-1]

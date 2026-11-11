@@ -40,9 +40,9 @@ import flask
 from flask import Blueprint, request, session, url_for
 from markupsafe import Markup
 
-import THavalon as T
-from game import Phase, PAUSES
-from ruleset import RuleSet
+from thavalon import PAUSES, Phase, RuleSet
+from thavalon import roles as T
+from thavalon.dealing import AvalonBuilder
 
 PLAYER_NAMES = ["Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "Gus", "Hal", "Ivy", "Jon"]
 
@@ -288,33 +288,30 @@ SCENARIOS = [
 BY_SLUG = {s.slug: s for s in SCENARIOS}
 
 
-def make_builder(players : list[str], role_names : list[str]) -> T.AvalonBuilder:
+def make_builder(players : list[str], role_names : list[str],
+                 rules : RuleSet | None = None) -> AvalonBuilder:
     """Roles dealt exactly as listed (no shuffling, no lonely transformations).
 
     Gareth: "Gareth (Good)" or "Gareth (Evil)" ("Gareth" alone is Evil). The
     Knight is the first listed player of Gareth's team, the Rival the first
     of the other team."""
-    b = object.__new__(T.AvalonBuilder)
-    b.players = list(players)
-    b.role_to_player = {}
+    roles = {}
     soc = mom = 0
     gareth = None
     for player, name in zip(players, role_names):
         if name == "Servant of Camelot":
-            role = T.SoC(soc); soc += 1
+            roles[player] = T.SoC(soc); soc += 1
         elif name == "Minion of Mordred":
-            role = T.MoM(mom); mom += 1
+            roles[player] = T.MoM(mom); mom += 1
         elif name.startswith("Gareth"):
             gareth = (player, "Good" if name == "Gareth (Good)" else "Evil")
-            continue
         else:
-            role = T.string_to_role[name]
-        b[role] = player
+            roles[player] = T.string_to_role[name]
     if gareth is not None:
         player, team = gareth
-        first = lambda t: next(p for r, p in b.role_to_player.items() if r.allegiance() == t)
-        b[T.Gareth(team, first(team), first("Evil" if team == "Good" else "Good"))] = player
-    return b
+        first = lambda t: next(p for p, r in roles.items() if r.allegiance() == t)
+        roles[player] = T.Gareth(team, first(team), first("Evil" if team == "Good" else "Good"))
+    return AvalonBuilder.with_roles(roles, rules, players=list(players))
 
 
 # ---------------------------------------------------------------- feedback
@@ -414,8 +411,7 @@ def init_app(app, web):
         settings.double_fail = sc.double_fail
         settings.lady = sc.lady
         rules = settings.resolve(len(players), roles, ruleset)
-        builder = make_builder(sc.players, sc.roles)
-        builder.rules = ruleset
+        builder = make_builder(sc.players, sc.roles, ruleset)
         lobby.current_game.install(builder, roles, players, rules)
         sc.setup(Drive(lobby.current_game.controller))
         web.LOBBIES.add(lobby)

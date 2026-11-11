@@ -1,8 +1,6 @@
-"""Tests for host-changeable rules (ruleset.py), how they reach dealing, the
+"""Tests for host-changeable rules (thavalon/ruleset.py), how they reach dealing, the
 engine, the host page and the rules pages.  Run: python -m pytest"""
-import contextlib
 import html.parser
-import io
 import os
 import pickle
 import random
@@ -14,12 +12,17 @@ from werkzeug.datastructures import MultiDict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import THavalon as T
+import helpers
 import rule_notes
 import rules as rules_mod
-from actions import GameController, NotAllowed
-from game import Card, GameState, Phase, RuleError, assassination_help
-from ruleset import (ASSASSINATION_TARGETS, DEFAULT, SETTINGS, RuleSet, format_counts)
+from helpers import T, build, deal, everyone, info, play_cards, play_randomly
+from rule_notes import format_counts
+from thavalon.assassination import assassination_help
+from thavalon.cards import Card
+from thavalon.dealing import DEFAULT_TEAM_SIZES
+from thavalon.errors import NotAllowed, RuleError
+from thavalon.ruleset import ASSASSINATION_TARGETS, DEFAULT, SETTINGS, RuleSet
+from thavalon.state import GameState, Phase
 
 S, F = Card.SUCCESS, Card.FAIL
 
@@ -27,40 +30,6 @@ S, F = Card.SUCCESS, Card.FAIL
 def rs(**changes):
     """RuleSet from keyword changes: rs(**{'Merlin.sees.Mordred': True})."""
     return RuleSet(changes)
-
-
-def build(n, roles=None, rules=None, seed=0, num_evils=None):
-    random.seed(seed)
-    with contextlib.redirect_stdout(io.StringIO()):        # AvalonBuilder prints
-        return T.AvalonBuilder([f"P{i}" for i in range(n)],
-                               T.all_roles if roles is None else roles,
-                               num_evils, rules=rules)
-
-
-def deal(roles_by_player, rules=None, n_players=None):
-    """A builder with exactly these roles (no dealing), as dev.make_builder does."""
-    b = object.__new__(T.AvalonBuilder)
-    b.players = list(roles_by_player)
-    b.role_to_player = {}
-    b.rules = rules or DEFAULT
-    soc = mom = 0
-    for p, name in roles_by_player.items():
-        if name == "Servant":
-            role = T.SoC(soc); soc += 1
-        elif name == "Minion":
-            role = T.MoM(mom); mom += 1
-        elif isinstance(name, T.Role):
-            role = name
-        else:
-            role = T.string_to_role[name]
-        b[role] = p
-    return b
-
-
-def info(b, player):
-    role = next(r for r in b if b[r] == player)
-    with contextlib.redirect_stdout(io.StringIO()):
-        return role.get_info(b)
 
 
 # ---------------------------------------------------------------- the RuleSet
@@ -283,32 +252,7 @@ def test_gareth_told_only_knight_or_rival():
 # ---------------------------------------------------------------- the engine
 
 def make_game(role_names, rules=None, sizes=(2, 3, 2, 3, 3), lady=False):
-    roles, soc, mom = {}, 0, 0
-    for i, name in enumerate(role_names):
-        if name == "Servant":
-            role = T.SoC(soc); soc += 1
-        elif name == "Minion":
-            role = T.MoM(mom); mom += 1
-        elif isinstance(name, T.Role):
-            role = name
-        else:
-            role = T.string_to_role[name]
-        roles[f"p{i}"] = role
-    state = GameState(list(roles), roles, list(sizes), None, ("p0", "p1"), "p2",
-                      rng=random.Random(0), rules=rules, lady_of_the_lake=lady)
-    return state, GameController(state)
-
-
-def everyone(ctl, action, **params):
-    for p in ctl.state.seating:
-        if action in ctl.available_actions(p):
-            ctl.act(p, action, **params)
-
-
-def play_cards(ctl, cards=None):
-    q = ctl.state.current_quest
-    for p in q.team:
-        ctl.act(p, "play_card", card=(cards or {}).get(p, ctl.state.allowed_cards(p)[0]))
+    return helpers.make_game(role_names, sizes=sizes, rules=rules, lady=lady)
 
 
 def win_three(ctl):
@@ -428,42 +372,6 @@ def random_rules(rng):
     return RuleSet(values)
 
 
-def random_play(state, rng):
-    ctl = GameController(state)
-    for _ in range(3000):
-        if state.phase == Phase.GAME_OVER:
-            return state
-        options = [(p, a, o) for p in state.seating for a, o in ctl.available_actions(p).items()]
-        assert options, state.phase
-        p, action, o = rng.choice(options)
-        if action in ("propose", "propose_first_round"):
-            ctl.act(p, action, team=rng.sample(o["players"], o["team_size"]))
-        elif action == "vote_first_round":
-            ctl.act(p, action, proposer=rng.choice(o["choices"]))
-        elif action == "vote":
-            ctl.act(p, action, approve=rng.random() < 0.4)
-        elif action == "play_card":
-            ctl.act(p, action, card=rng.choice(o["cards"]))
-        elif action == "inquisition":
-            ctl.act(p, action, target=rng.choice(o["choices"]),
-                    remove=o["can_remove"] and rng.random() < 0.5)
-        elif action == "sorceress":
-            ctl.act(p, action, next_proposer=rng.choice(o["choices"]))
-        elif action == "changeling":
-            ctl.act(p, action, replaced=rng.choice(o["choices"]))
-        elif action in ("gawain", "lady"):
-            ctl.act(p, action, target=rng.choice(o["choices"]))
-        elif action == "pellinore_guess":
-            ctl.act(p, action, target=rng.choice(o["choices"] + [None]))
-        elif action == "assassinate":
-            kind = rng.choice(o["kinds"])
-            k = 0 if kind == "none" else len(ASSASSINATION_TARGETS[kind][0])
-            ctl.act(p, action, kind=kind, targets=rng.sample(o["choices"], k))
-        else:
-            ctl.act(p, action)
-    raise AssertionError("game did not finish")
-
-
 def test_random_rules_deal_and_play_to_the_end():
     """Any combination of settings deals valid roles, gives every player
     their info, and plays to a valid end."""
@@ -481,11 +389,11 @@ def test_random_rules_deal_and_play_to_the_end():
             assert role.can_appear(n, rules) or not role.is_base_role() \
                 or isinstance(role, (T.SoC, T.MoM))
             info(b, b[role])
-        sizes = {5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4]}.get(n, [3, 4, 4, 5, 5])
+        sizes = DEFAULT_TEAM_SIZES[n]
         state = GameState.from_builder(b, sizes, 4 if n >= 7 else None,
                                        rng=random.Random(i), lady_of_the_lake=i % 2 == 0)
         assert state.rules is rules
-        random_play(state, rng)
+        play_randomly(state, rng)
         assert state.outcome["winner"] in ("Good", "Evil")
         played += 1
     assert played > 200
@@ -614,7 +522,8 @@ def test_host_page_with_defaults_submits_the_default_rules(web):
     host, lobby_id, _ = lobby_with_players(web, 7)
     form = host_form(host.get("/host").get_data(as_text=True))
     assert form.get("rules_form") == "1"
-    assert RuleSet.from_form(form) == DEFAULT
+    import webapp
+    assert webapp.ruleset_from_form(form) == DEFAULT
     assert host.post("/restart", data=form).status_code == 302
     game = web.LOBBIES.get(lobby_id).current_game
     assert game.ruleset == DEFAULT and game.controller.state.rules == DEFAULT

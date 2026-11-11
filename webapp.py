@@ -3,10 +3,9 @@ from flask import Flask, render_template, request, session, url_for, g
 import random
 import secrets
 import uuid as uuid_lib
-from THavalon import (AvalonBuilder, Role, convert_strings_to_roles, all_roles,
-                      balin, pellinore, beast,
-                      default_num_evils, DEFAULT_TEAM_SIZES, default_double_fail_quest,
-                      has_gareth, gareth)
+from thavalon.dealing import (AvalonBuilder, default_num_evils, DEFAULT_TEAM_SIZES,
+                              default_double_fail_quest, has_gareth)
+from thavalon.roles import Role, all_roles, balin, pellinore, beast, gareth
 import os
 import sys
 from dotenv import load_dotenv
@@ -15,10 +14,9 @@ from flask.views import MethodView
 import rules
 import rule_notes
 import rule_text
-from ruleset import RuleSet, SETTINGS, DEFAULT as DEFAULT_RULES, ASSASSINATION_TARGETS
+from thavalon.ruleset import RuleSet, SETTINGS, DEFAULT as DEFAULT_RULES, ASSASSINATION_TARGETS
 import events
-from game import GameState, RuleError
-from actions import GameController
+from thavalon import GameController, GameState, RuleError
 import store
 from store import Store, Conflict
 import votes
@@ -533,9 +531,24 @@ for _g in HOST_GROUPS:
 ASSASSINATION_KEYS = _keys('assassination.')
 SELECTABLE_ROLES = [r for g_ in HOST_GROUPS for r in g_['roles']]
 
+def ruleset_from_form(form) -> RuleSet:
+    """The host page's rules fields: `rule:<key>`. Checkboxes send
+    nothing when unticked, so every setting is read (a missing bool is
+    False, missing counts are none)."""
+    values = {}
+    for key, setting in SETTINGS.items():
+        name = f"rule:{key}"
+        if setting.kind == "bool":
+            values[key] = name in form
+        elif setting.kind == "counts":
+            values[key] = form.getlist(name)
+        elif name in form:
+            values[key] = form[name]
+    return RuleSet(values)
+
 def form_ruleset(form) -> RuleSet:
     """Rules from the host form, or the saved ones if the form had no rules."""
-    return RuleSet.from_form(form) if form.get('rules_form') else pref_ruleset()
+    return ruleset_from_form(form) if form.get('rules_form') else pref_ruleset()
 
 def ordered_roles(role_names : list[str]) -> list[Role]:
     """Selected roles in the usual order (dealing is random, but this keeps

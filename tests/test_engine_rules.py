@@ -2,9 +2,12 @@
 grants, the assassin, neutral scoring, views in every phase, undo."""
 import pytest
 
-from actions import MAX_UNDO, NotAllowed
-from game import Phase, RuleError, quest_succeeds, assassination_help
-from helpers import (F, Q, R, S, T, approve_and_play, everyone, finish_pauses, make_game,
+from thavalon.assassination import assassination_help
+from thavalon.cards import quest_succeeds
+from thavalon.controller import MAX_UNDO
+from thavalon.errors import NotAllowed, RuleError
+from thavalon.state import Phase
+from helpers import (F, Q, R, S, approve_and_play, everyone, finish_pauses, make_game,
                      play_cards, play_first_round)
 
 FIVE = ["Merlin", "Servant", "Servant", "Mordred", "Minion"]

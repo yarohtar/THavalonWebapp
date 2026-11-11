@@ -13,12 +13,16 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 | File | What it is |
 |---|---|
-| `THavalon.py` | Roles and `AvalonBuilder` (deals roles, lonely-role transformations, Gareth). Roles read `builder.rules`. |
-| `ruleset.py` | `RuleSet`: host-changeable rules (`SETTINGS` registry: player counts, lonely counts, who sees whom, Gareth, cards/abilities, Assassination). Stores only changes from the defaults. |
+| `thavalon/` | **The game engine** (no web code; `tests/test_engine_independent.py` checks it). Overview in `thavalon/__init__.py`. |
+| `thavalon/ruleset.py` | `RuleSet`: host-changeable rules (`SETTINGS` registry: player counts, lonely counts, who sees whom, Gareth, cards/abilities, Assassination). Stores only changes from the defaults. |
+| `thavalon/roles.py` | Roles (identified by `name`) and the info each is told (`get_info(deal)`); lonely transformations. |
+| `thavalon/dealing.py` | Defaults (Evil count, team sizes, double-Fail quest), `generate_roles`, `AvalonBuilder` (a deal; `AvalonBuilder.with_roles({...})` for a fixed deal). Randomness from `rng` (default: the `random` module). |
+| `thavalon/cards.py`, `assassination.py`, `scoring.py`, `errors.py` | Quest results (Reversal, QBWH); assassin ranking and guesses; Neutral scores; `RuleError`/`NotAllowed`. |
 | `rule_notes.py` | Turns a `RuleSet`'s changes into sentences tagged with rules pages ("In your current game"). |
 | `rule_text.py` | Sentence helpers for role rules templates rendered under a game's `RuleSet` (Role tab). |
-| `game.py` | `GameState`: the rules engine (phases, teams, cards, Inquisition, pauses, scoring). Does **not** check who is acting. |
-| `actions.py` | `GameController`: who may act (`available_actions`), `act()`, per-player `view()` that hides secrets, and host **undo** (snapshots; cleared after anything that reveals information). |
+| `thavalon/state.py` | `GameState`: the rules of play (phases, teams, cards, Inquisition, pauses, abilities, end of game). Does **not** check who is acting. |
+| `thavalon/views.py` | Per-player views of a `GameState` that hide secrets. |
+| `thavalon/controller.py` | `GameController`: who may act (`available_actions`), `act()`, `view()`, and host **undo** (snapshots; cleared after anything that reveals information). |
 | `votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
 | `webapp.py` | Flask routes; `AvalonGame` (a lobby's game), `Lobby`, `Lobbies` (Redis-backed), `vote_status()` (drives the Vote tab), `GameSettings`. |
 | `store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions). |
@@ -41,7 +45,14 @@ for friends and playtests alone with bots (`tools/bots.py`).
   Idle lobbies expire after 12 h.
 - **Pickles depend on class code.** If a change makes old stored games unloadable, bump
   `SCHEMA` in `store.py` (old games are then ignored, not crashing). Adding a new attribute to
-  a stored class usually needs a class-level default so old pickles still work.
+  a stored class usually needs a class-level default so old pickles still work. Renaming a
+  stored class's attributes breaks old pickles. A module that moves goes into
+  `store.MOVED_MODULES` (the engine's old top-level modules are there;
+  `tests/test_old_pickles.py` loads a game pickled before the move).
+- **Engine behaviour is pinned** by `tests/test_golden.py`: digests of deals, role info and
+  every step of 150 random games (`tests/golden_engine.json`). A refactor must keep it green;
+  for an intended behaviour change, regenerate with
+  `PYTHONHASHSEED=0 python tests/golden_engine.py --write` and say so in the commit.
 - **redis-py 8 has a hidden 5 s default read timeout.** `store.connect()` sets
   `socket_timeout=60`; it must stay above `events.HEARTBEAT_SECONDS` (15) or every quiet
   live-update stream errors out. (This broke production once.)
@@ -63,11 +74,11 @@ for friends and playtests alone with bots (`tools/bots.py`).
 - **Inquisition / Gawain results** show immediately in the reveal/result pauses
   (`inquisition_notes` macro).
 - **Rule settings:** the host edits rules per role on the host page (fields `rule:<key>`,
-  `RuleSet.from_form`); saved in the host's cookie (`host_prefs['rules']`, only changes).
+  `webapp.ruleset_from_form`); saved in the host's cookie (`host_prefs['rules']`, only changes).
   A game's `RuleSet` lives on `AvalonGame.ruleset`, `AvalonBuilder.rules` and
   `GameState.rules` (class-level defaults keep old pickles loading). **Default rules must
   behave exactly as before**: checked by comparing deals/role info/random-game logs over many
-  seeds with `PYTHONHASHSEED=0` (see the commit adding `ruleset.py`), and by
+  seeds with `PYTHONHASHSEED=0` (now `tests/test_golden.py`), and by
   `tests/test_rule_settings.py`. New setting = entry in `ruleset._settings()`, the engine/role
   code reading it, a note in `rule_notes.game_notes`, and a place in `webapp.HOST_GROUPS`
   (tests check every setting is on the host page once and produces a note).
@@ -114,7 +125,8 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Running and testing locally
 
-- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (245 tests).
+- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (~320 tests, ~80 s;
+  the golden test takes half of that). Engine test helpers are in `tests/helpers.py`.
 - `tests/test_dev.py` runs each check in a fresh subprocess (dev features are decided at import).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).
@@ -173,6 +185,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Recent history (newest first)
 
+- Engine moved into the `thavalon/` package (no behaviour change; golden test, more engine tests).
 - Admin pages (`/admin`); hosts create lobbies explicitly and can close them.
 - Host-changeable rules (`ruleset.py`), host page rules editor, changes shown on rules pages.
 - Redis storage + Redis Streams events; 2 workers; fixed redis-py 5 s timeout.

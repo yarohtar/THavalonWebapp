@@ -4,6 +4,8 @@ import random
 import pytest
 
 from helpers import T, build, deal, info
+from thavalon.dealing import (AvalonBuilder, DEFAULT_TEAM_SIZES, default_double_fail_quest,
+                              default_num_evils)
 
 SEVEN = {"a": "Merlin", "b": "Percival", "c": "Servant", "d": "Servant",
          "e": "Mordred", "f": "Morgana", "g": "Minion"}
@@ -143,14 +145,14 @@ def test_transformed_roles_are_not_base_roles():
 
 def test_string_to_role_knows_every_role():
     assert all(T.string_to_role[str(r)] is r for r in T.all_roles)
-    assert T.convert_strings_to_roles(["Merlin", "Oberon"]) == [T.merlin, T.oberon]
+    assert T.roles_named(["Merlin", "Oberon"]) == [T.merlin, T.oberon]
 
 
 # ---------------------------------------------------------------- dealing
 
 @pytest.mark.parametrize("n,evils", [(5, 2), (6, 2), (7, 3), (8, 3), (9, 4), (10, 4)])
 def test_default_evil_counts_and_everyone_gets_a_role(n, evils):
-    assert T.default_num_evils(n) == evils
+    assert default_num_evils(n) == evils
     for seed in range(10):
         b = build(n, [r for r in T.all_roles if r != T.gareth], seed=seed)
         assert sorted(b.role_to_player.values()) == sorted(b.players)
@@ -158,10 +160,10 @@ def test_default_evil_counts_and_everyone_gets_a_role(n, evils):
 
 
 def test_default_team_sizes_and_double_fail():
-    assert {n: T.default_double_fail_quest(n) for n in range(5, 11)} == \
+    assert {n: default_double_fail_quest(n) for n in range(5, 11)} == \
         {5: None, 6: None, 7: 4, 8: 4, 9: 4, 10: 4}
-    assert T.DEFAULT_TEAM_SIZES[5] == [2, 3, 2, 3, 3]
-    assert T.DEFAULT_TEAM_SIZES[7] == [2, 3, 3, 4, 4]
+    assert DEFAULT_TEAM_SIZES[5] == [2, 3, 2, 3, 3]
+    assert DEFAULT_TEAM_SIZES[7] == [2, 3, 3, 4, 4]
 
 
 def test_chosen_number_of_evils():
@@ -208,7 +210,7 @@ def test_transformed_roles_selected_directly_are_not_dealt():
 
 def test_players_are_shuffled_deduplicated_and_proposers_come_first():
     random.seed(3)
-    b = T.AvalonBuilder(["a", "b", "c", "d", "e", "a"], [])
+    b = AvalonBuilder(["a", "b", "c", "d", "e", "a"], [])
     assert sorted(b.players) == ["a", "b", "c", "d", "e"]
     assert b.get_first_mission_proposers() == b.players[:2]
     assert b.get_second_mission_starter() == b.players[2]
@@ -217,7 +219,7 @@ def test_players_are_shuffled_deduplicated_and_proposers_come_first():
 @pytest.mark.parametrize("n", [4, 13])
 def test_too_few_or_many_players(n):
     with pytest.raises(AssertionError):
-        T.AvalonBuilder([f"P{i}" for i in range(n)], [])
+        AvalonBuilder([f"P{i}" for i in range(n)], [])
 
 
 def test_impossible_evil_count_is_a_readable_error():

@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import events
 import store
 from store import Store
+from thavalon.roles import roles_named
 
 
 @pytest.fixture(params=["fake"] + (["real"] if os.environ.get("TEST_REDIS_URL") else []))
@@ -130,7 +131,7 @@ def test_lobbies_survive_restart_of_the_app(server, monkeypatch):
             lobbies.update(lobby.id, lambda l: l.__setitem__(f"u{i}", name))
         settings = webapp.GameSettings()
         lobbies.update(lobby.id, lambda l: l.restart_game(
-            webapp.convert_strings_to_roles(["Merlin", "Percival", "Morgana", "Mordred"]),
+            roles_named(["Merlin", "Percival", "Morgana", "Mordred"]),
             settings))
         again = webapp.Lobbies(Store(server(), "t"))
         found = again.hosted_by("host-1")

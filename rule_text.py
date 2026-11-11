@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from markupsafe import Markup
 
-from rule_notes import _and, expand
-from ruleset import (ASSASSINATION_TARGETS, COUNTS, DEFAULT, RuleSet, SETTINGS,
-                     format_counts)
+from rule_notes import _and, expand, format_counts
+from thavalon.assassination import assassination_help
+from thavalon.ruleset import ASSASSINATION_TARGETS, COUNTS, DEFAULT, RuleSet, SETTINGS
 
 
 def counts_phrase(counts) -> str:
@@ -53,7 +53,6 @@ def target_changed(rules : RuleSet, kind : str) -> bool:
 
 def assassination_choices(rules : RuleSet) -> Markup:
     """'Evil must name one player as Merlin, ... or no one.'"""
-    from game import assassination_help
     text = assassination_help(rules.assassination_kinds(), link=True)
     return expand(f"Evil must {text[0].lower()}{text[1:]}")
 

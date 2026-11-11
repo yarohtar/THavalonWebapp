@@ -4,7 +4,7 @@ GameState holds the whole game and offers a direct API for changing it
 (propose, vote, play_card, ...). It enforces the *mechanics*: phases, team
 sizes, card values, Inquisition grants, Reversal, scoring and so on. It does
 NOT check *who is asking*; every method acts on behalf of whoever the rules
-say acts (the Leader, Morgana, ...). That is the job of actions.GameController,
+say acts (the Leader, Morgana, ...). That is the job of controller.GameController,
 which sits between players and this class. Calling GameState directly is how
 a host (or a test) fixes mistakes.
 
@@ -26,7 +26,10 @@ notices the change.
 
 Every change is appended to `log` as a dict of *public* information, for the
 webapp to broadcast. Secret information (who played which card) stays in the
-state and is exposed only through actions.GameController's per-player views.
+state and is exposed only through the per-player views (views.py).
+
+Pure parts of the rules live in their own modules: cards (quest results),
+assassination, scoring (Neutral roles).
 """
 from __future__ import annotations
 
@@ -34,19 +37,14 @@ import random
 from dataclasses import dataclass, field
 from enum import Enum
 
-from THavalon import AvalonBuilder, Role, all_roles
-from ruleset import ASSASSINATION_TARGETS, RuleSet, DEFAULT as DEFAULT_RULES
-
-
-class RuleError(Exception):
-    """The requested change is not allowed by the rules right now."""
-
-
-class Card(str, Enum):
-    SUCCESS = "Success"
-    FAIL = "Fail"
-    REVERSAL = "Reversal"
-    QBWH = "Questing Beast Was Here"
+from thavalon.assassination import (ASSASSIN_RANKING, assassination_help, guess_is_correct,
+                                    targets_needed)
+from thavalon.cards import Card, qbwh_value, quest_succeeds
+from thavalon.dealing import AvalonBuilder
+from thavalon.errors import RuleError
+from thavalon.roles import Role, all_roles
+from thavalon.ruleset import RuleSet, DEFAULT as DEFAULT_RULES
+from thavalon.scoring import neutral_scores
 
 
 class Phase(str, Enum):
@@ -67,11 +65,25 @@ class Phase(str, Enum):
 
 PAUSES = (Phase.TEAM_ANNOUNCED, Phase.REVEAL, Phase.RESULT)
 
-# Who makes the final Assassination decision, highest first.
-ASSASSIN_RANKING = ["Mordred", "Morgana", "Maelegant", "Agravaine",
-                    "Colgrevance", "Minion of Mordred", "Oberon"]
-# Gareth isn't ranked: an Evil Gareth joins the discussion, but their Knight
-# is an Evil player ranked above them anyway.
+
+def inquisition_for(proposals_per_round : int, number : int,
+                    strong_used : bool, weak_used : bool) -> str | None:
+    """The Inquisition earned by approving proposal `number` (from round 2):
+    with 4 proposals a round, the 1st earns Weak; with 5 or more, the 1st
+    earns Strong (Weak once Strong is used) and the 2nd Weak. Each is
+    granted once per game."""
+    kind = None
+    if proposals_per_round == 4 and number == 1:
+        kind = "weak"
+    elif proposals_per_round >= 5 and number == 1:
+        kind = "strong" if not strong_used else "weak"
+    elif proposals_per_round >= 5 and number == 2:
+        kind = "weak"
+    if kind == "strong" and not strong_used:
+        return "strong"
+    if kind == "weak" and not weak_used:
+        return "weak"
+    return None
 
 
 @dataclass
@@ -132,7 +144,8 @@ class GameState:
         # host's selection, limited to roles allowed at this player count.
         # Pauses are skipped when no role that could act in them is possible.
         n = len(seating)
-        self.possible_roles = {str(r) for r in (role_pool or all_roles) if r.can_appear(n, self.rules)}
+        self.possible_roles = {str(r) for r in (role_pool or all_roles)
+                               if r.can_appear(n, self.rules)}
         self.possible_roles |= {str(r) for r in roles.values()}
         # Gareth counts as Evil here whichever team they're on, so the number
         # of proposals doesn't give their team away.
@@ -392,21 +405,13 @@ class GameState:
         """Inquisition earned by approving proposal `number` (from round 2)."""
         if self.round == 1:
             return None
-        p = self.proposals_per_round
-        kind = None
-        if p == 4 and number == 1:
-            kind = "weak"
-        elif p >= 5 and number == 1:
-            kind = "strong" if not self.strong_used else "weak"
-        elif p >= 5 and number == 2:
-            kind = "weak"
-        if kind == "strong" and not self.strong_used:
+        kind = inquisition_for(self.proposals_per_round, number,
+                               self.strong_used, self.weak_used)
+        if kind == "strong":
             self.strong_used = True
-            return "strong"
-        if kind == "weak" and not self.weak_used:
+        elif kind == "weak":
             self.weak_used = True
-            return "weak"
-        return None
+        return kind
 
     # ------------------------------------------------------------- Hammer pause
 
@@ -432,10 +437,9 @@ class GameState:
 
     def _declared(self, role_name : str) -> str | None:
         """The player publicly known to have this role, if any."""
-        q_all = self.quests
-        if role_name == "Gawain" and any(q.gawain_target for q in q_all):
+        if role_name == "Gawain" and any(q.gawain_target for q in self.quests):
             return self.player_with_role("Gawain")
-        if role_name == "Agravaine" and any(q.betrayed for q in q_all):
+        if role_name == "Agravaine" and any(q.betrayed for q in self.quests):
             return self.player_with_role("Agravaine")
         return None
 
@@ -551,15 +555,9 @@ class GameState:
         self._emit("gawain", gawain=self.player_with_role("Gawain"), target=target,
                    card=card.value, exiled=exiled)
 
-    def _qbwh_value(self) -> Card:
-        """What a Questing Beast Was Here card counts as on the current quest."""
-        if self.failures >= 2 or self.qbwh_seen() >= 2:
-            return Card.SUCCESS
-        return Card.FAIL
-
     def _reveal(self):
         q = self.current_quest
-        q.qbwh_counts_as = self._qbwh_value()
+        q.qbwh_counts_as = qbwh_value(self.failures, self.qbwh_seen())
         cards = [c for p, c in q.cards.items() if p != q.removed]
         q.succeeded = quest_succeeds(cards, q.fails_needed, q.qbwh_counts_as)
         q.played = list(cards)
@@ -683,21 +681,14 @@ class GameState:
         self._require(Phase.ASSASSINATION)
         targets = list(dict.fromkeys(targets))
         kinds = self.rules.assassination_kinds()
-        needed = 0 if kind == "none" else len(ASSASSINATION_TARGETS.get(kind, ((),))[0])
-        if kind not in kinds or len(targets) != needed \
+        if kind not in kinds or len(targets) != targets_needed(kind) \
                 or any(t not in self.roles for t in targets):
             raise RuleError(assassination_help(kinds))
-        if kind == "none":
-            # Correct only if no target this game allows is (wholly) present.
-            correct = not any(self._target_present(k) for k in kinds if k != "none")
-        else:
-            correct = sorted(self.role(t) for t in targets) == sorted(ASSASSINATION_TARGETS[kind][0])
+        correct = guess_is_correct(kind, [self.role(t) for t in targets], kinds,
+                                   lambda role_name: bool(self.player_with_role(role_name)))
         self.assassination = dict(kind=kind, targets=targets, correct=correct)
         self._emit("assassination", assassin=self.assassin(), **self.assassination)
         self._finish_game()
-
-    def _target_present(self, kind : str) -> bool:
-        return all(self.player_with_role(r) for r in ASSASSINATION_TARGETS[kind][0])
 
     def _finish_game(self):
         good_won = self.successes >= 3 and not (self.assassination or {}).get("correct")
@@ -709,72 +700,9 @@ class GameState:
         pellinore = self.player_with_role("Pellinore")
         beast = self.player_with_role("The Questing Beast")
         if pellinore and beast:
-            outcome["neutrals"] = self._neutral_scores(pellinore, beast)
+            outcome["neutrals"] = neutral_scores(
+                pellinore, beast, [q.team for q in self.quests], self.successes,
+                self.failures, self.qbwh_seen(), self.pellinore_guess_target == beast)
         self.outcome = outcome
         self._emit("game_over", **outcome)
         self._set_phase(Phase.GAME_OVER)
-
-    def _neutral_scores(self, pellinore : str, beast : str) -> dict:
-        seen = self.qbwh_seen()
-        guessed = self.pellinore_guess_target == beast
-        together = any(pellinore in q.team and beast in q.team for q in self.quests)
-        sanity = -seen + (1 if together else 0) + (2 if self.failures >= 3 else 0) \
-                 + (3 if guessed else 0)
-        quests_on = sum(beast in q.team for q in self.quests)
-        points = quests_on + (0 if together else 1) + (2 if self.successes >= 3 else 0) \
-                 + (0 if guessed else 3)
-        return {
-            "Pellinore": dict(player=pellinore, sanity=sanity, guessed_right=guessed,
-                              won=seen == 0 or sanity >= 2),
-            "The Questing Beast": dict(player=beast, points=points,
-                                       won=quests_on >= 1 and points >= 5),
-        }
-
-
-def assassination_help(kinds : list[str], link : bool = False) -> str:
-    """'Name one player as Merlin or Nilrem, two as the Lovers, or no one.'
-    link: with [[Term]] markup (see rule_notes)."""
-    def label(k):
-        roles, text = ASSASSINATION_TARGETS[k]
-        if not link:
-            return text
-        return f"[[{roles[0]}]]" if len(roles) == 1 else f"[[the Lovers|{text}]]"
-    ones = [label(k) for k in kinds
-            if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 1]
-    twos = [label(k) for k in kinds
-            if k != "none" and len(ASSASSINATION_TARGETS[k][0]) == 2]
-    def either(names):
-        return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]
-    parts = []
-    if ones:
-        parts.append("one player as " + either(ones))
-    if twos:
-        parts.append("two as " + either(twos))
-    if "none" in kinds:
-        parts.append("no one")
-    if not parts:
-        return "There is no Assassination."
-    text = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + ", or " + parts[-1]
-    if len(parts) == 2:
-        text = f"{parts[0]}{',' if ' or ' in parts[0] else ''} or {parts[1]}"
-    return "Name " + text + "."
-
-
-def quest_succeeds(cards : list[Card], fails_needed : int,
-                   qbwh_counts_as : Card = Card.FAIL) -> bool:
-    """Result of a quest from the cards that count (removed card excluded).
-
-    A Reversal counts as a Success and flips one other non-Reversal card,
-    choosing one that changes the result if it can. Two Reversals cancel.
-    """
-    values = [qbwh_counts_as if c == Card.QBWH else c for c in cards]
-    reversals = values.count(Card.REVERSAL) % 2
-    fails = values.count(Card.FAIL)
-    successes = values.count(Card.SUCCESS)
-    failed = fails >= fails_needed
-    if reversals:
-        if failed and fails > 0 and fails - 1 < fails_needed:
-            failed = False      # flip a Fail into a Success
-        elif not failed and successes > 0 and fails + 1 >= fails_needed:
-            failed = True       # flip a Success into a Fail
-    return not failed

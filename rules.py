@@ -20,7 +20,7 @@ from flask import url_for
 from jinja2.ext import Extension
 from markupsafe import Markup
 
-from THavalon import string_to_role
+from thavalon.roles import string_to_role
 
 
 @dataclass

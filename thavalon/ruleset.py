@@ -13,12 +13,12 @@ Every setting is described once in SETTINGS (key, kind, default, label, and
 the section of the host page it belongs to). Code reads a setting with
 `rules[key]`; the helpers below cover the questions the engine asks.
 
-This module knows roles only by name, so it can be imported anywhere
-(THavalon imports it).
+This module knows roles only by name, so every other part of the engine
+can import it.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 COUNTS = tuple(range(5, 11))          # player counts a game can have
 ALL_COUNTS = frozenset(COUNTS)
@@ -114,7 +114,6 @@ ASSASSINATION_TARGETS : dict[str, tuple[tuple[str, ...], str]] = {
 DEFAULT_TARGETS = {"merlin", "nilrem", "lovers"}
 
 GARETH_TEAMS = ("Good", "Evil")
-TEAM_NAMES = {"Good": "blue (Good)", "Evil": "red (Evil)"}
 
 
 def _settings() -> list[Setting]:
@@ -246,22 +245,6 @@ class RuleSet:
             values[key] = raw
         return cls(values)
 
-    @classmethod
-    def from_form(cls, form) -> RuleSet:
-        """The host page's rules fields: `rule:<key>`. Checkboxes send
-        nothing when unticked, so every setting is read (a missing bool is
-        False, missing counts are none)."""
-        values = {}
-        for key, setting in SETTINGS.items():
-            name = f"rule:{key}"
-            if setting.kind == "bool":
-                values[key] = name in form
-            elif setting.kind == "counts":
-                values[key] = form.getlist(name)
-            elif name in form:
-                values[key] = form[name]
-        return cls(values)
-
     # ------------------------------------------------------------ questions
 
     def players_key(self, role_name : str) -> str | None:
@@ -323,23 +306,3 @@ class RuleSet:
 
 
 DEFAULT = RuleSet()
-
-
-def format_counts(counts) -> str:
-    """{7, 8, 9, 10} -> '7–10', {6, 9} -> '6 or 9', {} -> 'no'."""
-    counts = sorted(counts)
-    if not counts:
-        return "no"
-    parts, start = [], counts[0]
-    for i, n in enumerate(counts):
-        if i + 1 < len(counts) and counts[i + 1] == n + 1:
-            continue
-        if n - start >= 2:
-            parts.append(f"{start}–{n}")
-        else:
-            parts.extend(str(k) for k in range(start, n + 1))
-        if i + 1 < len(counts):
-            start = counts[i + 1]
-    if len(parts) == 1:
-        return parts[0]
-    return ", ".join(parts[:-1]) + " or " + parts[-1]

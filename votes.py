@@ -3,7 +3,7 @@
 A fallback for when the game gets stuck or something went wrong: the host
 starts a team proposal vote (everyone approves or rejects) or a mission vote
 (the chosen players each play a card), the players vote on their Vote tab,
-and the result is shown to everyone. Nothing here touches game.GameState;
+and the result is shown to everyone. Nothing here touches the GameState;
 the table carries on from the results by hand.
 
 Like the game: proposal votes may be changed until everyone has voted and
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import random
 
-from game import Card, RuleError
+from thavalon import Card, RuleError
 
 PROPOSAL = "proposal"
 MISSION = "mission"

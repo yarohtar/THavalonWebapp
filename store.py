@@ -13,10 +13,12 @@ run more than once and must not have side effects (publish events after).
 
 Pickles depend on the classes' code. If a deploy changes stored classes in
 a way old pickles can't load into, bump SCHEMA: stored games are then
-ignored (they expire on their own) instead of crashing pages.
+ignored (they expire on their own) instead of crashing pages. Modules that
+moved are listed in MOVED_MODULES, so their old pickles still load.
 """
 from __future__ import annotations
 
+import io
 import logging
 import os
 import pickle
@@ -28,6 +30,25 @@ SCHEMA = 1
 SOCKET_TIMEOUT = 60      # seconds; must exceed events.HEARTBEAT_SECONDS
 T = TypeVar("T")
 log = logging.getLogger(__name__)
+
+
+# Old module name -> where its classes live now (the game engine moved into
+# the thavalon package; games pickled before that name the old modules).
+MOVED_MODULES = {
+    "THavalon": "thavalon.roles",
+    "game": "thavalon.state",
+    "actions": "thavalon.controller",
+    "ruleset": "thavalon.ruleset",
+}
+
+
+class _Unpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        return super().find_class(MOVED_MODULES.get(module, module), name)
+
+
+def loads(raw : bytes):
+    return _Unpickler(io.BytesIO(raw)).load()
 
 
 _client : redis.Redis | None = None
@@ -69,7 +90,7 @@ class Store:
         if raw is None:
             return None
         try:
-            return pickle.loads(raw)
+            return loads(raw)
         except Exception:
             log.exception("Can't load %s (stored by older code?); ignoring it.", key)
             return None

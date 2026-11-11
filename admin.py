@@ -39,7 +39,7 @@ from flask import Blueprint, g, request, session, url_for
 from markupsafe import Markup
 
 from access import AccessCheck, email_from_any_team
-from game import RuleError
+from thavalon import RuleError
 
 import re
 

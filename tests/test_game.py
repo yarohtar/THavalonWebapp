@@ -1,57 +1,16 @@
-"""Tests for game.GameState and actions.GameController.  Run: python -m pytest"""
-import contextlib
-import io
-import os
+"""Tests for the engine's flow of play (thavalon.state) through the
+controller (thavalon.controller).  Run: python -m pytest"""
 import random
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import THavalon as T
-from actions import GameController, NotAllowed
-from game import Card, GameState, Phase, RuleError, quest_succeeds
-from ruleset import ASSASSINATION_TARGETS
-
-S, F, R, Q = Card.SUCCESS, Card.FAIL, Card.REVERSAL, Card.QBWH
-
-
-def make_game(role_names, sizes=(2, 3, 2, 3, 3), double_fail=None, seed=0):
-    """Players p0..pN in seating order with the given roles.
-    p0 and p1 propose in round 1, p2 starts round 2."""
-    roles, soc, mom = {}, 0, 0
-    for i, name in enumerate(role_names):
-        if name == "Servant":
-            role = T.SoC(soc); soc += 1
-        elif name == "Minion":
-            role = T.MoM(mom); mom += 1
-        else:
-            role = T.string_to_role[name]
-        roles[f"p{i}"] = role
-    seating = list(roles)
-    state = GameState(seating, roles, list(sizes), double_fail,
-                      ("p0", "p1"), "p2", rng=random.Random(seed))
-    return state, GameController(state)
-
-
-def everyone(ctl, action, **params):
-    for p in ctl.state.seating:
-        if action in ctl.available_actions(p):
-            ctl.act(p, action, **params)
-
-
-def play_first_round(ctl, team=("p0", "p1"), cards=None):
-    ctl.act("p0", "propose_first_round", team=list(team))
-    ctl.act("p1", "propose_first_round", team=list(team))
-    everyone(ctl, "vote_first_round", proposer="p0")
-    play_cards(ctl, cards or {})
-
-
-def play_cards(ctl, cards):
-    q = ctl.state.current_quest
-    for p in q.team:
-        ctl.act(p, "play_card", card=cards.get(p, ctl.state.allowed_cards(p)[0]))
+from helpers import (F, Q, R, S, T, build, everyone, make_game, play_cards, play_first_round,
+                     play_randomly)
+from thavalon.cards import quest_succeeds
+from thavalon.controller import GameController
+from thavalon.dealing import DEFAULT_TEAM_SIZES, default_double_fail_quest, default_num_evils
+from thavalon.errors import NotAllowed, RuleError
+from thavalon.state import GameState, Phase
 
 
 # ---------------------------------------------------------------- quest results
@@ -513,52 +472,17 @@ def test_good_players_may_fail():
 
 def random_game(n, seed):
     rng = random.Random(seed)
-    builder = T.AvalonBuilder([f"P{i}" for i in range(n)], T.all_roles)
-    sizes = {5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4]}.get(n, [3, 4, 4, 5, 5])
-    state = GameState.from_builder(builder, sizes, 4 if n >= 7 else None, rng=rng,
-                                   lady_of_the_lake=seed % 2 == 0)
-    ctl = GameController(state)
-    for step in range(2000):
-        if state.phase == Phase.GAME_OVER:
-            return state
-        options = [(p, a, o) for p in state.seating for a, o in ctl.available_actions(p).items()]
-        assert options, state.phase
-        p, action, o = rng.choice(options)
-        if action in ("propose", "propose_first_round"):
-            ctl.act(p, action, team=rng.sample(o["players"], o["team_size"]))
-        elif action == "vote_first_round":
-            ctl.act(p, action, proposer=rng.choice(o["choices"]))
-        elif action == "vote":
-            ctl.act(p, action, approve=rng.random() < 0.4)
-        elif action == "play_card":
-            ctl.act(p, action, card=rng.choice(o["cards"]))
-        elif action == "inquisition":
-            ctl.act(p, action, target=rng.choice(o["choices"]),
-                    remove=o["can_remove"] and rng.random() < 0.5)
-        elif action in ("sorceress",):
-            ctl.act(p, action, next_proposer=rng.choice(o["choices"]))
-        elif action in ("changeling",):
-            ctl.act(p, action, replaced=rng.choice(o["choices"]))
-        elif action in ("gawain", "lady"):
-            ctl.act(p, action, target=rng.choice(o["choices"]))
-        elif action == "pellinore_guess":
-            ctl.act(p, action, target=rng.choice(o["choices"] + [None]))
-        elif action == "assassinate":
-            kind = rng.choice(o["kinds"])
-            k = 0 if kind == "none" else len(ASSASSINATION_TARGETS[kind][0])
-            ctl.act(p, action, kind=kind, targets=rng.sample(o["choices"], k))
-        else:
-            ctl.act(p, action)
-    raise AssertionError("game did not finish")
+    builder = build(n, T.all_roles, seed=seed)
+    state = GameState.from_builder(builder, DEFAULT_TEAM_SIZES[n], default_double_fail_quest(n),
+                                   rng=rng, lady_of_the_lake=seed % 2 == 0)
+    return play_randomly(state, rng, max_steps=2000)
 
 
 @pytest.mark.parametrize("n", range(5, 11))
 def test_random_games_finish(n):
     """Random legal play never gets stuck and always ends in a valid outcome."""
     for seed in range(80):
-        random.seed(seed)
-        with contextlib.redirect_stdout(io.StringIO()):    # AvalonBuilder prints
-            state = random_game(n, seed)
+        state = random_game(n, seed)
         assert state.outcome["winner"] in ("Good", "Evil")
         assert state.successes == 3 or state.failures == 3
         # each round's proposers are distinct
@@ -702,13 +626,6 @@ def test_lady_never_returns_to_an_earlier_holder():
 
 # ---------------------------------------------------------------- Gareth
 
-def build(n, roles=None, seed=0):
-    random.seed(seed)
-    with contextlib.redirect_stdout(io.StringIO()):    # AvalonBuilder prints
-        return T.AvalonBuilder([f"P{i}" for i in range(n)],
-                               T.all_roles if roles is None else roles)
-
-
 @pytest.mark.parametrize("n", range(5, 11))
 def test_gareth_only_in_nine_player_games_when_selected(n):
     assert (T.gareth in build(n, T.all_roles)) == (n == 9)
@@ -717,18 +634,18 @@ def test_gareth_only_in_nine_player_games_when_selected(n):
 
 
 def test_gareth_takes_an_evil_place_by_default():
-    assert T.default_num_evils(9, gareth_plays=True) == 3
-    assert T.default_num_evils(9) == 4
+    assert default_num_evils(9, gareth_plays=True) == 3
+    assert default_num_evils(9) == 4
     b = build(9, [T.merlin])
     assert sum(r.allegiance() == "Evil" for r in b) == 4
 
 
 def test_gareth_default_nine_player_game():
-    assert T.DEFAULT_TEAM_SIZES[9] == [3, 4, 4, 5, 5]
-    assert T.default_double_fail_quest(9) == 4
+    assert DEFAULT_TEAM_SIZES[9] == [3, 4, 4, 5, 5]
+    assert default_double_fail_quest(9) == 4
     teams = {"Good": 0, "Evil": 0}
     for seed in range(200):
-        b = build(9, [T.gareth], seed)
+        b = build(9, [T.gareth], seed=seed)
         fixed = [r.allegiance() for r in b if r != T.gareth]
         assert fixed.count("Evil") == 3 and fixed.count("Good") == 5
         teams[next(r for r in b if r == T.gareth).allegiance()] += 1
@@ -738,7 +655,7 @@ def test_gareth_default_nine_player_game():
 def test_gareth_knight_rival_and_what_people_see():
     seen_evil = seen_good = False
     for seed in range(100):
-        b = build(9, T.all_roles, seed)
+        b = build(9, T.all_roles, seed=seed)
         g = next(r for r in b if r == T.gareth)
         player = b[g]
         team_of = {p: r.allegiance() for r, p in b.role_to_player.items()}

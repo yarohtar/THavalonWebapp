@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game import RuleError
+from thavalon import RuleError
 from votes import HostVote, mission_cards, MISSION, PROPOSAL
 
 PLAYERS = ["a", "b", "c", "d", "e"]
