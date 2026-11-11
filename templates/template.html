@@ -59,6 +59,19 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') close();
         });
+
+        // Outside the rules pages, rules links open in their own tab (one,
+        // reused), so the game stays open. Links between rules pages stay put.
+        if (!location.pathname.startsWith('/rules')) {
+            document.addEventListener('click', function (e) {
+                const a = e.target.closest('a[href]');
+                if (!a || a.target) return;
+                const url = new URL(a.href, location.href);
+                if (url.origin === location.origin && url.pathname.startsWith('/rules')) {
+                    a.target = 'avalon-rules';
+                }
+            });
+        }
     })();
     </script>
     <script src="{{ url_for('static', filename='events.js') }}"></script>
