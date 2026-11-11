@@ -65,7 +65,7 @@
           action="{{ url_for('host.restart') }}"
           id="start-form">
         <input type="hidden" name="rules_form" value="1">
-        {% macro setting_input(key, label=None) %}
+        {% macro setting_input(key) %}
         {% set s = settings[key] %}
         {% set value = ruleset[key] %}
         <div class="rule-setting {{ s.kind }}{% if ruleset.changed(key) %} changed{% endif %}"
@@ -73,10 +73,10 @@
             {% if s.kind == 'bool' %}
             <label class="rule-check">
                 <input type="checkbox" name="rule:{{ key }}" value="1" {% if value %}checked{% endif %}>
-                <span>{{ label or s.label }}</span>
+                <span>{{ s.label }}</span>
             </label>
             {% elif s.kind == 'counts' %}
-            <span class="rule-label">{{ label or s.label }}</span>
+            <span class="rule-label">{{ s.label }}</span>
             <span class="count-chips">
                 {% for k in range(5, 11) %}
                 <label class="count-chip"><input type="checkbox" name="rule:{{ key }}" value="{{ k }}"
@@ -85,7 +85,7 @@
             </span>
             {% else %}
             <label class="rule-choice">
-                <span class="rule-label">{{ label or s.label }}</span>
+                <span class="rule-label">{{ s.label }}</span>
                 <select name="rule:{{ key }}">
                     {% for v, text in s.options %}
                     <option value="{{ v }}" {% if v == value %}selected{% endif %}>{{ text }}</option>
@@ -122,7 +122,7 @@
                 {% if grp.note %}<p class="setting-note">{{ grp.note }}</p>{% endif %}
                 {% for heading, keys in grp.rows %}
                 {% if heading %}<h4>{{ heading }}</h4>{% endif %}
-                {% for key in keys %}{{ setting_input(key, grp.labels.get(key)) }}{% endfor %}
+                {% for key in keys %}{{ setting_input(key) }}{% endfor %}
                 {% endfor %}
                 <button type="button" class="link-btn reset-group">Reset {{ grp.title }} to default</button>
                 <p class="setting-note"><a href="{{ get_term(grp.roles[0]).url() }}" target="avalon-rules">Rules page →</a></p>

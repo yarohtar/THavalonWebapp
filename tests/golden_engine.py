@@ -79,7 +79,7 @@ def random_rules(rng) -> RuleSet:
         elif s.kind == "counts":
             values[key] = [n for n in range(5, 11) if rng.random() < 0.6]
         else:
-            values[key] = rng.choice(s.options)[0]
+            values[key] = rng.choice(s.choices)
     return RuleSet(values)
 
 

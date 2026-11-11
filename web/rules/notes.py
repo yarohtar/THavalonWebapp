@@ -5,22 +5,23 @@ each tagged with the rules pages it belongs on. The rules pages show the
 notes for their page to players in a game ("In your current game: ..."),
 the tap-preview sheet shows them for the tapped term's page ("Changed in
 this game"), and the game summary lists the ones marked `summary`. (The Role
-tab instead renders the role's rules under the game's rules: rule_text.py.)
+tab instead renders the role's rules under the game's rules: role_text.py.)
 With the default rules there are no notes.
 
-Notes use the same [[Term]] markup as the templates; expand() turns them
-into links.
+Notes use the same [[Term]] markup as the templates; pages.expand() turns
+them into links.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
-from markupsafe import Markup, escape
+from markupsafe import Markup
 
 from thavalon.assassination import assassination_help
 from thavalon.ruleset import (ASSASSINATION_TARGETS, GARETH_TEAMS, GUINEVERE_SEES,
                               MERLIN_SEES, PERCIVAL_SEES, SETTINGS, RuleSet)
+from web.rules.pages import expand, get_term, script_json
+from web.rules.wording import and_list, format_counts, links, role_link
 
 
 @dataclass
@@ -30,36 +31,14 @@ class Note:
     summary : bool = True            # also listed in the in-game summary
 
 
-# Rules page of each role name used in settings.
-PAGE = {"Merlin": "merlin", "Percival": "percival", "Tristan": "lovers", "Iseult": "lovers",
-        "Arthur": "arthur", "Lancelot": "lancelot", "Guinevere": "guinevere",
-        "Gawain": "gawain", "Balin the Savage": "balin", "Mordred": "mordred",
-        "Morgana": "morgana", "Maelegant": "maelegant", "Agravaine": "agravaine",
-        "Colgrevance": "colgrevance", "Oberon": "oberon",
-        "Minion of Mordred": "minion-of-mordred", "Gareth": "gareth",
-        "Pellinore": "pellinore", "Nilrem": "nilrem", "Galahad": "galahad",
-        "Uther": "uther", "Ygraine": "ygraine"}
-TARGET_PAGE = {"merlin": "merlin", "nilrem": "nilrem", "lovers": "lovers",
-               "percival": "percival", "galahad": "galahad", "arthur": "arthur",
-               "guinevere": "guinevere", "ygraine": "ygraine", "uther": "uther",
-               "lancelot": "lancelot", "gawain": "gawain"}
+def page_of(role_name : str) -> str:
+    """The rules page a role is described on."""
+    return get_term(role_name).page_slug
 
 
-def _and(items : list[str], word : str = "and") -> str:
-    items = list(items)
-    if not items:
-        return ""
-    if len(items) == 1:
-        return items[0]
-    return ", ".join(items[:-1]) + f" {word} " + items[-1]
-
-
-def _links(roles) -> list[str]:
-    return [f"[[{r}]]" for r in roles]
-
-
-def _changed(rules : RuleSet, prefix : str) -> list[str]:
-    return [k for k in rules.values if k.startswith(prefix)]
+def target_page(kind : str) -> str:
+    """The rules page of an Assassination target ('lovers' -> the Lovers' page)."""
+    return page_of(ASSASSINATION_TARGETS[kind][0][0])
 
 
 def game_notes(rules : RuleSet | None) -> list[Note]:
@@ -69,10 +48,10 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
     add = notes.append
 
     # ---- Assassination
-    if _changed(rules, "assassination."):
+    if rules.changes("assassination."):
         kinds = rules.assassination_kinds()
         targets = rules.assassination_targets()
-        every_target_page = tuple(TARGET_PAGE.values())
+        every_target_page = tuple(target_page(k) for k in ASSASSINATION_TARGETS)
         if not kinds:
             add(Note(("assassination", "overview", "mordred", "gareth") + every_target_page,
                      "There is no [[Assassination]]: Good wins as soon as 3 Quests succeed."))
@@ -89,10 +68,10 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
                              if SETTINGS[f'assassination.target.{k}'].default]:
                 names = [ASSASSINATION_TARGETS[k][1] for k in targets]
                 add(Note(("assassination",), "Naming no one is correct only if the game has "
-                         f"none of these: {_and(names, 'or')} (the Lovers count only as a "
+                         f"none of these: {and_list(names, 'or')} (the Lovers count only as a "
                          "complete pair)." if "lovers" in targets else
                          "Naming no one is correct only if the game has "
-                         f"none of these: {_and(names, 'or')}.", summary=False))
+                         f"none of these: {and_list(names, 'or')}.", summary=False))
             for k, (roles, label) in ASSASSINATION_TARGETS.items():
                 key = f"assassination.target.{k}"
                 if not rules.changed(key):
@@ -100,16 +79,16 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
                 if rules[key]:
                     how = ("Evil must name both of them" if len(roles) == 2
                            else f"Evil must name them as {label}")
-                    add(Note((TARGET_PAGE[k],), f"{label[0].upper() + label[1:]} "
+                    add(Note((target_page(k),), f"{label[0].upper() + label[1:]} "
                              f"{'are' if len(roles) == 2 else 'is'} a target of the "
                              f"[[Assassination]]. {how}.", summary=False))
                 else:
-                    add(Note((TARGET_PAGE[k],), f"{label[0].upper() + label[1:]} "
+                    add(Note((target_page(k),), f"{label[0].upper() + label[1:]} "
                              f"{'are' if len(roles) == 2 else 'is'} not a target of the "
                              "[[Assassination]].", summary=False))
 
     # ---- Player counts
-    for key in _changed(rules, ""):
+    for key in rules.changes():
         if not key.endswith(".players"):
             continue
         role = key[:-len(".players")]
@@ -119,7 +98,7 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
                           ("pellinore", "questing-beast"))
             verb = "are"
         else:
-            who, pages, verb = f"[[{role}]]", (PAGE[role],), "is"
+            who, pages, verb = f"[[{role}]]", (page_of(role),), "is"
         if counts:
             add(Note(pages, f"{who} can be dealt only in games with {format_counts(counts)} players."
                      if len(counts) < 6 else f"{who} can be dealt in games of any size."))
@@ -143,7 +122,7 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         counts = rules[f"{key}.lonely"]
         if when is None:
             seen = (rules.percival_sees() if key == "Percival" else rules.guinevere_sees())
-            when = (f"when {_and(_links(seen), 'and')} {'are' if len(seen) > 1 else 'is'} missing"
+            when = (f"when {and_list(links(seen), 'and')} {'are' if len(seen) > 1 else 'is'} missing"
                     if seen else "")
         when = f" {when}" if when else ""
         if not counts:
@@ -160,18 +139,20 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         # Balin isn't played: leave them out unless their rule changed.
         listed = [r for r in MERLIN_SEES
                   if r != "Balin the Savage" or r in merlin_changed]
-        seen = [_role(r) for r in listed if rules.merlin_sees(r)]
-        hidden = [_role(r) for r in listed if not rules.merlin_sees(r)]
-        text = (f"[[Merlin]] sees these roles as Evil: {_and(seen)}."
+        seen = [role_link(r) for r in listed if rules.merlin_sees(r)]
+        hidden = [role_link(r) for r in listed if not rules.merlin_sees(r)]
+        text = (f"[[Merlin]] sees these roles as Evil: {and_list(seen)}."
                 if seen else "[[Merlin]] doesn't see anyone as Evil.")
         if seen and hidden:
-            text += f" Merlin doesn't see {_and(hidden, 'or')}."
+            text += f" Merlin doesn't see {and_list(hidden, 'or')}."
         add(Note(("merlin",), text))
         for r in merlin_changed:
             if rules.merlin_sees(r):
-                add(Note((PAGE[r],), f"[[Merlin]] sees {_role(r)} as Evil.", summary=False))
+                add(Note((page_of(r),), f"[[Merlin]] sees {role_link(r)} as Evil.",
+                         summary=False))
             else:
-                add(Note((PAGE[r],), f"[[Merlin]] doesn't see {_role(r)}.", summary=False))
+                add(Note((page_of(r),), f"[[Merlin]] doesn't see {role_link(r)}.",
+                         summary=False))
 
     # ---- Percival's and Guinevere's sight
     for viewer, options, getter in (("Percival", PERCIVAL_SEES, rules.percival_sees),
@@ -181,9 +162,9 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
             continue
         seen = getter()
         becomes = "Galahad" if viewer == "Percival" else "Ygraine"
-        pages = (PAGE[viewer], PAGE[becomes])
+        pages = (page_of(viewer), page_of(becomes))
         if seen:
-            sight = (f"sees only {_and(_links(seen))}, but not which is which"
+            sight = (f"sees only {and_list(links(seen))}, but not which is which"
                      if len(seen) > 1 else
                      f"sees only [[{seen[0]}]], and knows that player is {seen[0]}")
             missing = "none of them is" if len(seen) > 1 else f"{seen[0]} is not"
@@ -193,7 +174,7 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
             add(Note(pages, f"[[{viewer}]] sees no one, so is always lonely: "
                      f"[[{becomes}]] instead, wherever lonely roles change."))
         for r in changed:
-            add(Note((PAGE[r],), f"[[{viewer}]] {'sees' if r in seen else 'does not see'} "
+            add(Note((page_of(r),), f"[[{viewer}]] {'sees' if r in seen else 'does not see'} "
                      f"[[{r}]].", summary=False))
 
     # ---- Nilrem
@@ -218,7 +199,7 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
     reversal = rules.reversal_roles()
     for r in ("Lancelot", "Maelegant"):
         if rules.changed(f"{r}.reversal"):
-            add(Note((PAGE[r],), f"[[{r}]] can't play [[Reversal]].", summary=False))
+            add(Note((page_of(r),), f"[[{r}]] can't play [[Reversal]].", summary=False))
     if reversal != ["Lancelot", "Maelegant"]:
         text = (f"Only [[{reversal[0]}]] can play [[Reversal]]." if reversal
                 else "Nobody can play [[Reversal]].")
@@ -255,13 +236,6 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
     return notes
 
 
-def _role(name : str) -> str:
-    """A role as a link, plural for the Minions."""
-    if name == "Minion of Mordred":
-        return "the [[Minion of Mordred|Minions of Mordred]]"
-    return f"[[{name}]]"
-
-
 def _sight(who, sees, not_seen, see : bool, told : bool, plural : bool) -> str:
     """'Merlin sees Gareth as Evil, without being told which player is Gareth', etc."""
     are = "are" if plural else "is"
@@ -289,37 +263,21 @@ def summary_notes(rules : RuleSet | None) -> list[Note]:
     return out
 
 
-_MARKUP = re.compile(r"\[\[([^\[\]|]+?)(?:\|([^\[\]]+?))?\]\]")
+def game_notes_json(ruleset) -> Markup:
+    """{page slug: [note HTML, ...]} of a game's rule changes, for the
+    tap-preview sheet. {} with the default rules."""
+    data : dict[str, list[str]] = {}
+    for note in game_notes(ruleset):
+        html = str(expand(note.text))
+        for page in note.pages:
+            if html not in data.setdefault(page, []):
+                data[page].append(html)
+    return script_json(data)
 
 
-def expand(text : str) -> Markup:
-    """[[Term]] markup -> links; everything else escaped."""
-    from web.rules.pages import term_link
-    out, pos = [], 0
-    for m in _MARKUP.finditer(text):
-        out.append(escape(text[pos:m.start()]))
-        out.append(term_link(m.group(1).strip(),
-                             m.group(2).strip() if m.group(2) else None))
-        pos = m.end()
-    out.append(escape(text[pos:]))
-    return Markup("").join(out)
-
-
-def format_counts(counts) -> str:
-    """{7, 8, 9, 10} -> '7–10', {6, 9} -> '6 or 9', {} -> 'no'."""
-    counts = sorted(counts)
-    if not counts:
-        return "no"
-    parts, start = [], counts[0]
-    for i, n in enumerate(counts):
-        if i + 1 < len(counts) and counts[i + 1] == n + 1:
-            continue
-        if n - start >= 2:
-            parts.append(f"{start}–{n}")
-        else:
-            parts.extend(str(k) for k in range(start, n + 1))
-        if i + 1 < len(counts):
-            start = counts[i + 1]
-    if len(parts) == 1:
-        return parts[0]
-    return ", ".join(parts[:-1]) + " or " + parts[-1]
+def init_app(app):
+    app.jinja_env.globals.update(
+        rule_notes_for = notes_for,
+        rule_summary_notes = summary_notes,
+        expand_note = expand,
+        game_notes_json = game_notes_json)

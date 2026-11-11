@@ -27,7 +27,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `web/visitor.py` | This browser's lobby/game: `joined_lobby`, `join`, `my_lobby`, `playing_lobby`, `viewer_game`. |
 | `web/host_settings.py` | Host preferences in the cookie (`pref_*`, `save_*`) and the rules editor layout (`HOST_GROUPS`, `ruleset_from_form`). |
 | `web/host_votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
-| `web/rules/` | `pages.py`: rules pages and `[[Term]]` link markup; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages; `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab). |
+| `web/rules/` | `pages.py`: the term registry (`TERMS`, one per role/rule; each term's page), `[[Term]]` link markup and `expand()`; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages (also the preview sheet's JSON); `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab); `wording.py`: shared phrasing helpers. |
 | `web/store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions); `MOVED` maps old pickled class homes. |
 | `web/events.py` | Live updates: Server-Sent Events over Redis Streams (`events.publish(channel, event)`). |
 | `web/dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
@@ -81,9 +81,11 @@ for friends and playtests alone with bots (`tools/bots.py`).
   `GameState.rules` (class-level defaults keep old pickles loading). **Default rules must
   behave exactly as before**: checked by comparing deals/role info/random-game logs over many
   seeds with `PYTHONHASHSEED=0` (now `tests/test_golden.py`), and by
-  `tests/test_rule_settings.py`. New setting = entry in `ruleset._settings()`, the engine/role
-  code reading it, a note in `web.rules.notes.game_notes`, and a place in `web.host_settings.HOST_GROUPS`
-  (tests check every setting is on the host page once and produces a note).
+  `tests/test_rule_settings.py`. New setting = entry in `thavalon/ruleset._settings()` (key,
+  kind, default, choices: no wording), the engine/role code reading it, its host-page wording in
+  `web.host_settings._wording()` (checked at import), a place in `HOST_GROUPS`, a note in
+  `web.rules.notes.game_notes`, and the role's rules template if it changes that text (tests
+  check every setting is on the host page once and produces a note).
 - **Rules pages** show the usual (default) rules, with the viewer's current game's changes
   in a box at the top (`viewer_game()`). The **Role tab** instead renders the role's rules
   template with the game's `RuleSet` ("Rules for X", changed lines tagged "changed"): role

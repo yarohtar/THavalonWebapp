@@ -7,7 +7,7 @@
     {% endif %}
     {% if ruleset.assassination_on %}
     <li>Makes the final [[Assassination]] decision.</li>
-    {% if ruleset.changed_in('Assassination') %}
+    {% if ruleset.changes('assassination.') %}
     {% call li(True) %}In the Assassination, {{ assassination_choices(ruleset) }}{% endcall %}
     {% endif %}
     {% else %}

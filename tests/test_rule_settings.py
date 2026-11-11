@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import helpers
 from web.rules import notes as rule_notes, pages as rules_mod
 from helpers import T, build, deal, everyone, info, play_cards, play_randomly
-from web.rules.notes import format_counts
+from web.rules.wording import format_counts
 from thavalon.assassination import assassination_help
 from thavalon.cards import Card
 from thavalon.dealing import DEFAULT_TEAM_SIZES
@@ -367,7 +367,7 @@ def random_rules(rng):
         elif s.kind == "counts":
             values[key] = [n for n in range(5, 11) if rng.random() < 0.6]
         else:
-            values[key] = rng.choice(s.options)[0]
+            values[key] = rng.choice(s.choices)
     return RuleSet(values)
 
 
@@ -414,7 +414,7 @@ def test_every_setting_change_is_explained(key):
     elif s.kind == "counts":
         value = [n for n in range(5, 11) if n not in s.default] or [5]
     else:
-        value = next(v for v, _ in s.options if v != s.default)
+        value = next(v for v in s.choices if v != s.default)
     r = RuleSet({key: value})
     notes = rule_notes.game_notes(r)
     if key == "Oberon.announced":       # matters only when Oberon isn't seen
@@ -423,7 +423,7 @@ def test_every_setting_change_is_explained(key):
     with helpers.web_site().app.test_request_context():
         for n in notes:
             assert n.pages and set(n.pages) <= set(rules_mod.PAGES), n
-            rule_notes.expand(n.text)    # unknown terms raise
+            rules_mod.expand(n.text)    # unknown terms raise
 
 
 def test_notes_with_everything_changed_render():
@@ -433,7 +433,7 @@ def test_notes_with_everything_changed_render():
         for _ in range(100):
             for n in rule_notes.game_notes(random_rules(rng)):
                 assert set(n.pages) <= set(rules_mod.PAGES)
-                rule_notes.expand(n.text)
+                rules_mod.expand(n.text)
 
 
 def test_note_wording_examples():
@@ -445,7 +445,7 @@ def test_note_wording_examples():
     assert texts == ["There is no [[Assassination]]: Good wins as soon as 3 Quests succeed.",
                      "[[Gareth]] learns their team when the game ends."]
     with helpers.web_site().app.test_request_context():
-        html_ = str(rule_notes.expand("A <b> [[Merlin]] & [[Lovers|the Lovers]]"))
+        html_ = str(rules_mod.expand("A <b> [[Merlin]] & [[Lovers|the Lovers]]"))
     assert "&lt;b&gt;" in html_ and "&amp;" in html_ and 'data-term="merlin"' in html_
 
 
@@ -614,7 +614,6 @@ def test_every_page_renders_under_random_rules(web):
 def test_role_tab_text_follows_the_rules(web):
     """Role pages render the right sentences for changed rules."""
     site = helpers.web_site()
-    from flask import render_template
     with site.app.test_request_context():
         r = rs(**{"Percival.sees.Morgana": False})
         b = deal({"a": "Percival", "b": "Merlin", "c": "Mordred", "d": "Minion",
@@ -665,5 +664,5 @@ def test_role_rules_text_under_any_rules(web):
             s = SETTINGS[key]
             value = (not s.default if s.kind == "bool" else
                      frozenset({5}) if s.kind == "counts" else
-                     next(v for v, _ in s.options if v != s.default))
+                     next(v for v in s.choices if v != s.default))
             assert "rule-changed" in render(page, RuleSet({key: value})), key

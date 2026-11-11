@@ -1,4 +1,4 @@
-"""Sentences for the role rules templates (templates/rules/<role>.html).
+"""Sentences for the role rules templates (web/templates/rules/<role>.html).
 
 Those templates describe a role under a given RuleSet: the rules pages
 render them with the default rules (and list the current game's changes
@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from markupsafe import Markup
 
-from web.rules.notes import _and, expand, format_counts
 from thavalon.assassination import assassination_help
 from thavalon.ruleset import ASSASSINATION_TARGETS, COUNTS, DEFAULT, RuleSet, SETTINGS
+from web.rules.pages import expand
+from web.rules.wording import and_list, format_counts, links, role_link
 
 
 def counts_phrase(counts) -> str:
@@ -37,7 +38,7 @@ def changed(rules : RuleSet, *keys : str) -> bool:
 
 def roles_list(roles, word : str = "and") -> Markup:
     """['Merlin', 'Morgana'] -> '[[Merlin]] and [[Morgana]]' as links."""
-    return expand(_and([f"[[{r}]]" for r in roles], word))
+    return expand(and_list(links(roles), word))
 
 
 def is_target(rules : RuleSet, kind : str) -> bool:
@@ -63,15 +64,13 @@ def merlin_evil_sight(rules : RuleSet) -> Markup:
             "Minion of Mordred"]
     hidden = [r for r in evil if not rules.merlin_sees(r)]
     seen = [r for r in evil if rules.merlin_sees(r)]
-    link = lambda r: ("the [[Minion of Mordred|Minions of Mordred]]"
-                      if r == "Minion of Mordred" else f"[[{r}]]")
     if not hidden:
         return expand("Sees every Evil player.")
     if not seen:
         return expand("Doesn't see any Evil players.")
     if len(hidden) <= len(seen):
-        return expand(f"Sees every Evil player except {_and([link(r) for r in hidden])}.")
-    return expand(f"Sees only {_and([link(r) for r in seen])} as Evil.")
+        return expand(f"Sees every Evil player except {and_list(map(role_link, hidden))}.")
+    return expand(f"Sees only {and_list(map(role_link, seen))} as Evil.")
 
 
 def gareth_sight(rules : RuleSet, viewer : str) -> Markup:

@@ -9,9 +9,10 @@ THavalon rules), so
   - a host's cookie holds just their changes,
   - games pickled before a setting was added still load (it reads its default).
 
-Every setting is described once in SETTINGS (key, kind, default, label, and
-the section of the host page it belongs to). Code reads a setting with
-`rules[key]`; the helpers below cover the questions the engine asks.
+Every setting is described once in SETTINGS (key, kind, default, and the
+allowed choices). Code reads a setting with `rules[key]`; the helpers below
+cover the questions the engine asks. How settings are worded and laid out
+for the host is the website's business (web/host_settings.py).
 
 This module knows roles only by name, so every other part of the engine
 can import it.
@@ -28,18 +29,23 @@ def _from(n : int) -> frozenset[int]:
     return frozenset(range(n, 11))
 
 
+class SettingError(ValueError):
+    """A setting was given a value it can't have."""
+    def __init__(self, key : str, problem : str):
+        super().__init__(f"{key}: {problem}")
+        self.key = key
+        self.problem = problem
+
+
 @dataclass(frozen=True)
 class Setting:
     key : str
     kind : str                        # bool | counts | choice
     default : object
-    label : str                       # shown on the host page
-    section : str                     # host page card: a role name or "Assassination"
-    options : tuple = ()              # choice: ((value, label), ...)
-    help : str = ""                   # one-line explanation on the host page
+    choices : tuple = ()              # choice: the allowed values
 
     def parse(self, raw):
-        """A stored/submitted value -> the setting's type. ValueError if invalid."""
+        """A stored/submitted value -> the setting's type. SettingError if invalid."""
         if self.kind == "bool":
             if isinstance(raw, str):
                 return raw.lower() in ("1", "true", "on", "yes")
@@ -49,15 +55,14 @@ class Setting:
                 raw = [x for x in raw.split(",") if x.strip()]
             counts = frozenset(int(x) for x in raw)
             if not counts <= ALL_COUNTS:
-                raise ValueError(f"{self.label}: player counts must be 5 to 10.")
+                raise SettingError(self.key, "player counts must be 5 to 10.")
             return counts
         if self.kind == "choice":
-            values = [v for v, _ in self.options]
-            if raw not in values:
+            if raw not in self.choices:
                 # numbers come back from forms and JSON as strings
-                match = [v for v in values if str(v) == str(raw)]
+                match = [v for v in self.choices if str(v) == str(raw)]
                 if not match:
-                    raise ValueError(f"{self.label}: unknown choice {raw!r}.")
+                    raise SettingError(self.key, f"unknown choice {raw!r}.")
                 raw = match[0]
             return raw
         raise AssertionError(self.kind)
@@ -120,68 +125,43 @@ def _settings() -> list[Setting]:
     s : list[Setting] = []
     add = s.append
 
-    add(Setting("assassination.enabled", "bool", True, "Evil gets an Assassination",
-                "Assassination",
-                help="If off, Good wins as soon as 3 Quests succeed."))
-    for kind, (roles, label) in ASSASSINATION_TARGETS.items():
-        add(Setting(f"assassination.target.{kind}", "bool", kind in DEFAULT_TARGETS,
-                    f"{'Two' if len(roles) == 2 else 'One'} as {label}", "Assassination"))
-    add(Setting("assassination.none", "bool", True, "Naming no one is a choice",
-                "Assassination",
-                help="Correct only if none of the targets above is in the game."))
+    add(Setting("assassination.enabled", "bool", True))
+    for kind in ASSASSINATION_TARGETS:
+        add(Setting(f"assassination.target.{kind}", "bool", kind in DEFAULT_TARGETS))
+    add(Setting("assassination.none", "bool", True))   # naming no one is a choice
 
     for role, counts in DEFAULT_PLAYERS.items():
-        label = ("Player counts (Pellinore and the Questing Beast)" if role == "Pellinore"
-                 else "Player counts")
-        add(Setting(f"{role}.players", "counts", counts, label, role,
-                    help="Games this role can be dealt in, if selected."))
+        add(Setting(f"{role}.players", "counts", counts))
+    for key, (_, _, counts) in TRANSFORMS.items():
+        add(Setting(f"{key}.lonely", "counts", counts))
 
-    for key, (roles, becomes, counts) in TRANSFORMS.items():
-        section = "Tristan & Iseult" if key == "Lovers" else key
-        add(Setting(f"{key}.lonely", "counts", counts, f"Becomes {becomes} when lonely at",
-                    section))
+    for viewer, roles in (("Merlin", MERLIN_SEES), ("Percival", PERCIVAL_SEES),
+                          ("Guinevere", GUINEVERE_SEES)):
+        for role, default in roles.items():
+            add(Setting(f"{viewer}.sees.{role}", "bool", default))
 
-    for role, default in MERLIN_SEES.items():
-        add(Setting(f"Merlin.sees.{role}", "bool", default, role, "Merlin"))
-    for role, default in PERCIVAL_SEES.items():
-        add(Setting(f"Percival.sees.{role}", "bool", default, role, "Percival"))
-    for role, default in GUINEVERE_SEES.items():
-        add(Setting(f"Guinevere.sees.{role}", "bool", default, role, "Guinevere"))
+    add(Setting("Nilrem.known", "bool", True))           # Good players learn who Nilrem is
+    add(Setting("Oberon.seen_by_evil", "bool", False))
+    add(Setting("Oberon.sees_evil", "bool", True))
+    add(Setting("Oberon.announced", "bool", True))       # Evil learn an Oberon is in the game
 
-    add(Setting("Nilrem.known", "bool", True, "Good players are told who Nilrem is", "Merlin"))
+    add(Setting("Agravaine.must_fail", "bool", True))
+    add(Setting("Lancelot.reversal", "bool", True))
+    add(Setting("Maelegant.reversal", "bool", True))
+    add(Setting("Arthur.proclaim_after", "choice", 2, choices=(1, 2)))   # failed Quests
 
-    add(Setting("Oberon.seen_by_evil", "bool", False,
-                "The other Evil players see Oberon", "Oberon"))
-    add(Setting("Oberon.sees_evil", "bool", True, "Oberon sees the other Evil players",
-                "Oberon"))
-    add(Setting("Oberon.announced", "bool", True,
-                "Evil players are told that an Oberon is in the game", "Oberon",
-                help="Only matters when they don't see Oberon."))
-
-    add(Setting("Agravaine.must_fail", "bool", True, "Must play Fail", "Agravaine"))
-    add(Setting("Lancelot.reversal", "bool", True, "May play Reversal", "Lancelot"))
-    add(Setting("Maelegant.reversal", "bool", True, "May play Reversal", "Maelegant"))
-    add(Setting("Arthur.proclaim_after", "choice", 2, "Can Proclaim after", "Arthur",
-                options=((1, "1 failed Quest"), (2, "2 failed Quests"))))
-
-    add(Setting("Gareth.knows", "choice", "both", "Gareth is told", "Gareth",
-                options=(("both", "their Knight and their Rival"),
-                         ("knight", "only their Knight"),
-                         ("rival", "only their Rival"))))
-    add(Setting("Gareth.lady", "choice", "good", "The Lady of the Lake shows Gareth as",
-                "Gareth", options=(("good", "Good, whatever their team"),
-                                   ("team", "their real team"))))
+    add(Setting("Gareth.knows", "choice", "both", choices=("both", "knight", "rival")))
+    add(Setting("Gareth.lady", "choice", "good", choices=("good", "team")))  # what she shows
     gareth_defaults = {
-        # what : (label, default when blue, default when red)
-        "merlin_sees": ("Merlin sees Gareth as Evil", False, True),
-        "merlin_knows_role": ("Merlin is told which player is Gareth", False, False),
-        "evil_sees": ("Evil players see Gareth as one of them", False, True),
-        "evil_knows_role": ("Evil players are told which player is Gareth", False, False),
+        # what : (default when blue, default when red)
+        "merlin_sees": (False, True),            # Merlin sees Gareth as Evil
+        "merlin_knows_role": (False, False),     # Merlin is told which player is Gareth
+        "evil_sees": (False, True),              # Evil see Gareth as one of them
+        "evil_knows_role": (False, False),       # Evil are told which player is Gareth
     }
     for team in GARETH_TEAMS:
-        for what, (label, blue, red) in gareth_defaults.items():
-            add(Setting(f"Gareth.{team}.{what}", "bool", blue if team == "Good" else red,
-                        label, "Gareth"))
+        for what, (blue, red) in gareth_defaults.items():
+            add(Setting(f"Gareth.{team}.{what}", "bool", blue if team == "Good" else red))
     return s
 
 
@@ -197,7 +177,7 @@ class RuleSet:
     def __init__(self, values : dict | None = None):
         """values: key -> value (any parseable form). Unknown keys are ignored,
         so a cookie saved by another version of the app still works; bad
-        values raise ValueError."""
+        values raise ValueError (SettingError when it names the setting)."""
         self.values : dict[str, object] = {}
         for key, raw in (values or {}).items():
             setting = SETTINGS.get(key)
@@ -226,8 +206,9 @@ class RuleSet:
     def changed(self, key : str) -> bool:
         return key in self.values
 
-    def changed_in(self, section : str) -> list[str]:
-        return [k for k in self.values if SETTINGS[k].section == section]
+    def changes(self, prefix : str = "") -> list[str]:
+        """The changed settings whose keys start with `prefix`."""
+        return [k for k in self.values if k.startswith(prefix)]
 
     def to_json(self) -> dict:
         """Only the changes, JSON-friendly (for the host's cookie)."""

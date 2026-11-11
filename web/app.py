@@ -47,11 +47,9 @@ app.secret_key = _secret_key()
 # ---- templates ----
 
 rule_pages.init_app(app)
+rule_notes.init_app(app)
 role_text.init_app(app)
 app.jinja_env.globals.update(
-    rule_notes_for = rule_notes.notes_for,
-    rule_summary_notes = rule_notes.summary_notes,
-    expand_note = rule_notes.expand,
     assassination_label = lambda kind: ASSASSINATION_TARGETS[kind][1],
     assassination_size = lambda kind: len(ASSASSINATION_TARGETS[kind][0]))
 
