@@ -22,7 +22,24 @@ import votes
 from votes import HostVote
 
 app = Flask(__name__)
-app.secret_key = "secret"
+
+def _secret_key() -> str:
+    """Signs session cookies, which hold who you are (player id, host): anyone
+    who knows it can act as any player. Set SECRET_KEY on the server (each
+    site its own, kept out of the repo). Without it, a random key is used
+    for this run only, which is fine locally but not with several workers
+    or across restarts, so it is refused when REDIS_URL is set."""
+    key = os.environ.get('SECRET_KEY', '').strip()
+    if key:
+        return key
+    if os.environ.get('REDIS_URL'):
+        raise RuntimeError("SECRET_KEY is not set.")
+    import logging
+    logging.getLogger(__name__).warning(
+        "SECRET_KEY is not set: using a random key (sessions end on restart).")
+    return secrets.token_hex(32)
+
+app.secret_key = _secret_key()
 rules.init_app(app)
 
 app.register_blueprint(events.blueprint)
