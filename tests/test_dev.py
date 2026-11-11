@@ -102,6 +102,10 @@ def test_every_scenario_starts_in_its_situation():
             'assassination': ('assassination', 'Eve', 'assassinate'),
             'evil-wins': ('game_over', None, None),
             'changed-rules': ('assassination', 'Eve', 'assassinate'),
+            'gareth-evil': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'gareth-good': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'gareth-assassination': ('assassination', 'Fay', 'assassinate'),
+            'gareth-changed-rules': ('lady', 'Bob', 'lady'),
             'host-votes': ('proposing', 'Cat', 'propose'),
         }
         assert set(expected) == set(dev.BY_SLUG)

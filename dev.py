@@ -154,6 +154,8 @@ def P(*idx):
 
 
 SEVEN = ["Merlin", "Percival", "Tristan", "Iseult", "Mordred", "Morgana", "Maelegant"]
+GARETH_NINE = ["Merlin", "Percival", "Tristan", "Iseult", "Servant of Camelot",
+               "Mordred", "Morgana", "Maelegant"]       # + Gareth as Ivy
 
 SCENARIOS = [
     # Ann and Bob propose in round 1, Cat proposes first in round 2.
@@ -253,6 +255,32 @@ SCENARIOS = [
                     "Percival.sees.Morgana": False, "assassination.none": False,
                     "assassination.target.percival": True},
              group="End of game"),
+    # Gareth (Ivy) is 9th: the Knight is the first player of Gareth's team, the
+    # Rival the first of the other (Evil: Fay is the Knight, Ann the Rival;
+    # Good: Ann is the Knight, Fay the Rival).
+    Scenario("gareth-evil", "Gareth on Evil",
+             "9 players, Gareth (Ivy) is Evil: Knight Fay (Mordred), Rival Ann (Merlin). "
+             "Merlin and the Evil players see Ivy as Evil; Ivy doesn't know their team.",
+             GARETH_NINE + ["Gareth (Evil)"], view="Ivy", group="Gareth"),
+    Scenario("gareth-good", "Gareth on Good",
+             "9 players, Gareth (Ivy) is Good: Knight Ann (Merlin), Rival Fay (Mordred). "
+             "Nobody sees Ivy; Good players aren't told about Nilrem.",
+             GARETH_NINE + ["Gareth (Good)"], view="Ivy", group="Gareth"),
+    Scenario("gareth-assassination", "Gareth at the Assassination",
+             "9 players, Gareth (Ivy) is Evil. Good won 3 quests: Gareth is now told "
+             "their team and may join the Evil discussion.",
+             GARETH_NINE + ["Gareth (Evil)"],
+             lambda d: (d.quest(P(0, 1, 2)), d.quest(P(0, 1, 2, 3)), d.quest(P(0, 1, 2, 3))),
+             view="Ivy", group="Gareth"),
+    Scenario("gareth-changed-rules", "Gareth with changed rules",
+             "9 players, Gareth (Ivy) is Good. The host changed rules: Gareth knows only "
+             "their Knight, Merlin sees a Good Gareth as Evil too, and the Lady of the Lake "
+             "shows Gareth's real team. After quest 2, Bob holds the Lady.",
+             GARETH_NINE + ["Gareth (Good)"],
+             lambda d: (d.quest(P(0, 1, 2)), d.quest(P(2, 3, 4, 5), fails=P(5))),
+             lady=True, rules={"Gareth.knows": "knight", "Gareth.Good.merlin_sees": True,
+                               "Gareth.lady": "team"},
+             view="Ivy", group="Gareth"),
     Scenario("host-votes", "Host votes",
              "Round 2, Cat proposing. Use the host page to start votes by hand.", SEVEN,
              lambda d: d.quest(P(0, 1)), view="host", group="Host"),

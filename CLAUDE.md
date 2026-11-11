@@ -97,12 +97,13 @@ for friends and playtests alone with bots (`tools/bots.py`).
 ## Dev site (`dev.py`)
 
 - Only active with `AVALON_DEV=1`. The live site must not expose it (`/dev` → 404; tested).
-- `/dev/` lists ~18 scenarios (one, `changed-rules`, uses changed rules) (`SCENARIOS`), each a game driven to a situation by `Drive`.
+- `/dev/` lists ~22 scenarios (`changed-rules` and `gareth-changed-rules` use changed rules; a "Gareth" group) (`SCENARIOS`), each a game driven to a situation by `Drive`.
   Opening one (or ↺ Reset) rebuilds it. The purple bar switches "view as" any player or host —
   it literally makes the browser session that player. Each tester (session id `dev_tester`)
   gets their own copies, so testers never share games.
 - `make_builder` deals roles exactly as listed (no lonely transformations), so pick valid
-  combos. Player-count limits: Guinevere 7+, Gareth / Pellinore / Questing Beast exactly 9,
+  combos. Gareth is listed as `"Gareth (Good)"`/`"Gareth (Evil)"`: Knight = first player of
+  that team, Rival = first of the other. Player-count limits: Guinevere 7+, Gareth / Pellinore / Questing Beast exactly 9,
   Gawain 10. Inquisition depends on Evil count (proposals = Evil + 1: 4 → weak, 5 → strong).
 - Access: Cloudflare Access decides who gets in (the owner adds playtesters in the Access
   policy). The app additionally verifies the Access JWT for this application's audience, and
