@@ -18,21 +18,32 @@
         <div class="term-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="term-sheet-title">
             <h3 id="term-sheet-title"></h3>
             <p id="term-sheet-summary"></p>
+            <div id="term-sheet-game" class="game-rule-notes" hidden>
+                <h4>Changed in this game</h4>
+                <ul></ul>
+            </div>
             <a id="term-sheet-link" class="term-sheet-more" href="#">Full rules →</a>
         </div>
     </div>
     <script>
     (function () {
         const TERMS = {{ terms_json() }};
+        // This viewer's game's rule changes, by rules page ({} if none).
+        const GAME_NOTES = {{ game_notes_json(term_ruleset) if term_ruleset else '{}' }};
         const sheet = document.getElementById('term-sheet');
         const title = document.getElementById('term-sheet-title');
         const summary = document.getElementById('term-sheet-summary');
         const more = document.getElementById('term-sheet-link');
+        const game = document.getElementById('term-sheet-game');
+        const gameList = game.querySelector('ul');
 
         function open(t, href) {
             title.textContent = t.title;
             title.className = t.team ? 'term-' + t.team : '';
             summary.textContent = t.summary;
+            const notes = GAME_NOTES[t.page] || [];
+            gameList.innerHTML = notes.map(function (n) { return '<li>' + n + '</li>'; }).join('');
+            game.hidden = !notes.length;
             more.href = href;
             sheet.hidden = false;
         }

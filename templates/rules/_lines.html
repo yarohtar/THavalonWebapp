@@ -1,0 +1,38 @@
+{# Helpers for the role rules templates, which describe a role under
+   `ruleset` (the default rules on the rules pages, the game's rules on the
+   Role tab). Lines that differ from the default rules get the
+   rule-changed class (shown with a "changed" tag). #}
+
+{# <li>, marked when `changed`. #}
+{% macro li(changed=False) -%}
+<li{% if changed %} class="rule-changed"{% endif %}>{{ caller() }}</li>
+{%- endmacro %}
+
+{# <p>, marked when `changed`. #}
+{% macro p(changed=False) -%}
+<p{% if changed %} class="rule-changed"{% endif %}>{{ caller() }}</p>
+{%- endmacro %}
+
+{# The role's Assassination line, if it is a target or used to be one.
+   kind: key of ruleset.ASSASSINATION_TARGETS. #}
+{% macro target_line(ruleset, kind, name=None) -%}
+{% set roles, label = assassination_targets[kind] %}
+{% if is_target(ruleset, kind) %}
+{% call li(target_changed(ruleset, kind)) %}Is a target of the [[Assassination]].{% if name %} Evil must name them as {{ name }}.{% endif %}{% endcall %}
+{% elif target_changed(ruleset, kind) %}
+{% call li(True) %}Is not a target of the [[Assassination]].{% endcall %}
+{% endif %}
+{%- endmacro %}
+
+{# "Is seen by Guinevere and Merlin." for those of `seers` (pairs of role,
+   setting key) that see it, and "Is not seen by ..." for those that don't but
+   do by default. #}
+{% macro seen_by(ruleset, seers) -%}
+{% set seeing = [] %}{% set hiding = [] %}{% set ns = namespace(changed=False) %}
+{% for viewer, key in seers %}
+  {% if ruleset[key] %}{% do seeing.append(viewer) %}{% if ruleset.changed(key) %}{% set ns.changed = True %}{% endif %}
+  {% elif ruleset.changed(key) %}{% do hiding.append(viewer) %}{% endif %}
+{% endfor %}
+{% if seeing %}{% call li(ns.changed) %}Is seen by {{ roles_list(seeing) }}.{% endcall %}{% endif %}
+{% if hiding %}{% call li(True) %}Is not seen by {{ roles_list(hiding, 'or') }}.{% endcall %}{% endif %}
+{%- endmacro %}

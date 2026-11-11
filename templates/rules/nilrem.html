@@ -1,6 +1,18 @@
+{% from "rules/_lines.html" import li, p, target_line %}
+{% set lonely = ruleset['Merlin.lonely'] %}
+{% if lonely == default_rules['Merlin.lonely'] %}
 <p>Replaces [[Merlin]] in games with 7 or more players when [[Percival]] is missing.</p>
+{% elif lonely %}
+{% call p(True) %}Replaces [[Merlin]] {{ counts_phrase(lonely) }} when [[Percival]] is missing.{% endcall %}
+{% else %}
+{% call p(True) %}Merlin never becomes Nilrem, so Nilrem is not in the game.{% endcall %}
+{% endif %}
 <ul>
+    {% if ruleset['Nilrem.known'] %}
     <li>Every other Good player is told who Nilrem is. This also tells them that Merlin and Percival are missing.</li>
+    {% else %}
+    {% call li(True) %}Good players are not told who Nilrem is, or whether Nilrem is in the game.{% endcall %}
+    {% endif %}
     <li>Nilrem receives no information.</li>
-    <li>Is a target of the [[Assassination]]. Evil must name them as Nilrem.</li>
+    {{ target_line(ruleset, 'nilrem', 'Nilrem') }}
 </ul>

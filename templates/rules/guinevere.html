@@ -1,4 +1,28 @@
+{% from "rules/_lines.html" import li, p, target_line %}
+{% set sees = ruleset.guinevere_sees() %}
+{% set sight_changed = rules_changed(ruleset, 'Guinevere.sees.Lancelot', 'Guinevere.sees.Arthur', 'Guinevere.sees.Maelegant') %}
+{% set lonely = ruleset['Guinevere.lonely'] %}
+{% set where = '' if lonely|length == 6 else ' ' ~ counts_phrase(lonely) %}
 <ul>
+    {% if not sight_changed %}
     <li>Sees [[Lancelot]], [[Arthur]] and [[Maelegant]], but not which is which.</li>
+    {% elif sees|length > 1 %}
+    {% call li(True) %}Sees {{ roles_list(sees) }}, but not which is which.{% endcall %}
+    {% elif sees %}
+    {% call li(True) %}Sees only {{ term(sees[0]) }}, and knows that player is {{ sees[0] }}.{% endcall %}
+    {% else %}
+    {% call li(True) %}Sees no one.{% endcall %}
+    {% endif %}
+    {{ target_line(ruleset, 'guinevere', 'Guinevere') }}
 </ul>
+{% if not sight_changed and lonely == default_rules['Guinevere.lonely'] %}
 <p>If none of them are in the game, Guinevere becomes [[Ygraine]].</p>
+{% elif not lonely %}
+{% call p(True) %}Guinevere never becomes [[Ygraine]].{% endcall %}
+{% elif sees|length > 1 %}
+{% call p(True) %}If none of them are in the game, Guinevere becomes [[Ygraine]]{{ where }}.{% endcall %}
+{% elif sees %}
+{% call p(True) %}If {{ sees[0] }} is not in the game, Guinevere becomes [[Ygraine]]{{ where }}.{% endcall %}
+{% else %}
+{% call p(True) %}Guinevere always becomes [[Ygraine]]{{ where }}.{% endcall %}
+{% endif %}

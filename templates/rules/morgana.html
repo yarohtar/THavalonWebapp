@@ -1,5 +1,16 @@
+{% from "rules/_lines.html" import li %}
 <ul>
+    {% set percival = ruleset.percival_sees() %}
+    {% if percival == ['Merlin', 'Morgana'] %}
     <li>Appears as [[Merlin]] to [[Percival]].</li>
+    {% elif 'Morgana' in percival %}
+    {% call li(True) %}Is seen by [[Percival]], who knows that player is Morgana.{% endcall %}
+    {% else %}
+    {% call li(True) %}Is not seen by [[Percival]].{% endcall %}
+    {% endif %}
+    {% if not ruleset.merlin_sees('Morgana') %}
+    {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
+    {% endif %}
 </ul>
 <h2 id="sorceress">Ability: Sorceress</h2>
 <p>On any proposal of Morgana's that isn't the [[Hammer]], Morgana may declare as Morgana instead of proposing. Morgana then chooses the next proposer and reverses the proposal order for the rest of the game.</p>

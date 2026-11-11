@@ -1,1 +1,7 @@
+{% from "rules/_lines.html" import li %}
 <p>A plain Evil role. It fills any Evil slots left over after the roles the host selected.</p>
+{% if not ruleset.merlin_sees('Minion of Mordred') %}
+<ul>
+    {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
+</ul>
+{% endif %}

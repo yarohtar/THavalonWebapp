@@ -214,8 +214,15 @@ def test_changed_rules_scenario_uses_its_rules():
         assert kinds == ['merlin', 'nilrem', 'lovers', 'percival'], kinds
         c.get('/dev/changed-rules/as/Ann')
         page = c.get('/').get_data(as_text=True)
-        assert 'In this game' in page and 'Mordred' in page
-        assert 'In your current game' in c.get('/rules/merlin').get_data(as_text=True)
+        # The Role tab shows the rules as they are in this game, changes marked.
+        assert 'Rules for Merlin' in page and 'In this game' not in page
+        assert 'class="rule-changed">Sees every Evil player.' in page
+        # The rules page shows the usual rules, with the changes on top.
+        rules_page = c.get('/rules/merlin').get_data(as_text=True)
+        assert 'In your current game' in rules_page
+        assert 'Sees every Evil player except' in rules_page and 'rule-changed' not in rules_page
+        # The tap-preview sheet gets the game's changes.
+        assert ' sees these roles as Evil' in page.split('const GAME_NOTES')[1]
     """, AVALON_DEV="1")
 
 
@@ -224,4 +231,19 @@ def test_feedback_without_email_setting_is_not_lost_silently():
         app.config['DEV_NO_AUTH'] = True
         assert 'Send feedback' not in c.get('/dev/feedback').get_data(as_text=True)
         assert c.post('/dev/feedback', data={'description': 'x'}).status_code == 503
+    """, AVALON_DEV="1")
+
+
+def test_dev_gareth_has_a_knight_and_rival():
+    run("""
+        import dev
+        nine = ["Merlin", "Percival", "Tristan", "Iseult", "Servant of Camelot",
+                "Mordred", "Morgana", "Maelegant", "Gareth (Good)"]
+        b = dev.make_builder(list("ABCDEFGHI"), nine)
+        g = next(r for r in b.role_to_player if str(r) == "Gareth")
+        assert (g.team, g.knight, g.rival) == ("Good", "A", "F"), (g.team, g.knight, g.rival)
+        g = next(r for r in dev.make_builder(list("ABCDEFGHI"), nine[:-1] + ["Gareth"])
+                 .role_to_player if str(r) == "Gareth")
+        assert (g.team, g.knight, g.rival) == ("Evil", "F", "A")
+        print('ok')
     """, AVALON_DEV="1")

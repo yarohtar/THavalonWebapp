@@ -1,6 +1,17 @@
+{% from "rules/_lines.html" import li %}
+{% set sees, seen, announced = ruleset['Oberon.sees_evil'], ruleset['Oberon.seen_by_evil'], ruleset['Oberon.announced'] %}
 <ul>
-    <li>Sees the other Evil players. They don't see Oberon, but they know an Oberon is in the game.</li>
+    {% call li(rules_changed(ruleset, 'Oberon.sees_evil', 'Oberon.seen_by_evil') or (not seen and ruleset.changed('Oberon.announced'))) -%}
+    {{ 'Sees' if sees else "Doesn't see" }} the other Evil players.
+    {%- if seen %} They see Oberon among them, without being told which player is Oberon.
+    {%- elif announced %} They don't see Oberon, but they know an Oberon is in the game.
+    {%- else %} They don't see Oberon, and aren't told whether an Oberon is in the game.{% endif %}
+    {%- endcall %}
+    {% if ruleset.merlin_sees('Oberon') %}
     <li>Is seen by [[Merlin]] and [[Colgrevance]].</li>
+    {% else %}
+    {% call li(True) %}Is seen by [[Colgrevance]], but hidden from [[Merlin]].{% endcall %}
+    {% endif %}
 </ul>
 <h2 id="changeling">Ability: Changeling</h2>
 <p>When a team without Oberon is sent by [[Hammer]] and at most one Quest has failed, Oberon may formally declare as Oberon and replace one player on the team. Usable once per game.</p>

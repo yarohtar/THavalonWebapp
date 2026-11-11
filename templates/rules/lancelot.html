@@ -1,5 +1,15 @@
+{% from "rules/_lines.html" import li, p, target_line, seen_by %}
 <ul>
+    {% if ruleset['Lancelot.reversal'] %}
     <li>May play [[Reversal]] cards on Quests.</li>
+    {% else %}
+    {% call li(True) %}Can't play [[Reversal]] cards.{% endcall %}
+    {% endif %}
+    {% if ruleset.merlin_sees('Lancelot') %}
     <li>Appears Evil to [[Merlin]].</li>
-    <li>Is seen by [[Guinevere]].</li>
+    {% else %}
+    {% call li(True) %}Is not seen by [[Merlin]].{% endcall %}
+    {% endif %}
+    {{ seen_by(ruleset, [('Guinevere', 'Guinevere.sees.Lancelot')]) }}
+    {{ target_line(ruleset, 'lancelot', 'Lancelot') }}
 </ul>

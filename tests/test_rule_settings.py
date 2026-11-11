@@ -722,6 +722,42 @@ def test_role_tab_text_follows_the_rules(web):
         page = game.render_html_info("ua")
         assert "You see the following players as" in page and "Morgana</a>:" not in page
         assert "[[Percival]] sees only [[Merlin]]" not in page        # expanded
-        assert "In this game" in page and "sees only" in page
+        # The role's rules as they are in this game, the changes marked.
+        assert 'class="rule-changed">Sees only <a' in page
+        assert "Rules marked" in page and "In this game" not in page
         merlin = game.render_html_info("ub")
-        assert "In this game" not in merlin                          # nothing for Merlin
+        assert 'class="rule-changed">Is seen by <a' in merlin and "who knows that player is Merlin" in merlin
+        mordred = game.render_html_info("uc")
+        assert "rule-changed" not in mordred and "Rules marked" not in mordred  # nothing for Mordred
+
+
+def test_role_rules_text_under_any_rules(web):
+    """Every rules template renders under random rules; with the default rules
+    nothing is marked as changed, and a changed setting marks something on
+    the pages its notes belong to (most of them)."""
+    import webapp
+    from flask import render_template_string
+    rng = random.Random(11)
+    with webapp.app.test_request_context():
+        def render(slug, r):
+            return render_template_string(
+                '{% include "rules/" ~ slug ~ ".html" %}', slug=slug, ruleset=r)
+        for slug in rules_mod.PAGES:
+            assert "rule-changed" not in render(slug, DEFAULT), slug
+        for _ in range(60):
+            r = random_rules(rng)
+            for slug in rules_mod.PAGES:
+                render(slug, r)
+        # Single changes: the role pages show them.
+        for key, page in [("Merlin.sees.Mordred", "mordred"), ("Merlin.sees.Lancelot", "merlin"),
+                          ("Percival.sees.Morgana", "percival"), ("Nilrem.known", "nilrem"),
+                          ("Oberon.sees_evil", "oberon"), ("Agravaine.must_fail", "agravaine"),
+                          ("Lancelot.reversal", "lancelot"), ("Arthur.proclaim_after", "arthur"),
+                          ("Gareth.lady", "gareth"), ("Guinevere.sees.Arthur", "arthur"),
+                          ("assassination.target.percival", "percival"),
+                          ("Lovers.lonely", "uther"), ("Guinevere.lonely", "ygraine")]:
+            s = SETTINGS[key]
+            value = (not s.default if s.kind == "bool" else
+                     frozenset({5}) if s.kind == "counts" else
+                     next(v for v, _ in s.options if v != s.default))
+            assert "rule-changed" in render(page, RuleSet({key: value})), key

@@ -1,4 +1,19 @@
+{% from "rules/_lines.html" import li, p, target_line %}
+{% set sees = ruleset.guinevere_sees() %}
+{% set lonely = ruleset['Guinevere.lonely'] %}
+{% set where = '' if lonely|length == 6 else ' ' ~ counts_phrase(lonely) %}
+{% if not rules_changed(ruleset, 'Guinevere.sees.Lancelot', 'Guinevere.sees.Arthur', 'Guinevere.sees.Maelegant', 'Guinevere.lonely') %}
 <p>Replaces [[Guinevere]] when [[Lancelot]], [[Arthur]] and [[Maelegant]] are all missing.</p>
+{% elif not lonely %}
+{% call p(True) %}Guinevere never becomes Ygraine, so Ygraine is not in the game.{% endcall %}
+{% elif sees|length > 1 %}
+{% call p(True) %}Replaces [[Guinevere]]{{ where }} when {{ roles_list(sees) }} are all missing.{% endcall %}
+{% elif sees %}
+{% call p(True) %}Replaces [[Guinevere]]{{ where }} when {{ term(sees[0]) }} is missing.{% endcall %}
+{% else %}
+{% call p(True) %}Always replaces [[Guinevere]]{{ where }}.{% endcall %}
+{% endif %}
 <ul>
     <li>Is told one random Evil player (never [[Mordred]]).</li>
+    {{ target_line(ruleset, 'ygraine', 'Ygraine') }}
 </ul>

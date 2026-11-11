@@ -261,19 +261,31 @@ BY_SLUG = {s.slug: s for s in SCENARIOS}
 
 
 def make_builder(players : list[str], role_names : list[str]) -> T.AvalonBuilder:
-    """Roles dealt exactly as listed (no shuffling, no lonely transformations)."""
+    """Roles dealt exactly as listed (no shuffling, no lonely transformations).
+
+    Gareth: "Gareth (Good)" or "Gareth (Evil)" ("Gareth" alone is Evil). The
+    Knight is the first listed player of Gareth's team, the Rival the first
+    of the other team."""
     b = object.__new__(T.AvalonBuilder)
     b.players = list(players)
     b.role_to_player = {}
     soc = mom = 0
+    gareth = None
     for player, name in zip(players, role_names):
         if name == "Servant of Camelot":
             role = T.SoC(soc); soc += 1
         elif name == "Minion of Mordred":
             role = T.MoM(mom); mom += 1
+        elif name.startswith("Gareth"):
+            gareth = (player, "Good" if name == "Gareth (Good)" else "Evil")
+            continue
         else:
             role = T.string_to_role[name]
         b[role] = player
+    if gareth is not None:
+        player, team = gareth
+        first = lambda t: next(p for r, p in b.role_to_player.items() if r.allegiance() == t)
+        b[T.Gareth(team, first(team), first("Evil" if team == "Good" else "Good"))] = player
     return b
 
 
@@ -369,7 +381,7 @@ def init_app(app, web):
         ruleset = RuleSet(sc.rules)
         roles = [r for r in make_builder(sc.players, sc.roles)]
         settings = web.GameSettings()
-        settings.num_evils = sum(r.allegiance() == "Evil" for r in roles)
+        settings.num_evils = sum(r.allegiance() == "Evil" and str(r) != "Gareth" for r in roles)
         settings.team_sizes = sc.sizes
         settings.double_fail = sc.double_fail
         settings.lady = sc.lady

@@ -1,4 +1,14 @@
+{% from "rules/_lines.html" import li, p, target_line %}
+{% set sees = ruleset.percival_sees() %}
+{% set lonely = ruleset['Percival.lonely'] %}
+{% if not rules_changed(ruleset, 'Percival.sees.Merlin', 'Percival.sees.Morgana', 'Percival.lonely') %}
 <p>Replaces [[Percival]] in games with 7 or more players when neither [[Merlin]] nor [[Morgana]] is present.</p>
+{% elif not lonely %}
+{% call p(True) %}Percival never becomes Galahad, so Galahad is not in the game.{% endcall %}
+{% else %}
+{% call p(True) %}Replaces [[Percival]] {{ counts_phrase(lonely) }}{% if sees|length == 2 %} when neither {{ roles_list(sees, 'nor') }} is present{% elif sees %} when {{ term(sees[0]) }} is not present{% else %}, always{% endif %}.{% endcall %}
+{% endif %}
 <ul>
     <li>Knows which Evil roles are in the game, but not who has them.</li>
+    {{ target_line(ruleset, 'galahad', 'Galahad') }}
 </ul>

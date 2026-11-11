@@ -1,3 +1,9 @@
+{% from "rules/_lines.html" import target_line %}
+{% if is_target(ruleset, 'gawain') %}
+<ul>
+    {{ target_line(ruleset, 'gawain', 'Gawain') }}
+</ul>
+{% endif %}
 <h2 id="ability">Ability: Inquisition</h2>
 <p>After a team without Gawain has been chosen and its members have picked their cards, but before the cards are shuffled, Gawain may formally declare as Gawain. Gawain then picks a player on the team, who must reveal their card.</p>
 <ul>

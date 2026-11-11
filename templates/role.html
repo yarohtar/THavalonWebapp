@@ -2,7 +2,6 @@
 {% block title %}Avalon{% endblock %}
 {% block body %}
 {% set role_term = get_term(info['role']) %}
-{% from "_rule_notes.html" import game_notes %}
 <div class="player-page" data-panels-url="{{ url_for('game_panels') }}"
      data-action-url="{{ url_for('game_action') }}">
 
@@ -59,11 +58,16 @@
                 <div data-panel="abilities">{{ panels.abilities|safe }}</div>
 
                 <hr/>
+                {# The role's rules as they are in this game (changes marked). #}
+                {% set role_rules %}{% include "rules/" ~ role_term.page_slug ~ ".html" %}{% endset %}
                 <div class="role-rules">
-                    {% include "rules/" ~ role_term.page_slug ~ ".html" %}
+                    <h2 class="role-rules-title">Rules for {{ info['role'] }}</h2>
+                    {% if 'rule-changed' in role_rules %}
+                    <p class="rules-note">Rules marked <span class="changed-tag">changed</span> are different in this game: the host changed them.</p>
+                    {% endif %}
+                    {{ role_rules }}
                 </div>
-                {{ game_notes(ruleset, role_term.page_slug, 'In this game') }}
-                <p class="card-rules-link"><a href="{{ role_term.url() }}">Rules for {{ info['role'] }} →</a></p>
+                <p class="card-rules-link"><a href="{{ role_term.url() }}">Rules page for {{ info['role'] }} →</a></p>
             </div>
 
             <div class="overlay-text" id="reveal">

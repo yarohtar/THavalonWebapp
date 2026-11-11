@@ -1,3 +1,7 @@
+{% from "rules/_lines.html" import li %}
 <ul>
     <li>Knows exactly which role every other Evil player has, [[Oberon]] included.</li>
+    {% if not ruleset.merlin_sees('Colgrevance') %}
+    {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
+    {% endif %}
 </ul>

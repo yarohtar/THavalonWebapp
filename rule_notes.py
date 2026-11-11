@@ -3,8 +3,10 @@
 game_notes(rules) gives one Note per change (or group of related changes),
 each tagged with the rules pages it belongs on. The rules pages show the
 notes for their page to players in a game ("In your current game: ..."),
-the Role tab shows them under the role's rules, and the game summary lists
-the ones marked `summary`. With the default rules there are no notes.
+the tap-preview sheet shows them for the tapped term's page ("Changed in
+this game"), and the game summary lists the ones marked `summary`. (The Role
+tab instead renders the role's rules under the game's rules: rule_text.py.)
+With the default rules there are no notes.
 
 Notes use the same [[Term]] markup as the templates; expand() turns them
 into links.

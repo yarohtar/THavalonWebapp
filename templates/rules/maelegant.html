@@ -1,4 +1,9 @@
+{% from "rules/_lines.html" import li, seen_by %}
 <ul>
+    {% if ruleset['Maelegant.reversal'] %}
     <li>May play [[Reversal]] cards on Quests.</li>
-    <li>Is seen by [[Guinevere]] and [[Merlin]].</li>
+    {% else %}
+    {% call li(True) %}Can't play [[Reversal]] cards.{% endcall %}
+    {% endif %}
+    {{ seen_by(ruleset, [('Guinevere', 'Guinevere.sees.Maelegant'), ('Merlin', 'Merlin.sees.Maelegant')]) }}
 </ul>

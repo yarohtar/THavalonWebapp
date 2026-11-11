@@ -1,8 +1,38 @@
+{% from "rules/_lines.html" import li, p, target_line %}
+{% set gareth_keys = ['Gareth.Good.merlin_sees', 'Gareth.Good.merlin_knows_role',
+                      'Gareth.Evil.merlin_sees', 'Gareth.Evil.merlin_knows_role'] %}
+{% set percival = ruleset.percival_sees() %}
+{% set lonely = ruleset['Merlin.lonely'] %}
 <ul>
-    <li>Sees every Evil player except [[Mordred]].</li>
+    {% call li(rules_changed(ruleset, 'Merlin.sees.Mordred', 'Merlin.sees.Morgana', 'Merlin.sees.Maelegant',
+                             'Merlin.sees.Agravaine', 'Merlin.sees.Colgrevance', 'Merlin.sees.Oberon',
+                             'Merlin.sees.Minion of Mordred')) %}{{ merlin_evil_sight(ruleset) }}{% endcall %}
+    {% if ruleset.merlin_sees('Lancelot') %}
     <li>Also sees [[Lancelot]] as Evil.</li>
+    {% else %}
+    {% call li(True) %}Doesn't see [[Lancelot]].{% endcall %}
+    {% endif %}
+    {% if ruleset.changed('Merlin.sees.Balin the Savage') %}
+    {% call li(True) %}Doesn't see [[Balin the Savage]].{% endcall %}
+    {% endif %}
+    {% if rules_changed(ruleset, *gareth_keys) %}
+    {% call li(True) %}{{ gareth_sight(ruleset, 'merlin') }}{% endcall %}
+    {% else %}
     <li>Sees [[Gareth]] if Gareth is Evil, without knowing which player is Gareth.</li>
+    {% endif %}
+    {% if percival == ['Merlin', 'Morgana'] %}
     <li>Is seen by [[Percival]], who can't tell Merlin apart from [[Morgana]].</li>
-    <li>Is a target of the [[Assassination]].</li>
+    {% elif 'Merlin' in percival %}
+    {% call li(True) %}Is seen by [[Percival]], who knows that player is Merlin.{% endcall %}
+    {% else %}
+    {% call li(True) %}Is not seen by [[Percival]].{% endcall %}
+    {% endif %}
+    {{ target_line(ruleset, 'merlin') }}
 </ul>
+{% if lonely == default_rules['Merlin.lonely'] %}
 <p>In games with 7 or more players and no Percival, Merlin becomes [[Nilrem]].</p>
+{% elif lonely %}
+{% call p(True) %}{{ counts_phrase(lonely)|capitalize }} without Percival, Merlin becomes [[Nilrem]].{% endcall %}
+{% else %}
+{% call p(True) %}Merlin never becomes [[Nilrem]].{% endcall %}
+{% endif %}

@@ -221,8 +221,25 @@ def term_link(name, label=None) -> Markup:
 
 
 def terms_json() -> Markup:
-    data = {t.slug: {"title": t.title, "summary": t.summary,
-                     "team": t.team, "url": t.url()} for t in TERMS}
+    data = {t.slug: {"title": t.title, "summary": t.summary, "team": t.team,
+                     "url": t.url(), "page": t.page_slug} for t in TERMS}
+    return _script_json(data)
+
+
+def game_notes_json(ruleset) -> Markup:
+    """{page slug: [note HTML, ...]} of a game's rule changes, for the
+    tap-preview sheet. {} with the default rules."""
+    from rule_notes import expand, game_notes
+    data : dict[str, list[str]] = {}
+    for note in game_notes(ruleset):
+        html = str(expand(note.text))
+        for page in note.pages:
+            if html not in data.setdefault(page, []):
+                data[page].append(html)
+    return _script_json(data)
+
+
+def _script_json(data) -> Markup:
     # Safe inside <script>: escape the characters that could end the tag.
     s = json.dumps(data).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     return Markup(s)
@@ -245,6 +262,8 @@ class TermLinkExtension(Extension):
 
 def init_app(app):
     app.jinja_env.add_extension(TermLinkExtension)
+    app.jinja_env.add_extension("jinja2.ext.do")
     app.jinja_env.globals["term"] = term_link
     app.jinja_env.globals["terms_json"] = terms_json
+    app.jinja_env.globals["game_notes_json"] = game_notes_json
     app.jinja_env.globals["get_term"] = get_term

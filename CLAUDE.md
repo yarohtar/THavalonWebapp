@@ -16,6 +16,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `THavalon.py` | Roles and `AvalonBuilder` (deals roles, lonely-role transformations, Gareth). Roles read `builder.rules`. |
 | `ruleset.py` | `RuleSet`: host-changeable rules (`SETTINGS` registry: player counts, lonely counts, who sees whom, Gareth, cards/abilities, Assassination). Stores only changes from the defaults. |
 | `rule_notes.py` | Turns a `RuleSet`'s changes into sentences tagged with rules pages ("In your current game"). |
+| `rule_text.py` | Sentence helpers for role rules templates rendered under a game's `RuleSet` (Role tab). |
 | `game.py` | `GameState`: the rules engine (phases, teams, cards, Inquisition, pauses, scoring). Does **not** check who is acting. |
 | `actions.py` | `GameController`: who may act (`available_actions`), `act()`, per-player `view()` that hides secrets, and host **undo** (snapshots; cleared after anything that reveals information). |
 | `votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
@@ -70,8 +71,13 @@ for friends and playtests alone with bots (`tools/bots.py`).
   `tests/test_rule_settings.py`. New setting = entry in `ruleset._settings()`, the engine/role
   code reading it, a note in `rule_notes.game_notes`, and a place in `webapp.HOST_GROUPS`
   (tests check every setting is on the host page once and produces a note).
-- **Rules pages** show the viewer's current game's rule changes at the top (`viewer_game()`);
-  the Role tab shows them under the role's rules; the game summary lists them.
+- **Rules pages** show the usual (default) rules, with the viewer's current game's changes
+  in a box at the top (`viewer_game()`). The **Role tab** instead renders the role's rules
+  template with the game's `RuleSet` ("Rules for X", changed lines tagged "changed"): role
+  templates in `templates/rules/` read `ruleset` (helpers in `rule_text.py` and
+  `rules/_lines.html`) and must give exactly the usual text under the default rules (tested).
+  The tap-preview sheet lists the game's changes for the term's page (`term_ruleset` passed by
+  the role, rules and host pages → `game_notes_json`). The game summary lists them too.
 
 ## Admin pages (`admin.py`)
 
@@ -107,7 +113,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Running and testing locally
 
-- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (244 tests).
+- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (245 tests).
 - `tests/test_dev.py` runs each check in a fresh subprocess (dev features are decided at import).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).

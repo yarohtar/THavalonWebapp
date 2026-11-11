@@ -14,6 +14,7 @@ load_dotenv()
 from flask.views import MethodView
 import rules
 import rule_notes
+import rule_text
 from ruleset import RuleSet, SETTINGS, DEFAULT as DEFAULT_RULES, ASSASSINATION_TARGETS
 import events
 from game import GameState, RuleError
@@ -43,6 +44,7 @@ def _secret_key() -> str:
 
 app.secret_key = _secret_key()
 rules.init_app(app)
+rule_text.init_app(app)
 app.jinja_env.globals.update(
     rule_notes_for = rule_notes.notes_for,
     rule_summary_notes = rule_notes.summary_notes,
@@ -183,6 +185,7 @@ class AvalonGame:
                                proposers = self.proposers,
                                game_rules = self.rules,
                                ruleset = self.game_ruleset,
+                               term_ruleset = self.game_ruleset,
                                image = 'round_table.jpg',
                                num_players = len(self.player_info),
                                panels = self.render_panels(uuid))
@@ -661,6 +664,8 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
                gareth_possible = gareth.can_appear(n, ruleset),
                game_rules = lobby.current_game.rules,
                current_ruleset = lobby.current_game.game_ruleset,
+               term_ruleset = (lobby.current_game.game_ruleset
+                               if lobby.current_game.controller is not None else None),
                error = error,
                rename_error = rename_error,
                num_players = n,
@@ -920,7 +925,8 @@ def rules_page(slug = "overview"):
                                  page = rules.BY_SLUG[slug],
                                  terms = rules.TERMS,
                                  game_lobby = lobby,
-                                 ruleset = lobby.current_game.game_ruleset if lobby else None)
+                                 ruleset = lobby.current_game.game_ruleset if lobby else None,
+                                 term_ruleset = lobby.current_game.game_ruleset if lobby else None)
 
 def viewer_game() -> Lobby | None:
     """The game this browser is playing in or hosting right now, if any."""

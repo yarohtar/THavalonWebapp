@@ -17,6 +17,7 @@
     {{ game_notes(ruleset, page.slug,
                   'In your current game' ~ (' (' ~ game_lobby.name ~ ')' if game_lobby else ''),
                   'The host changed some rules. Where they differ, these apply instead of the rules below.') }}
-    {% include "rules/" ~ page.slug ~ ".html" %}
+    {# The usual rules; the game's changes are listed above. #}
+    {% with ruleset = default_rules %}{% include "rules/" ~ page.slug ~ ".html" %}{% endwith %}
 </div>
 {% endblock %}

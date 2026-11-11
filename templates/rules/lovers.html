@@ -1,6 +1,18 @@
+{% from "rules/_lines.html" import li, p %}
+{% set lonely = ruleset['Lovers.lonely'] %}
 <p>[[Tristan]] and [[Iseult]] are the Lovers.</p>
 <ul>
     <li>They know each other.</li>
-    <li>Together they are a target of the [[Assassination]]. Evil must name both of them.</li>
+    {% if is_target(ruleset, 'lovers') %}
+    {% call li(target_changed(ruleset, 'lovers')) %}Together they are a target of the [[Assassination]]. Evil must name both of them.{% endcall %}
+    {% else %}
+    {% call li(True) %}They are not a target of the [[Assassination]].{% endcall %}
+    {% endif %}
 </ul>
+{% if lonely == default_rules['Lovers.lonely'] %}
 <p>A lone Lover becomes [[Uther]] in games with 7 or more players. In smaller games they stay a Lover with nobody to love.</p>
+{% elif not lonely %}
+{% call p(True) %}A lone Lover never becomes [[Uther]]: they stay a Lover with nobody to love.{% endcall %}
+{% else %}
+{% call p(True) %}A lone Lover becomes [[Uther]] {{ counts_phrase(lonely) }}.{% if lonely|length < 6 %} In other games they stay a Lover with nobody to love.{% endif %}{% endcall %}
+{% endif %}

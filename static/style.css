@@ -1271,3 +1271,27 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 }
 .game-rule-notes h4 { margin: 0 0 0.3rem; font-size: 1rem; color: #ffd86b; }
 .game-rule-notes ul { margin: 0; }
+
+/* Role tab: the role's rules as they are in this game. */
+.role-rules h2.role-rules-title {
+    margin: 0.4rem 0 0.4rem;
+    font-size: 1.15rem;
+    color: #ffd86b;
+}
+/* A rule the host changed for this game: tagged "changed". */
+.changed-tag, .rule-changed::after {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0 0.4rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 216, 107, 0.6);
+    color: #ffd86b;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    vertical-align: 0.1em;
+}
+.changed-tag { margin-left: 0; }
+.rule-changed::after { content: "changed"; }
+/* Game changes in the tap-preview sheet. */
+.term-sheet-panel .game-rule-notes { margin: 0.6rem 0 0; }
+.term-sheet-panel .game-rule-notes ul { padding-left: 1.1rem; }

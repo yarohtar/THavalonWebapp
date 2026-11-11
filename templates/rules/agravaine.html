@@ -1,5 +1,13 @@
+{% from "rules/_lines.html" import li %}
 <ul>
+    {% if ruleset['Agravaine.must_fail'] %}
     <li>Must play [[Fail]] cards on Quests.</li>
+    {% else %}
+    {% call li(True) %}Doesn't have to play [[Fail]]: may play [[Success]] or Fail like everyone else.{% endcall %}
+    {% endif %}
+    {% if not ruleset.merlin_sees('Agravaine') %}
+    {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
+    {% endif %}
 </ul>
 <h2 id="betrayal">Ability: Betrayal</h2>
 <p>If a Quest with Agravaine on it succeeds anyway, Agravaine may formally declare as Agravaine and make it fail. This can happen when:</p>

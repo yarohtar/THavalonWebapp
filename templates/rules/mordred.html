@@ -1,4 +1,16 @@
+{% from "rules/_lines.html" import li %}
 <ul>
+    {% if ruleset.merlin_sees('Mordred') %}
+    {% call li(True) %}Is seen by [[Merlin]] as Evil.{% endcall %}
+    {% else %}
     <li>Hidden from [[Merlin]].</li>
+    {% endif %}
+    {% if ruleset.assassination_on %}
     <li>Makes the final [[Assassination]] decision.</li>
+    {% if ruleset.changed_in('Assassination') %}
+    {% call li(True) %}In the Assassination, {{ assassination_choices(ruleset) }}{% endcall %}
+    {% endif %}
+    {% else %}
+    {% call li(True) %}There is no [[Assassination]].{% endcall %}
+    {% endif %}
 </ul>

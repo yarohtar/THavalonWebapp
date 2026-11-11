@@ -1,26 +1,55 @@
+{% from "rules/_lines.html" import li, p %}
+{% set counts = ruleset['Gareth.players'] %}
+{% set knows = ruleset['Gareth.knows'] %}
+{% set sight_keys = ['Gareth.Good.merlin_sees', 'Gareth.Good.merlin_knows_role', 'Gareth.Good.evil_sees', 'Gareth.Good.evil_knows_role',
+                     'Gareth.Evil.merlin_sees', 'Gareth.Evil.merlin_knows_role', 'Gareth.Evil.evil_sees', 'Gareth.Evil.evil_knows_role'] %}
+{% if not ruleset.changed('Gareth.players') %}
 <p>Gareth can only be in 9-player games (unless the host changes this), where the host may add them like any other role. Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.</p>
+{% else %}
+{% call p(True) %}{% if counts %}Gareth can be dealt {{ counts_phrase(counts) }}, where the host may add them like any other role.{% else %}Gareth is never dealt.{% endif %} Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.{% endcall %}
+{% endif %}
 
 <h2 id="team">Gareth's team</h2>
 <p>When roles are dealt, a random <b class="term-good">Good</b> or <b class="term-evil">Evil</b> player is chosen as Gareth's <b>Knight</b> (never a Neutral role). Gareth is on the Knight's team. Then a random player of the other team is chosen as Gareth's <b>Rival</b>.</p>
 <ul>
+    {% if knows == 'both' %}
     <li>Gareth is told who their Knight and their Rival are, but not their roles, and not Gareth's own team.</li>
+    {% else %}
+    {% call li(True) %}Gareth is told only who their {{ 'Knight' if knows == 'knight' else 'Rival' }} is (not their role), not their {{ 'Rival' if knows == 'knight' else 'Knight' }}, and not Gareth's own team.{% endcall %}
+    {% endif %}
     <li>Gareth wins or loses with their team, like any other player.</li>
     <li>Gareth may play [[Success]] or [[Fail]], like everyone else.</li>
 </ul>
 
 <h2 id="seen">Who sees Gareth</h2>
+{% if not rules_changed(ruleset, *sight_keys) %}
 <p>When Gareth is Evil:</p>
 <ul>
     <li>The other Evil players see Gareth's player among the Evil players, without being told which of them is Gareth. [[Colgrevance]] sees Gareth's role as usual.</li>
     <li>Gareth doesn't see the other Evil players.</li>
     <li>[[Merlin]] sees Gareth as Evil, without being told which player is Gareth.</li>
 </ul>
+{% else %}
+<ul>
+    {% call li(rules_changed(ruleset, *(sight_keys[2:4] + sight_keys[6:]))) %}{{ gareth_sight(ruleset, 'evil') }} [[Colgrevance]] sees Gareth's role as usual when Gareth is Evil.{% endcall %}
+    <li>Gareth doesn't see the other Evil players.</li>
+    {% call li(rules_changed(ruleset, *(sight_keys[0:2] + sight_keys[4:6]))) %}{{ gareth_sight(ruleset, 'merlin') }}{% endcall %}
+</ul>
+{% endif %}
 <p>When Gareth is Good, Gareth is not told who [[Nilrem]] is, since that would give their team away.</p>
+{% if ruleset['Gareth.lady'] == 'good' %}
 <p>The [[Lady of the Lake]] always shows Gareth as <b class="term-good">Good</b>, even when Gareth is Evil.</p>
+{% else %}
+{% call p(True) %}The [[Lady of the Lake]] shows Gareth's real team.{% endcall %}
+{% endif %}
 <p>Other roles that learn about a team, such as [[Galahad]], [[Arthur]], [[Uther]] and [[Ygraine]], treat Gareth as a member of their real team.</p>
 
 <h2 id="assassination">Assassination</h2>
+{% if ruleset.assassination_on %}
 <p>When Evil reveal themselves for the [[Assassination]], Gareth is told their team. An Evil Gareth may then reveal themselves and join the discussion. A Good Gareth should stay hidden.</p>
+{% else %}
+{% call p(True) %}There is no [[Assassination]]: Gareth learns their team when the game ends.{% endcall %}
+{% endif %}
 
 <h2 id="proposals">Proposals</h2>
 <p>For the number of [[Proposals]] and the [[Inquisition]], Gareth counts as an Evil player whichever team they are on. With 3 Evil and Gareth, each round has 5 proposals, with Strong and Weak Inquisition.</p>
