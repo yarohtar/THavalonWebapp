@@ -125,8 +125,7 @@ class GameController:
                                            if p != q.removed and p not in q.revealed])
         if role == "Agravaine" and s.betrayal_available():
             acts["betray"] = {}
-        if role == "Arthur" and not s.proclaimed and s.failures >= 2 \
-                and s.phase != Phase.GAME_OVER:
+        if role == "Arthur" and s.proclamation_available():
             acts["proclaim"] = {}
         if s.phase == Phase.LADY and player == s.lady_holder:
             acts["lady"] = dict(choices=s.lady_choices())
@@ -135,7 +134,7 @@ class GameController:
         if s.phase == Phase.PELLINORE_GUESS and role == "Pellinore":
             acts["pellinore_guess"] = dict(choices=[p for p in s.seating if p != player])
         if s.phase == Phase.ASSASSINATION and player == s.assassin():
-            acts["assassinate"] = dict(kinds=["merlin", "nilrem", "lovers", "none"],
+            acts["assassinate"] = dict(kinds=s.rules.assassination_kinds(),
                                        choices=list(s.seating))
         return acts
 

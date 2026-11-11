@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import THavalon as T
 from actions import GameController, NotAllowed
 from game import Card, GameState, Phase, RuleError, quest_succeeds
+from ruleset import ASSASSINATION_TARGETS
 
 S, F, R, Q = Card.SUCCESS, Card.FAIL, Card.REVERSAL, Card.QBWH
 
@@ -544,7 +545,7 @@ def random_game(n, seed):
             ctl.act(p, action, target=rng.choice(o["choices"] + [None]))
         elif action == "assassinate":
             kind = rng.choice(o["kinds"])
-            k = {"merlin": 1, "nilrem": 1, "lovers": 2, "none": 0}[kind]
+            k = 0 if kind == "none" else len(ASSASSINATION_TARGETS[kind][0])
             ctl.act(p, action, kind=kind, targets=rng.sample(o["choices"], k))
         else:
             ctl.act(p, action)
