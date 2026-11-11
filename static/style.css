@@ -1144,7 +1144,11 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .admin-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0 1rem; }
 .admin-num { width: 4.5rem; }
 .admin-text { min-width: 0; max-width: 12rem; }
-.admin-danger { border-color: #ff8a80 !important; color: #ff8a80 !important; }
+.admin-danger, button.admin-danger {
+    background: linear-gradient(145deg, #a8322a, #7d1f1a);
+    color: #fbeee8;
+    border: 1px solid #c4473d;
+}
 .admin-link { display: inline-block; text-decoration: none; border: 1px solid rgba(202, 168, 74, 0.5); border-radius: 6px; padding: 0.15rem 0.5rem; }
 .admin-log { font-size: 0.85rem; }
 .admin-pre { white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; max-height: 30rem; overflow: auto; }
