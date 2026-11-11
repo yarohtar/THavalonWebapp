@@ -1,7 +1,7 @@
 """The host page's settings: the host's saved preferences (kept in their
 session cookie: roles, Evil count and quests per player count, Lady, rule
-changes), and the rules editor (which settings appear under which role,
-their wording, and reading the submitted form into a RuleSet)."""
+changes), and the rules editor (each setting listed once under its role,
+with its wording; reading the submitted form into a RuleSet)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,9 +10,9 @@ from flask import session
 
 from thavalon.dealing import DEFAULT_TEAM_SIZES, default_double_fail_quest, default_num_evils
 from thavalon.roles import Role, all_roles, balin, beast, gareth, pellinore
-from thavalon.ruleset import (ASSASSINATION_TARGETS, DEFAULT_PLAYERS, GARETH_TEAMS,
-                              GUINEVERE_SEES, MERLIN_SEES, PERCIVAL_SEES, SETTINGS, TRANSFORMS,
-                              RuleSet, Setting, SettingError)
+from thavalon.ruleset import (ASSASSINATION_TARGETS, GUINEVERE_SEES, MERLIN_SEES,
+                              PERCIVAL_SEES, SETTINGS, TRANSFORMS, RuleSet, Setting,
+                              SettingError)
 
 
 # ---------------------------------------------------------------- saved preferences
@@ -104,117 +104,113 @@ class HostSetting:
         return self.setting.kind
 
 
-def _wording() -> dict[str, tuple]:
-    """key -> (label,) or (label, help) or (label, help, {choice: label})."""
-    w = {}
-    w["assassination.enabled"] = ("Evil gets an Assassination",
-                                  "If off, Good wins as soon as 3 Quests succeed.")
-    for kind, (roles, label) in ASSASSINATION_TARGETS.items():
-        w[f"assassination.target.{kind}"] = (f"{'Two' if len(roles) == 2 else 'One'} as {label}",)
-    w["assassination.none"] = ("Naming no one is a choice",
-                               "Correct only if none of the targets above is in the game.")
-    for role in DEFAULT_PLAYERS:
-        label = {"Tristan": "Tristan: player counts", "Iseult": "Iseult: player counts",
-                 "Pellinore": "Player counts (they always play together)"}.get(role,
-                                                                              "Player counts")
-        w[f"{role}.players"] = (label, "Games this role can be dealt in, if selected.")
-    for key, (_, becomes, _) in TRANSFORMS.items():
-        w[f"{key}.lonely"] = (f"Becomes {becomes} when lonely at",)
-    for viewer, roles in (("Merlin", MERLIN_SEES), ("Percival", PERCIVAL_SEES),
-                          ("Guinevere", GUINEVERE_SEES)):
-        for role in roles:
-            w[f"{viewer}.sees.{role}"] = (role,)
-    w["Nilrem.known"] = ("Good players are told who Nilrem is",)
-    w["Oberon.seen_by_evil"] = ("The other Evil players see Oberon",)
-    w["Oberon.sees_evil"] = ("Oberon sees the other Evil players",)
-    w["Oberon.announced"] = ("Evil players are told that an Oberon is in the game",
-                             "Only matters when they don't see Oberon.")
-    w["Agravaine.must_fail"] = ("Must play Fail",)
-    w["Lancelot.reversal"] = ("May play Reversal",)
-    w["Maelegant.reversal"] = ("May play Reversal",)
-    w["Arthur.proclaim_after"] = ("Can Proclaim after", "",
-                                  {1: "1 failed Quest", 2: "2 failed Quests"})
-    w["Gareth.knows"] = ("Gareth is told", "",
-                         {"both": "their Knight and their Rival",
-                          "knight": "only their Knight", "rival": "only their Rival"})
-    w["Gareth.lady"] = ("The Lady of the Lake shows Gareth as", "",
-                        {"good": "Good, whatever their team", "team": "their real team"})
-    for team in GARETH_TEAMS:
-        w[f"Gareth.{team}.merlin_sees"] = ("Merlin sees Gareth as Evil",)
-        w[f"Gareth.{team}.merlin_knows_role"] = ("Merlin is told which player is Gareth",)
-        w[f"Gareth.{team}.evil_sees"] = ("Evil players see Gareth as one of them",)
-        w[f"Gareth.{team}.evil_knows_role"] = ("Evil players are told which player is Gareth",)
-    return w
+# Every setting is listed once below, under the role it belongs to, with its
+# wording. HOST_SETTINGS collects them by key.
+HOST_SETTINGS : dict[str, HostSetting] = {}
 
 
-def _host_settings() -> dict[str, HostSetting]:
-    wording = _wording()
-    assert wording.keys() == SETTINGS.keys(), "every rule setting needs wording"
-    out = {}
-    for key, setting in SETTINGS.items():
-        text = wording[key]
-        label = text[0]
-        help = text[1] if len(text) > 1 else ""
-        choices = text[2] if len(text) > 2 else {}
-        out[key] = HostSetting(setting, label, help,
-                               tuple((v, choices[v]) for v in setting.choices))
-    return out
+def entry(key : str, label : str, help : str = "", choices : dict | None = None) -> str:
+    """Register a setting's wording (choices: value -> label); returns its key."""
+    assert key not in HOST_SETTINGS, f"{key} is listed twice"
+    setting = SETTINGS[key]
+    options = tuple((v, choices[v]) for v in setting.choices) if choices else ()
+    HOST_SETTINGS[key] = HostSetting(setting, label, help, options)
+    return key
 
 
-HOST_SETTINGS = _host_settings()
+def players(role : str, label : str = "Player counts") -> str:
+    return entry(f"{role}.players", label, "Games this role can be dealt in, if selected.")
 
 
-def _keys(prefix : str) -> list[str]:
-    return [k for k in SETTINGS if k.startswith(prefix)]
+def lonely(key : str) -> str:
+    return entry(f"{key}.lonely", f"Becomes {TRANSFORMS[key][1]} when lonely at")
+
+
+def sees(viewer : str, roles) -> list[str]:
+    return [entry(f"{viewer}.sees.{role}", role) for role in roles]
+
+
+def gareth_team(team : str) -> list[str]:
+    return [entry(f"Gareth.{team}.merlin_sees", "Merlin sees Gareth as Evil"),
+            entry(f"Gareth.{team}.merlin_knows_role", "Merlin is told which player is Gareth"),
+            entry(f"Gareth.{team}.evil_sees", "Evil players see Gareth as one of them"),
+            entry(f"Gareth.{team}.evil_knows_role",
+                  "Evil players are told which player is Gareth")]
+
+
+def group(title : str, team : str, roles : list[str], *rows, note : str | None = None) -> dict:
+    """A role card on the host page. rows: (subheading or None, setting keys)."""
+    return dict(title=title, team=team, roles=roles, rows=list(rows), note=note,
+                keys=[k for _, keys in rows for k in keys])
 
 
 # Roles as the host chooses them, each with the rules shown under it.
-# rows: (subheading or None, setting keys).
 HOST_GROUPS = [
-    dict(title='Merlin', team='good', roles=['Merlin'], rows=[
-        (None, ['Merlin.players', 'Merlin.lonely', 'Nilrem.known']),
-        ('Merlin sees as Evil', _keys('Merlin.sees.'))]),
-    dict(title='Percival', team='good', roles=['Percival'], rows=[
-        (None, ['Percival.players', 'Percival.lonely']),
-        ('Percival sees (as Merlin or Morgana)', _keys('Percival.sees.'))]),
-    dict(title='The Lovers', team='good', roles=['Tristan', 'Iseult'], rows=[
-        (None, ['Tristan.players', 'Iseult.players', 'Lovers.lonely'])]),
-    dict(title='Arthur', team='good', roles=['Arthur'], rows=[
-        (None, ['Arthur.players', 'Arthur.proclaim_after'])]),
-    dict(title='Lancelot', team='good', roles=['Lancelot'], rows=[
-        (None, ['Lancelot.players', 'Lancelot.reversal'])]),
-    dict(title='Guinevere', team='good', roles=['Guinevere'], rows=[
-        (None, ['Guinevere.players', 'Guinevere.lonely']),
-        ('Guinevere sees', _keys('Guinevere.sees.'))]),
-    dict(title='Gawain', team='good', roles=['Gawain'], rows=[(None, ['Gawain.players'])]),
-    dict(title='Balin the Savage', team='good', roles=['Balin the Savage'],
-         rows=[(None, ['Balin the Savage.players'])]),
-    dict(title='Mordred', team='evil', roles=['Mordred'], rows=[(None, ['Mordred.players'])]),
-    dict(title='Morgana', team='evil', roles=['Morgana'], rows=[(None, ['Morgana.players'])]),
-    dict(title='Maelegant', team='evil', roles=['Maelegant'], rows=[
-        (None, ['Maelegant.players', 'Maelegant.reversal'])]),
-    dict(title='Agravaine', team='evil', roles=['Agravaine'], rows=[
-        (None, ['Agravaine.players', 'Agravaine.must_fail'])]),
-    dict(title='Colgrevance', team='evil', roles=['Colgrevance'],
-         rows=[(None, ['Colgrevance.players'])]),
-    dict(title='Oberon', team='evil', roles=['Oberon'], rows=[
-        (None, ['Oberon.players', 'Oberon.seen_by_evil', 'Oberon.sees_evil',
-                'Oberon.announced'])]),
-    dict(title='Gareth', team='either', roles=['Gareth'], rows=[
-        (None, ['Gareth.players', 'Gareth.knows', 'Gareth.lady']),
-        ('When Gareth is blue (Good)', _keys('Gareth.Good.')),
-        ('When Gareth is red (Evil)', _keys('Gareth.Evil.'))],
-         note="Careful: a rule that differs between blue and red Gareth tells whoever "
-              "it applies to which team Gareth is on (by default Merlin and Evil see "
-              "a red Gareth among the Evil players, as if Evil, but never a blue one)."),
-    dict(title='Pellinore & the Questing Beast', team='neutral',
-         roles=['Pellinore', 'The Questing Beast'], rows=[(None, ['Pellinore.players'])]),
+    group('Merlin', 'good', ['Merlin'],
+          (None, [players('Merlin'), lonely('Merlin'),
+                  entry('Nilrem.known', "Good players are told who Nilrem is")]),
+          ('Merlin sees as Evil', sees('Merlin', MERLIN_SEES))),
+    group('Percival', 'good', ['Percival'],
+          (None, [players('Percival'), lonely('Percival')]),
+          ('Percival sees (as Merlin or Morgana)', sees('Percival', PERCIVAL_SEES))),
+    group('The Lovers', 'good', ['Tristan', 'Iseult'],
+          (None, [players('Tristan', "Tristan: player counts"),
+                  players('Iseult', "Iseult: player counts"), lonely('Lovers')])),
+    group('Arthur', 'good', ['Arthur'],
+          (None, [players('Arthur'),
+                  entry('Arthur.proclaim_after', "Can Proclaim after",
+                        choices={1: "1 failed Quest", 2: "2 failed Quests"})])),
+    group('Lancelot', 'good', ['Lancelot'],
+          (None, [players('Lancelot'), entry('Lancelot.reversal', "May play Reversal")])),
+    group('Guinevere', 'good', ['Guinevere'],
+          (None, [players('Guinevere'), lonely('Guinevere')]),
+          ('Guinevere sees', sees('Guinevere', GUINEVERE_SEES))),
+    group('Gawain', 'good', ['Gawain'], (None, [players('Gawain')])),
+    group('Balin the Savage', 'good', ['Balin the Savage'],
+          (None, [players('Balin the Savage')])),
+    group('Mordred', 'evil', ['Mordred'], (None, [players('Mordred')])),
+    group('Morgana', 'evil', ['Morgana'], (None, [players('Morgana')])),
+    group('Maelegant', 'evil', ['Maelegant'],
+          (None, [players('Maelegant'), entry('Maelegant.reversal', "May play Reversal")])),
+    group('Agravaine', 'evil', ['Agravaine'],
+          (None, [players('Agravaine'), entry('Agravaine.must_fail', "Must play Fail")])),
+    group('Colgrevance', 'evil', ['Colgrevance'], (None, [players('Colgrevance')])),
+    group('Oberon', 'evil', ['Oberon'],
+          (None, [players('Oberon'),
+                  entry('Oberon.seen_by_evil', "The other Evil players see Oberon"),
+                  entry('Oberon.sees_evil', "Oberon sees the other Evil players"),
+                  entry('Oberon.announced', "Evil players are told that an Oberon is in the game",
+                        "Only matters when they don't see Oberon.")])),
+    group('Gareth', 'either', ['Gareth'],
+          (None, [players('Gareth'),
+                  entry('Gareth.knows', "Gareth is told",
+                        choices={"both": "their Knight and their Rival",
+                                 "knight": "only their Knight", "rival": "only their Rival"}),
+                  entry('Gareth.lady', "The Lady of the Lake shows Gareth as",
+                        choices={"good": "Good, whatever their team",
+                                 "team": "their real team"})]),
+          ('When Gareth is blue (Good)', gareth_team('Good')),
+          ('When Gareth is red (Evil)', gareth_team('Evil')),
+          note="Careful: a rule that differs between blue and red Gareth tells whoever "
+               "it applies to which team Gareth is on (by default Merlin and Evil see "
+               "a red Gareth among the Evil players, as if Evil, but never a blue one)."),
+    group('Pellinore & the Questing Beast', 'neutral', ['Pellinore', 'The Questing Beast'],
+          (None, [players('Pellinore', "Player counts (they always play together)")])),
 ]
 
-for _g in HOST_GROUPS:
-    _g['keys'] = [k for _, keys in _g['rows'] for k in keys]
-ASSASSINATION_KEYS = _keys('assassination.')
-SELECTABLE_ROLES = [r for g_ in HOST_GROUPS for r in g_['roles']]
+# The Assassination has its own card: on/off, the targets, then "no one".
+ASSASSINATION_KEYS = [
+    entry("assassination.enabled", "Evil gets an Assassination",
+          "If off, Good wins as soon as 3 Quests succeed."),
+    *[entry(f"assassination.target.{kind}", f"{'Two' if len(roles) == 2 else 'One'} as {label}")
+      for kind, (roles, label) in ASSASSINATION_TARGETS.items()],
+    entry("assassination.none", "Naming no one is a choice",
+          "Correct only if none of the targets above is in the game."),
+]
+
+assert HOST_SETTINGS.keys() == SETTINGS.keys(), \
+    f"settings missing from the host page: {sorted(SETTINGS.keys() - HOST_SETTINGS.keys())}"
+SELECTABLE_ROLES = [r for g in HOST_GROUPS for r in g['roles']]
 
 
 def ruleset_from_form(form) -> RuleSet:

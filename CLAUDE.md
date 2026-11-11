@@ -25,7 +25,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `web/games.py` | `AvalonGame` (a lobby's game: deal, role info, controller, host votes), `RoleInfo`, `GameSettings` (host's game settings, `resolve()`). |
 | `web/panels.py` | Rendering: `role_page()`, `panels()` (Game/Role/Vote tabs, host panel), `vote_status()` (drives the Vote tab). |
 | `web/visitor.py` | This browser's lobby/game: `joined_lobby`, `join`, `my_lobby`, `playing_lobby`, `viewer_game`. |
-| `web/host_settings.py` | Host preferences in the cookie (`pref_*`, `save_*`) and the rules editor layout (`HOST_GROUPS`, `ruleset_from_form`). |
+| `web/host_settings.py` | Host preferences in the cookie (`pref_*`, `save_*`) and the rules editor: `HOST_GROUPS` lists every setting once under its role with its wording (`entry()`), `ruleset_from_form`. |
 | `web/host_votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
 | `web/rules/` | `pages.py`: the term registry (`TERMS`, one per role/rule; each term's page), `[[Term]]` link markup and `expand()`; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages (also the preview sheet's JSON); `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab); `wording.py`: shared phrasing helpers. |
 | `web/store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions); `MOVED` maps old pickled class homes. |
@@ -82,8 +82,8 @@ for friends and playtests alone with bots (`tools/bots.py`).
   behave exactly as before**: checked by comparing deals/role info/random-game logs over many
   seeds with `PYTHONHASHSEED=0` (now `tests/test_golden.py`), and by
   `tests/test_rule_settings.py`. New setting = entry in `thavalon/ruleset._settings()` (key,
-  kind, default, choices: no wording), the engine/role code reading it, its host-page wording in
-  `web.host_settings._wording()` (checked at import), a place in `HOST_GROUPS`, a note in
+  kind, default, choices: no wording), the engine/role code reading it, its entry with wording under its role in
+  `web.host_settings.HOST_GROUPS` (checked at import), a note in
   `web.rules.notes.game_notes`, and the role's rules template if it changes that text (tests
   check every setting is on the host page once and produces a note).
 - **Rules pages** show the usual (default) rules, with the viewer's current game's changes
