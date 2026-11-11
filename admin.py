@@ -3,13 +3,18 @@ as any player or the host.
 
     /admin/                       all lobbies (close one, or all idle ones)
     /admin/lobby/<id>             one lobby: players, roles, game state, log
-    /admin/lobby/<id>/as/<who>    view it as a player (their id) or "host"
-    /admin/stop                   back to being yourself
+    /admin/as/<id>/<who>/...      the site as a player (their id) or "host" sees it
 
-Viewing as someone works like the dev site's "view as": this browser session
-*becomes* that player (or the host), so the real pages are shown, and
-anything done there really is done as them. A bar at the top of every page
-says so and leads back. The admin's own identity is kept aside meanwhile.
+Viewing as someone: every page of the site, under the prefix
+/admin/as/<lobby id>/<who>, is shown as that player (or the host) sees it.
+Links on those pages keep the prefix (it is set as the app's SCRIPT_NAME), so
+the admin can click around freely; the same pages without the prefix are the
+admin's own. Nothing is kept from a view-as request: it gets a throwaway
+session holding that person's identity (and, for the host, the current
+game's settings), and changes to it are dropped. So the admin's own session
+(name, game, host preferences) is never touched, and the person's own
+preferences live in their own browser, out of reach. Game actions taken there
+(votes, proposals, starting a new game as the host) are real, though.
 
 Access: put a Cloudflare Access application on the path /admin of the site
 (a self-hosted application with that path), with a policy that lets in only
@@ -36,9 +41,33 @@ from markupsafe import Markup
 from access import AccessCheck, email_from_any_team
 from game import RuleError
 
-# Session values that say who this browser is; kept aside while viewing as
-# someone else and put back afterwards.
-IDENTITY_KEYS = ("player_id", "game_id", "name", "game_name")
+import re
+
+from flask.sessions import SecureCookieSession, SecureCookieSessionInterface
+
+VIEW_AS = re.compile(r"^/admin/as/([^/]+)/([^/]+)(/.*)?$")
+
+
+class ViewAsMiddleware:
+    """/admin/as/<lobby>/<who>/rest -> the app's /rest, with the prefix as
+    SCRIPT_NAME (so url_for keeps it) and environ['avalon.view_as']."""
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        m = VIEW_AS.match(environ.get("PATH_INFO", ""))
+        if m:
+            lobby_id, who, rest = m.groups()
+            environ["avalon.view_as"] = (lobby_id, who)
+            environ["SCRIPT_NAME"] = (environ.get("SCRIPT_NAME", "")
+                                      + f"/admin/as/{lobby_id}/{who}")
+            environ["PATH_INFO"] = rest or "/"
+        return self.wsgi_app(environ, start_response)
+
+
+def view_as_url(lobby_id : str, who : str) -> str:
+    """Where viewing a lobby as someone starts (the host: their host page)."""
+    return f"/admin/as/{lobby_id}/{who}/" + ("host" if who == "host" else "")
 
 
 def ago(seconds : int | None) -> str:
@@ -64,16 +93,22 @@ def init_app(app, web):
     admins = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",")
               if e.strip()}
 
+    def is_admin() -> bool:
+        if app.config.get("ADMIN_NO_AUTH"):
+            return True
+        if access.configured:
+            email = access.email(request)
+        else:
+            email = email_from_any_team(request)
+        if not email or (admins and email not in admins):
+            return False
+        g.admin_email = email
+        return True
+
     @bp.before_request
     def check_access():
-        if not app.config.get("ADMIN_NO_AUTH"):
-            if access.configured:
-                email = access.email(request)
-            else:
-                email = email_from_any_team(request)
-            if not email or (admins and email not in admins):
-                return flask.Response("Forbidden.", 403)
-            g.admin_email = email
+        if not is_admin():
+            return flask.Response("Forbidden.", 403)
         if request.method == "POST":
             token = request.form.get("csrf", "")
             if not secrets.compare_digest(token, session.get("admin_csrf", "")):
@@ -211,50 +246,88 @@ def init_app(app, web):
 
     # ---- viewing as someone ----
 
-    @bp.route("/lobby/<lobby_id>/as/<who>")
-    def view_as(lobby_id, who):
-        lobby = lobby_or_404(lobby_id)
-        if who == "host":
-            name = None
-            uuid = lobby.host_uuid
-        else:
-            person = next((p for p in people(lobby) if p["uuid"] == who), None)
-            if person is None:
-                flask.abort(404)
-            uuid, name = who, person["name"]
-        if "admin_saved" not in session:
-            session["admin_saved"] = {k: session.get(k) for k in IDENTITY_KEYS}
-        session["player_id"] = uuid
-        if name is None:
-            session["game_name"] = lobby.name
-        else:
-            session["game_id"] = lobby.id
-            session["name"] = name
-        session["admin_as"] = dict(lobby=lobby.id, uuid=uuid, who=who, name=name or "host")
-        return flask.redirect(url_for("lobby_api") if name is None else url_for("index"))
+    def host_prefs_of(lobby) -> dict:
+        """Host preferences matching the lobby's current game, so the host
+        page shows the settings it was started with."""
+        game = lobby.current_game
+        rules = game.rules
+        if not rules:
+            return {}
+        n, evils = rules["num_players"], rules["num_evils"]
+        return dict(roles=[str(r) for r in game.roles_in_game], gareth_offered=True,
+                    lady=rules["lady"], rules=game.game_ruleset.to_json(),
+                    evils={web._evils_key(n, rules["gareth"]): evils},
+                    quests={f"{n}-{evils}": dict(sizes=rules["team_sizes"],
+                                                 double_fail=rules["double_fail"] or 0)})
 
-    @bp.route("/stop")
-    def stop():
-        viewing = session.pop("admin_as", None)
-        saved = session.pop("admin_saved", None)
-        if saved is not None:
-            for k, v in saved.items():
+    def viewed(lobby_id, who) -> dict | None:
+        """Who a view-as request is for, and their session values."""
+        lobby = LOBBIES.get(lobby_id)
+        if lobby is None:
+            return None
+        if who == "host":
+            return dict(lobby=lobby.id, lobby_name=lobby.name, who=who, uuid=lobby.host_uuid,
+                        name="Host", session=dict(player_id=lobby.host_uuid, name="Host",
+                                                  game_name=lobby.name,
+                                                  host_prefs=host_prefs_of(lobby)))
+        person = next((p for p in people(lobby) if p["uuid"] == who), None)
+        if person is None:
+            return None
+        return dict(lobby=lobby.id, lobby_name=lobby.name, who=who, uuid=who,
+                    name=person["name"], session=dict(player_id=who, name=person["name"],
+                                                      game_id=lobby.id))
+
+    class Sessions(SecureCookieSessionInterface):
+        """View-as requests get a throwaway session; nothing is saved."""
+        def open_session(self, app_, req):
+            target = req.environ.get("avalon.view_as")
+            if target is None:
+                return super().open_session(app_, req)
+            info = viewed(*target)
+            req.environ["avalon.viewed"] = info
+            return SecureCookieSession(dict(info["session"]) if info else {})
+
+        def save_session(self, app_, sess, response):
+            if request.environ.get("avalon.view_as") is None:
+                super().save_session(app_, sess, response)
+
+    app.jinja_env.globals["view_as_url"] = view_as_url
+    app.session_interface = Sessions()
+    app.wsgi_app = ViewAsMiddleware(app.wsgi_app)
+
+    def check_view_as():
+        """Before everything else: view-as requests are for the admin only,
+        same-site only (they can act), and never reach admin pages."""
+        if request.environ.get("avalon.view_as") is None:
+            # Sessions from before view-as had its own URLs: give the admin
+            # their own identity back.
+            saved = session.pop("admin_saved", None)
+            session.pop("admin_as", None)
+            for k, v in (saved or {}).items():
                 if v is None:
                     session.pop(k, None)
                 else:
                     session[k] = v
-        if viewing and LOBBIES.get(viewing["lobby"]) is not None:
-            return flask.redirect(url_for("admin.lobby_page", lobby_id=viewing["lobby"]))
-        return flask.redirect(url_for("admin.index"))
+            return None
+        if not is_admin():
+            return flask.Response("Forbidden.", 403)
+        if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
+            return flask.Response("Forbidden.", 403)
+        if request.environ.get("avalon.viewed") is None or request.path.startswith("/admin"):
+            flask.abort(404)
+        g.view_as = request.environ["avalon.viewed"]
+        return None
+
+    app.before_request_funcs.setdefault(None, []).insert(0, check_view_as)
 
     def admin_bar() -> Markup:
-        viewing = session.get("admin_as")
+        viewing = g.get("view_as")
         if not viewing:
             return Markup("")
         lobby = LOBBIES.get(viewing["lobby"])
         return Markup(flask.render_template(
             "admin/bar.html", viewing=viewing, lobby=lobby,
-            people=people(lobby) if lobby else []))
+            people=people(lobby) if lobby else [], view_as_url=view_as_url))
 
     @app.context_processor
     def inject_admin_bar():

@@ -121,29 +121,57 @@ def test_admin_lobby_page_and_changes(web):
     assert admin.post(f"/admin/lobby/nope/rename", data={"csrf": token, "name": "x"}).status_code == 404
 
 
-def test_admin_views_as_a_player_and_comes_back(web):
+def test_admin_views_as_others_under_admin_urls_only(web):
     host, lobby, players = new_game(web)
     admin = web.app.test_client()
     admin.post("/register", data={"player": "Boss"})
+    admin.get("/")                    # the only game: the admin joins it (normal site)
     with admin.session_transaction() as s:
-        me = s["player_id"]
+        s["host_prefs"] = {"lady": True}
+        before = dict(s)
     roles = {n: lobby.current_game[u]["role"] for u, n in lobby.snapshot().items()}
     cat = next(u for u, n in lobby.snapshot().items() if n == "Cat")
-    r = admin.get(f"/admin/lobby/{lobby.id}/as/{cat}")
-    assert r.status_code == 302
-    page = admin.get("/").get_data(as_text=True)
-    assert "admin-bar" in page and "Back to admin" in page
-    state = admin.get("/game/state").get_json()
+    base = f"/admin/as/{lobby.id}/{cat}"
+    page = admin.get(base + "/").get_data(as_text=True)
+    assert "admin-bar" in page and roles["Cat"] in page
+    # Links on the page keep the prefix.
+    assert f'href="{base}/static/style.css"' in page and f'{base}/events/' in page
+    state = admin.get(base + "/game/state").get_json()
     assert state["you"]["name"] == "Cat" and state["you"]["role"] == roles["Cat"]
-    # As the host.
-    admin.get(f"/admin/lobby/{lobby.id}/as/host")
-    assert "Game in progress" in admin.get("/host").get_data(as_text=True)
-    assert admin.get(f"/admin/lobby/{lobby.id}/as/nobody").status_code == 404
-    # Back to being yourself.
-    admin.get("/admin/stop")
-    with admin.session_transaction() as s:
-        assert s["player_id"] == me and s["name"] == "Boss" and "admin_as" not in s
+    # The normal pages are still the admin's own, and the session is untouched.
     assert "admin-bar" not in admin.get("/").get_data(as_text=True)
+    with admin.session_transaction() as s:
+        assert dict(s) == before
+    # Acting there is acting as Cat (for real).
+    r = admin.post(base + "/game/action", data={"action": "propose_first_round",
+                                                "team": ["Ann", "Cat"]})
+    first = web.LOBBIES.get(lobby.id).current_game.controller.state.first_proposers
+    assert (r.status_code == 200) == ("Cat" in first)
+    # As the host: the host page, with the game's settings; changes aren't kept.
+    hbase = f"/admin/as/{lobby.id}/host"
+    page = admin.get(hbase + "/host").get_data(as_text=True)
+    assert "Game in progress" in page and "admin-bar" in page
+    admin.post(hbase + "/host/save", data={"items": ["Merlin"], "lady": "1"})
+    with admin.session_transaction() as s:
+        assert dict(s) == before
+    # Other sites can't make the admin's browser act; nobody else can view as.
+    assert admin.post(base + "/game/action", data={"action": "ready"},
+                      headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    assert admin.get(f"/admin/as/{lobby.id}/nobody/").status_code == 404
+    assert admin.get(f"/admin/as/nope/{cat}/").status_code == 404
+    assert admin.get(base + "/admin/").status_code == 404
+
+
+def test_old_view_as_sessions_get_their_identity_back(web):
+    c = web.app.test_client()
+    with c.session_transaction() as s:
+        s.update(player_id="someone", name="Cat", admin_as={"lobby": "x"},
+                 admin_saved={"player_id": "me", "name": "Boss", "game_id": None,
+                              "game_name": None})
+    c.get("/games")
+    with c.session_transaction() as s:
+        assert s["player_id"] == "me" and s["name"] == "Boss"
+        assert "admin_as" not in s and "admin_saved" not in s
 
 
 # ---- access (decided at import, so in a fresh process) ----

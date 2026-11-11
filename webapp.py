@@ -700,8 +700,8 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
 def my_lobby() -> Lobby | None:
     """The lobby this host has open (kept alive by looking at it), or None."""
     lobby = LOBBIES.hosted_by(g.uuid)
-    if lobby is None:
-        return None
+    if lobby is None or g.get('view_as'):     # an admin looking doesn't keep it alive
+        return lobby
     try:
         lobby, _ = LOBBIES.update(lobby.id, lambda l: None)
     except KeyError:                    # closed just now

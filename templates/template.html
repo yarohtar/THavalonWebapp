@@ -63,12 +63,13 @@
 
         // Outside the rules pages, rules links open in their own tab (one,
         // reused), so the game stays open. Links between rules pages stay put.
-        if (!location.pathname.startsWith('/rules')) {
+        const RULES = /\/rules(\/|$)/;   // also under /admin/as/... (admin viewing as someone)
+        if (!RULES.test(location.pathname)) {
             document.addEventListener('click', function (e) {
                 const a = e.target.closest('a[href]');
                 if (!a || a.target) return;
                 const url = new URL(a.href, location.href);
-                if (url.origin === location.origin && url.pathname.startsWith('/rules')) {
+                if (url.origin === location.origin && RULES.test(url.pathname)) {
                     a.target = 'avalon-rules';
                 }
             });

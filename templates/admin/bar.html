@@ -1,21 +1,19 @@
-{# Shown on every page while the admin views the site as someone else. #}
+{# Shown on every page viewed as someone else (under /admin/as/...). Links
+   here are plain paths: url_for would keep the view-as prefix. #}
 <div class="dev-bar admin-bar" id="admin-bar">
     <div class="dev-bar-row">
         <span class="dev-tag admin-tag">ADMIN</span>
-        {% if lobby %}
-        <span>Viewing <b>{{ lobby.name }}</b> as <b>{{ viewing.name }}</b></span>
-        {% else %}
-        <span>Viewing as <b>{{ viewing.name }}</b> (the lobby is gone)</span>
-        {% endif %}
-        <a class="dev-btn dev-push" href="{{ url_for('admin.stop') }}">⏏ Back to admin</a>
+        <span>Viewing <b>{{ viewing.lobby_name }}</b> as <b>{{ viewing.name }}</b></span>
+        <a class="dev-btn dev-push" href="/admin/lobby/{{ viewing.lobby }}">⏏ Admin</a>
+        <a class="dev-btn" href="/">My own view</a>
     </div>
     {% if lobby %}
     <div class="dev-bar-row dev-seats">
         <a class="dev-seat {% if viewing.who == 'host' %}me{% endif %}"
-           href="{{ url_for('admin.view_as', lobby_id=lobby.id, who='host') }}">Host</a>
+           href="{{ view_as_url(lobby.id, 'host') }}">Host</a>
         {% for p in people %}
         <a class="dev-seat {% if viewing.uuid == p.uuid %}me{% endif %} {% if p.waiting %}waiting{% endif %}"
-           href="{{ url_for('admin.view_as', lobby_id=lobby.id, who=p.uuid) }}"
+           href="{{ view_as_url(lobby.id, p.uuid) }}"
            title="{{ p.role or '' }}">{{ p.name }}{% if p.role %} <small>{{ p.role }}</small>{% endif %}</a>
         {% endfor %}
     </div>

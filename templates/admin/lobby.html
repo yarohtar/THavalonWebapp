@@ -29,19 +29,21 @@
     </div>
 
     <h2>People</h2>
-    <p class="setting-note">"View as" makes this browser that person until you press
-        "Back to admin" in the bar at the top. Whatever you do there is done as them.</p>
+    <p class="setting-note">"View as" shows the site as that person sees it, under
+        /admin/as/…; the normal pages stay your own. Game actions you take there (votes,
+        proposals, starting a new game as the host) really are done as them. Host settings
+        you change there aren't saved anywhere.</p>
     <div class="admin-table-wrap">
     <table class="admin-table">
         <tr><th>Name</th><th>Role</th><th></th></tr>
         <tr><td><i>Host</i><br><small class="admin-dim">{{ lobby.host_uuid[:8] }}</small></td><td></td>
-            <td><a class="small-btn admin-link" href="{{ url_for('admin.view_as', lobby_id=lobby.id, who='host') }}">View as</a></td></tr>
+            <td><a class="small-btn admin-link" href="{{ view_as_url(lobby.id, 'host') }}">View as</a></td></tr>
         {% for p in people %}
         <tr{% if p.waiting %} class="admin-waiting"{% endif %}>
             <td>{{ p.name }}{% if p.waiting %} <small>(game waits for them)</small>{% endif %}
                 <br><small class="admin-dim">{{ p.uuid[:8] }}{% if not p.in_lobby %} · left the lobby{% endif %}{% if not p.role %} · not in the game{% endif %}</small></td>
             <td>{{ p.role or '' }}</td>
-            <td><a class="small-btn admin-link" href="{{ url_for('admin.view_as', lobby_id=lobby.id, who=p.uuid) }}">View as</a>
+            <td><a class="small-btn admin-link" href="{{ view_as_url(lobby.id, p.uuid) }}">View as</a>
                 {% if p.in_lobby %}
                 {% call post('remove', 'Remove', danger=True, confirm='Remove ' ~ p.name ~ ' from the lobby? (They stay in a game already dealt.)') %}<input type="hidden" name="uuid" value="{{ p.uuid }}">{% endcall %}
                 {% endif %}</td>

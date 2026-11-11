@@ -23,7 +23,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions). |
 | `events.py` | Live updates: Server-Sent Events over Redis Streams. |
 | `dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
-| `admin.py` | Admin pages `/admin` (all sites): list/inspect/change/close lobbies, close idle ones, "view as" any player or host (swaps the session's identity keys, restored by `/admin/stop`). |
+| `admin.py` | Admin pages `/admin` (all sites): list/inspect/change/close lobbies, close idle ones, "view as" any player or host under `/admin/as/<lobby>/<who>/…` (WSGI middleware sets the prefix as SCRIPT_NAME; those requests get a throwaway session, nothing saved). |
 | `access.py` | `AccessCheck`: verifies Cloudflare Access JWTs (dev site and admin). |
 | `rules.py` | Rules pages and `[[Term]]` link markup used in templates. |
 | `templates/role.html` | Player page: **Game / Role / Vote** tabs, tab switching and Vote-tab auto-open logic. |
@@ -80,6 +80,9 @@ for friends and playtests alone with bots (`tools/bots.py`).
   validly signed Access token (`access.email_from_any_team`). Optionally `CF_ACCESS_TEAM_DOMAIN`
   + `ADMIN_ACCESS_AUD` pin the application and `ADMIN_EMAILS` the emails. POST forms carry a
   session CSRF token. Locally (`python webapp.py`) `ADMIN_NO_AUTH` skips the check.
+- View-as pages must build links with `url_for` (keeps the prefix); the admin bar uses plain
+  paths on purpose. Game actions there are real; host preferences changed there are dropped
+  (the admin's own cookie is never touched). View-as POSTs need `Sec-Fetch-Site: same-origin`.
 - Closing a lobby (`webapp.close_lobby`, also the host page's "Close lobby") deletes it and
   publishes `new-game`/`new-player` on its channel and `new-lobby` on `lobbies`.
 - `/host` no longer creates a lobby by itself: it shows a "Create lobby" form (`host_create.html`)
@@ -104,7 +107,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Running and testing locally
 
-- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (243 tests).
+- Conda env `avalon` (Python 3.14): `conda run -n avalon python -m pytest -q` (244 tests).
 - `tests/test_dev.py` runs each check in a fresh subprocess (dev features are decided at import).
 - `tests/test_store.py` also runs against a real Redis if `TEST_REDIS_URL` is set (no Redis
   server is installed locally; a throwaway one can be made with conda-forge `redis-server`).
