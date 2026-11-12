@@ -62,7 +62,8 @@
 {% if view.phase == 'first_round_voting' %}
 <section class="vote-box">
     <h3>[[First Round]] vote</h3>
-    <p>Choose which team goes on the first Quest.</p>
+    <p>Choose which team goes on the first Quest.
+       <span class="name">{{ fr.round2_starter }}</span> proposes first in round 2.</p>
     {% if 'vote_first_round' in acts %}
     {% call action_form('vote_first_round', cls='vote-buttons') %}
         {% for p in fr.proposers %}

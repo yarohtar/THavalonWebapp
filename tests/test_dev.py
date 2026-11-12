@@ -427,3 +427,24 @@ def test_dev_gareth_has_a_knight_and_rival():
         assert (g.team, g.knight, g.rival) == ("Evil", "F", "A")
         print('ok')
     """, AVALON_DEV="1")
+
+
+def test_round2_starter_shown_all_through_round_1():
+    """Who proposes first in round 2 is public and matters for the round-1 vote."""
+    run("""
+        from web import dev
+        app.config['DEV_NO_AUTH'] = True
+        for slug in ('start', 'first-round-vote'):
+            c.get('/dev/' + slug + '?as=Dan')
+            panels = c.get('/game/panels').get_json()
+            text = ' '.join(v for v in panels.values() if isinstance(v, str))
+            assert 'proposes first in round 2' in text, slug
+        # Everyone votes (as themselves) for Ann's team: the round-1 quest starts.
+        for p in dev.PLAYER_NAMES[:7]:
+            c.get('/dev/first-round-vote/as/' + p)
+            assert c.post('/game/action', data={'action': 'vote_first_round',
+                                                'proposer': 'Ann'}).status_code == 200
+        assert dev_lobby('first-round-vote').current_game.controller.state.phase.value == 'quest'
+        text = ' '.join(v for v in c.get('/game/panels').get_json().values() if isinstance(v, str))
+        assert 'proposes first in round 2' in text
+    """, AVALON_DEV="1")

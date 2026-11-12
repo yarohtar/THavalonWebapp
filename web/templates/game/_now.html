@@ -4,11 +4,13 @@
 {% set fr = view.first_round %}
 {% set cq = view.current_quest %}
 {% set prop = view.proposals[-1] if view.proposals else None %}
+{# Public, and it matters for the first-round vote: shown all through round 1. #}
+{% set round2_note %}<p><span class="name">{{ fr.round2_starter }}</span> proposes first in round 2.</p>{% endset %}
 
 {% if view.phase == 'first_round_proposing' %}
     <h3>[[First Round]]</h3>
-    <p>{{ names(fr.proposers) }} each propose a team of {{ view.team_sizes[0] }}.
-       {{ fr.round2_starter }} proposes first in round 2.</p>
+    <p>{{ names(fr.proposers) }} each propose a team of {{ view.team_sizes[0] }}.</p>
+    {{ round2_note }}
     {% for p, team in fr.teams.items() %}<p><span class="name">{{ p }}</span>'s team: {{ names(team) }}</p>{% endfor %}
     {% if 'propose_first_round' in acts %}
         {{ team_picker('propose_first_round', acts.propose_first_round,
@@ -18,6 +20,7 @@
 {% elif view.phase == 'first_round_voting' %}
     <h3>[[First Round]] vote</h3>
     {% for p in fr.proposers %}<p><span class="name">{{ p }}</span>: {{ names(fr.teams[p]) }}</p>{% endfor %}
+    {{ round2_note }}
     {% if 'vote_first_round' in acts %}<button type="button" class="goto-vote" data-goto-tab="vote">{{ 'Change your vote' if acts.vote_first_round.current else 'Vote' }}</button>{% endif %}
     <p class="hint">Voted: {{ fr.voted|length }} / {{ view.seating|length }}</p>
 
@@ -44,6 +47,7 @@
     <h3>Quest {{ view.round }}</h3>
     <p>{{ names(cq.team) }}{% if cq.fails_needed == 2 %} · needs 2 Fails{% endif %}</p>
     {% if cq.inquisition %}<p>The Leader has {{ term(cq.inquisition|capitalize ~ ' Inquisition') }}.</p>{% endif %}
+    {% if view.round == 1 %}{{ round2_note }}{% endif %}
     {% if 'play_card' in acts %}<button type="button" class="goto-vote" data-goto-tab="vote">Choose your card</button>
     {% elif view.you and view.you.card %}
     <p>Your card is chosen.</p>
