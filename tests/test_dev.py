@@ -108,6 +108,30 @@ def test_every_scenario_starts_in_its_situation():
             'gareth-assassination': ('assassination', 'Fay', 'assassinate'),
             'gareth-changed-rules': ('lady', 'Bob', 'lady'),
             'host-votes': ('proposing', 'Cat', 'propose'),
+            'six-players': ('first_round_voting', 'Fay', 'vote_first_round'),
+            'five-players': ('voting', 'Eve', 'vote'),
+            'hammer-morgana': ('proposing', 'Fay', 'propose'),
+            'lonely-roles': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'guinevere-court': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'colgrevance-oberon': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'balin-agravaine': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'sorceress-reversed': ('proposing', 'Fay', 'propose'),
+            'changeling-used': ('team_announced', 'Ann', 'ready'),
+            'strong-remove-reversal': ('inquisition', 'Cat', 'inquisition'),
+            'inquisition-order': ('inquisition', 'Dan', 'inquisition'),
+            'reversal-results': ('proposing', 'Fay', 'propose'),
+            'reversal-betrayal': ('result', 'Eve', 'betray'),
+            'gawain-exiled': ('inquisition', 'Dan', 'inquisition'),
+            'gawain-after-removal': ('reveal', 'Dan', 'gawain'),
+            'beast-late-game': ('quest', 'Gus', 'play_card'),
+            'lady-chain-gareth': ('lady', 'Ivy', 'lady'),
+            'pellinore-evil-wins': ('pellinore_guess', 'Gus', 'pellinore_guess'),
+            'assassin-without-mordred': ('assassination', 'Eve', 'assassinate'),
+            'good-wins': ('game_over', None, None),
+            'evil-wins-assassination': ('game_over', None, None),
+            'changed-abilities': ('quest', 'Eve', 'play_card'),
+            'changed-info': ('quest', 'Ann', 'play_card'),
+            'host-pause': ('reveal', 'Dan', 'gawain'),
         }
         assert set(expected) == set(dev.BY_SLUG)
         for slug, (phase, player, action) in expected.items():
@@ -122,6 +146,157 @@ def test_every_scenario_starts_in_its_situation():
         print('ok')
     """, AVALON_DEV="1")
     assert "ok" in out
+
+
+def test_every_scenario_says_what_to_check():
+    run("""
+        from web import dev
+        app.config['DEV_NO_AUTH'] = True
+        assert len(dev.SCENARIOS) <= 50
+        for sc in dev.SCENARIOS:
+            assert len(sc.about) > 20 and len(sc.expect) > 40, sc.slug
+        page = c.get('/dev/').get_data(as_text=True)
+        assert page.count('Check:') == len(dev.SCENARIOS)
+        c.get('/dev/gawain')
+        assert 'What to check' in c.get('/').get_data(as_text=True)
+    """, AVALON_DEV="1")
+
+
+def test_scenarios_lead_where_they_say():
+    """Plays each chain scenario on and checks what its "expect" text promises."""
+    run("""
+        import copy
+        from web import dev
+        app.config['DEV_NO_AUTH'] = True
+        def fresh(slug):
+            c.get('/dev/' + slug)
+            ctl = dev_lobby(slug).current_game.controller
+            return ctl, ctl.state
+        def info_of(slug):
+            game = dev_lobby(slug).current_game
+            return {i['role']: i.info for i in game.player_info.values()}
+
+        ctl, s = fresh('six-players')
+        b = copy.deepcopy(ctl); b.act('Fay', 'vote_first_round', proposer='Bob')
+        assert b.state.current_quest.team == ['Bob', 'Cat'] and b.state.proposals_per_round == 3
+        assert b.state.double_fail_quest is None
+
+        ctl, s = fresh('five-players')
+        for p in s.seating: ctl.act(p, 'vote', approve=True)
+        assert ctl.state.current_quest.inquisition is None
+
+        ctl, s = fresh('hammer-morgana')
+        assert 'sorceress' not in ctl.available_actions('Fay') and s.is_hammer()
+        ctl.act('Fay', 'propose', team=['Ann', 'Bob', 'Cat'])
+        assert ctl.state.phase.value == 'quest' and ctl.state.current_quest.inquisition is None
+
+        ctl, s = fresh('sorceress-reversed')
+        for leader in ('Fay', 'Eve'):
+            assert ctl.state.leader == leader
+            ctl.act(leader, 'propose', team=['Ann', 'Bob', 'Cat'])
+            for p in s.seating: ctl.act(p, 'vote', approve=False)
+        assert ctl.state.leader == 'Dan' and ctl.state.is_hammer()
+
+        ctl, s = fresh('changeling-used')
+        assert s.current_proposal.team == ['Ann', 'Bob', 'Gus'] and not s.ready
+        assert 'changeling' not in ctl.available_actions('Gus')
+
+        ctl, s = fresh('strong-remove-reversal')
+        def outcome(target, remove):
+            b = copy.deepcopy(ctl); b.act('Cat', 'inquisition', target=target, remove=remove)
+            return b.state.quests[-1].succeeded
+        assert outcome('Ivy', True) is False and outcome('Gus', True) is False
+        assert outcome('Ann', True) is True and outcome('Gus', False) is True
+
+        ctl, s = fresh('inquisition-order')
+        assert s.current_quest.inquisition == 'weak' and not s.strong_used
+
+        ctl, s = fresh('reversal-results')
+        assert [q.succeeded for q in s.quests] == [True, True, False, False]
+        assert s.round == 5 and s.leader == 'Fay'
+
+        ctl, s = fresh('reversal-betrayal')
+        ctl.act('Eve', 'betray'); ctl.state.advance()
+        assert ctl.state.phase.value == 'game_over' and ctl.state.outcome['winner'] == 'Evil'
+
+        ctl, s = fresh('gawain-exiled')
+        assert s.gawain_exiled and s.current_quest.inquisition == 'weak'
+        ctl.act('Dan', 'inquisition', target='Ann')
+        assert ctl.state.quests[-1].succeeded is False and ctl.state.round == 4
+
+        ctl, s = fresh('gawain-after-removal')
+        assert ctl.available_actions('Dan')['gawain']['choices'] == ['Ann', 'Hal', 'Cat']
+        ctl.act('Dan', 'gawain', target='Hal')
+        assert ctl.state.gawain_exiled
+        ctl.state.advance()
+        assert ctl.state.phase.value == 'result'      # Agravaine (Jon) might betray
+
+        ctl, s = fresh('beast-late-game')
+        assert ctl.available_actions('Gus')['play_card']['cards'] == ['Fail']
+        dev.Drive(ctl).cards()
+        assert ctl.state.quests[-1].qbwh_counts_as == 'Success'
+        assert ctl.state.phase.value == 'pellinore_guess'
+
+        ctl, s = fresh('lady-chain-gareth')
+        assert s.lady_uses[0]['team'] == 'Good' and s.allegiance('Ivy') == 'Evil'
+        assert 'Bob' not in s.lady_choices() and 'Ivy' not in s.lady_choices()
+
+        ctl, s = fresh('pellinore-evil-wins')
+        for guess, pell, beast in (('Hal', True, False), ('Ann', False, True)):
+            b = copy.deepcopy(ctl); b.act('Gus', 'pellinore_guess', target=guess)
+            n = b.state.outcome['neutrals']
+            assert b.state.phase.value == 'game_over' and b.state.assassination is None
+            assert (n['Pellinore']['won'], n['The Questing Beast']['won']) == (pell, beast)
+
+        ctl, s = fresh('assassin-without-mordred')
+        assert s.assassin() == 'Eve'
+        b = copy.deepcopy(ctl); b.act('Eve', 'assassinate', kind='none')
+        assert b.state.outcome['winner'] == 'Evil'
+        b = copy.deepcopy(ctl); b.act('Eve', 'assassinate', kind='merlin', targets=['Ann'])
+        assert b.state.outcome['winner'] == 'Good'
+
+        assert fresh('good-wins')[1].outcome['winner'] == 'Good'
+        assert fresh('evil-wins-assassination')[1].outcome['winner'] == 'Evil'
+
+        ctl, s = fresh('changed-abilities')
+        assert ctl.available_actions('Eve')['play_card']['cards'] == ['Success', 'Fail']
+        assert ctl.available_actions('Gus')['play_card']['cards'] == ['Success', 'Fail']
+        assert 'proclaim' in ctl.available_actions('Bob')
+
+        ctl, s = fresh('changed-info')
+        dev.Drive(ctl).cards()
+        assert ctl.state.phase.value == 'game_over' and ctl.state.outcome['winner'] == 'Good'
+        info = info_of('changed-info')
+        assert 'nilrem' not in info['Guinevere'] and info['Guinevere']['seen'] == ['Dan']
+        assert 'Hal' in info['Mordred']['other_evils'] and not info['Mordred']['oberon']
+        assert info['Oberon']['other_evils'] == []
+
+        fresh('lonely-roles')
+        info = info_of('lonely-roles')
+        assert info['Galahad']['nilrem'] == 'Ann' and 'nilrem' not in info['Mordred']
+        assert info['Uther']['stalked_good'] in ('Bob', 'Dan')
+        assert info['Ygraine']['stalked_evil'] in ('Fay', 'Gus')
+
+        fresh('guinevere-court')
+        info = info_of('guinevere-court')
+        assert sorted(info['Guinevere']['seen']) == ['Dan', 'Eve', 'Hal']
+        assert sorted(info['Merlin']['seen']) == ['Dan', 'Gus', 'Hal']
+
+        fresh('colgrevance-oberon')
+        info = info_of('colgrevance-oberon')
+        assert {p: str(r) for p, r in info['Colgrevance']['evil_roles'].items()} == \\
+            {'Gus': 'Mordred', 'Ivy': 'Oberon', 'Jon': 'Morgana'}
+        assert 'Ivy' not in info['Mordred']['other_evils'] and info['Mordred']['oberon']
+
+        fresh('balin-agravaine')
+        info = info_of('balin-agravaine')
+        assert info['Balin the Savage']['agravaine'] == 'Hal' and info['Agravaine']['balin'] == 'Cat'
+        assert 'Cat' in info['Merlin']['seen']
+
+        ctl, s = fresh('host-pause')
+        assert ctl.undo_label() == 'Jon pressed ready'
+        print('ok')
+    """, AVALON_DEV="1")
 
 
 def test_strong_inquisition_and_beast_card():

@@ -22,6 +22,7 @@
         {% endfor %}
     </div>
     <p class="dev-about">{{ scenario.about }}{% if waiting %} · Waiting for: {{ waiting|join(', ') }}{% endif %}</p>
+    <details class="dev-expect"><summary>What to check</summary><p>{{ scenario.expect }}</p></details>
     {% endif %}
 </div>
 <script>

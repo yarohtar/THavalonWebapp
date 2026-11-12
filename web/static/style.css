@@ -1011,6 +1011,9 @@ body > .game-toast { width: auto; padding: 0.7rem 1.1rem; }
 .dev-bar .dev-seat.me { background: #c77dff; color: var(--ink); }
 .dev-seat.waiting { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright); }
 .dev-about { margin: 0.4rem 0 0; opacity: 0.8; }
+.dev-expect { display: block; margin: 0.3rem 0 0; opacity: 0.8; font-size: 0.9rem; }
+.dev-expect summary { cursor: pointer; }
+.dev-expect p { margin: 0.2rem 0 0; }
 .dev-list { text-align: left; }
 .dev-list li { margin-bottom: 0.6rem; }
 .dev-list a { text-decoration: none; }

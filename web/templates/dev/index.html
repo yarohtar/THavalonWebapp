@@ -12,7 +12,8 @@
         {% for sc in scenarios %}
         <li><a href="{{ url_for('dev.start', slug=sc.slug) }}"><b>{{ sc.title }}</b></a>
             <span class="dev-meta">{{ sc.roles|length }} players</span><br>
-            <span>{{ sc.about }}</span></li>
+            <span>{{ sc.about }}</span><br>
+            <span class="dev-expect"><b>Check:</b> {{ sc.expect }}</span></li>
         {% endfor %}
     </ul>
     {% endfor %}

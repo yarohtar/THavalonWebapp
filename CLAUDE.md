@@ -112,7 +112,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 ## Dev site (`web/dev.py`)
 
 - Only active with `AVALON_DEV=1`. The live site must not expose it (`/dev` → 404; tested).
-- `/dev/` lists ~22 scenarios (`changed-rules` and `gareth-changed-rules` use changed rules; a "Gareth" group) (`SCENARIOS`), each a game driven to a situation by `Drive`.
+- `/dev/` lists ~46 scenarios (`SCENARIOS`; groups: game flow, role info, abilities, ability chains, end of game, changed rules, Gareth, host), each a game driven to a situation by `Drive`. Each has `about` (the situation) and `expect` (what the tester should check; shown on the index and under "What to check" in the bar). Every role appears in one; keep the total under ~50 (bundle rule changes rather than one scenario per setting). `tests/test_dev.py` checks each one's phase/actor and plays the chains on to check their `expect` text.
   Opening one (or ↺ Reset) rebuilds it. The purple bar switches "view as" any player or host —
   it literally makes the browser session that player. Each tester (session id `dev_tester`)
   gets their own copies, so testers never share games.
