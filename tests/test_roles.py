@@ -226,3 +226,18 @@ def test_impossible_evil_count_is_a_readable_error():
     for evils in (0, 5):
         with pytest.raises(ValueError):
             build(5, [], num_evils=evils)
+
+
+def test_arthur_is_never_gareths_knight_unless_allowed():
+    from thavalon.ruleset import RuleSet
+    pool = [T.arthur, T.merlin, T.mordred, T.morgana, T.gareth]
+
+    def knights(rules):
+        out = set()
+        for seed in range(80):
+            b = build(9, pool, seed=seed, rules=rules)
+            g = next(r for r in b if isinstance(r, T.Gareth))
+            out.add(next(str(r) for r in b if b[r] == g.knight))
+        return out
+    assert "Arthur" not in knights(None)
+    assert "Arthur" in knights(RuleSet({"Gareth.arthur_knight": True}))

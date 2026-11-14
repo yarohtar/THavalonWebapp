@@ -116,7 +116,7 @@ def test_every_scenario_starts_in_its_situation():
             'colgrevance-oberon': ('first_round_proposing', 'Ann', 'propose_first_round'),
             'balin-agravaine': ('first_round_proposing', 'Ann', 'propose_first_round'),
             'sorceress-reversed': ('proposing', 'Fay', 'propose'),
-            'changeling-used': ('team_announced', 'Ann', 'ready'),
+            'changeling-used': ('quest', 'Ann', 'play_card'),
             'strong-remove-reversal': ('inquisition', 'Cat', 'inquisition'),
             'inquisition-order': ('inquisition', 'Dan', 'inquisition'),
             'reversal-results': ('proposing', 'Fay', 'propose'),
@@ -198,7 +198,7 @@ def test_scenarios_lead_where_they_say():
         assert ctl.state.leader == 'Dan' and ctl.state.is_hammer()
 
         ctl, s = fresh('changeling-used')
-        assert s.current_proposal.team == ['Ann', 'Bob', 'Gus'] and not s.ready
+        assert s.current_quest.team == ['Ann', 'Bob', 'Gus'] and not s.current_quest.inquisition
         assert 'changeling' not in ctl.available_actions('Gus')
 
         ctl, s = fresh('strong-remove-reversal')

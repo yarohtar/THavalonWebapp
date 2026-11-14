@@ -132,7 +132,7 @@ class GameController:
             acts["pellinore_guess"] = dict(choices=[p for p in s.seating if p != player])
         if s.phase == Phase.ASSASSINATION and player == s.assassin():
             acts["assassinate"] = dict(kinds=s.rules.assassination_kinds(),
-                                       choices=list(s.seating))
+                                       choices=s.assassination_choices())
         return acts
 
     def act(self, player : str, action : str, **params):

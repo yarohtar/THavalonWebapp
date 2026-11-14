@@ -130,6 +130,8 @@ def test_changeling_refusals():
     with pytest.raises(RuleError):
         state.changeling("p3")                                   # not on the team
     state.changeling("p0")
+    assert state.phase == Phase.QUEST                            # no second Ready round
+    assert state.current_quest.team == ["p4", "p1", "p2"]
     with pytest.raises(RuleError):
         state.changeling("p1")                                   # used up
     state_no_oberon, _ = make_game(FIVE)
@@ -544,3 +546,15 @@ def test_quest_result_matches_brute_force(needed):
             for qbwh in (S, F):
                 assert quest_succeeds(list(cards), needed, qbwh) == \
                     reference_result(cards, needed, qbwh), (cards, needed, qbwh)
+
+
+def test_assassin_names_only_players_who_are_not_evil():
+    state, ctl = make_game(["Merlin", "Tristan", "Iseult", "Morgana", "Mordred"])
+    state.phase = Phase.ASSASSINATION
+    assert ctl.available_actions("p4")["assassinate"]["choices"] == ["p0", "p1", "p2"]
+    with pytest.raises(RuleError):
+        state.assassinate("merlin", ["p3"])
+    with pytest.raises(RuleError):
+        ctl.act("p4", "assassinate", kind="merlin", targets=["p4"])
+    state.assassinate("merlin", ["p0"])
+    assert state.assassination["correct"]

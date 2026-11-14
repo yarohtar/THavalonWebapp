@@ -152,6 +152,7 @@ def _settings() -> list[Setting]:
 
     add(Setting("Gareth.knows", "choice", "both", choices=("both", "knight", "rival")))
     add(Setting("Gareth.lady", "choice", "good", choices=("good", "team")))  # what she shows
+    add(Setting("Gareth.arthur_knight", "bool", False))  # Arthur can be Gareth's Knight
     gareth_defaults = {
         # what : (default when blue, default when red)
         "merlin_sees": (False, True),            # Merlin sees Gareth as Evil

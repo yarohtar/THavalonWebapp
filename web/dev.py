@@ -387,9 +387,9 @@ SCENARIOS = [
     Scenario("changeling-used", "After the Changeling",
              "Round 2 Hammer (Ann, Bob, Cat): Ann and Bob had pressed Ready, then Gus "
              "(Oberon) swapped in for Cat.",
-             "Everyone sees Gus declared as Oberon and the team is Ann, Bob, Gus. Ann and Bob "
-             "must press Ready again. Gus has no Changeling left. Once all are Ready, Ann, "
-             "Bob and Gus play cards (Gus may Fail), with no Inquisition.",
+             "Everyone sees Gus declared as Oberon and the team is Ann, Bob, Gus. Nobody "
+             "presses Ready again: the Quest starts at once and Ann, Bob and Gus play cards "
+             "(Gus may Fail), with no Inquisition. Gus has no Changeling left.",
              OBERON_SEVEN,
              lambda d: (d.quest(P(0, 1)), d.reject_until_hammer(P(0, 1, 2)),
                         d.act(d.s.leader, "propose", team=P(0, 1, 2)),

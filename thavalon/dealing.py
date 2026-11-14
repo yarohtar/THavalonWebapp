@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import random
 
-from thavalon.roles import (Gareth, MoM, Role, SoC, balin, beast, gareth, pellinore)
+from thavalon.roles import (Gareth, MoM, Role, SoC, arthur, balin, beast, gareth,
+                            pellinore)
 from thavalon.ruleset import RuleSet, DEFAULT as DEFAULT_RULES
 
 PLAYER_LIMITS = (5, 12)        # the deal itself; games are 5 to 10 (DEFAULT_TEAM_SIZES)
@@ -181,7 +182,9 @@ class AvalonBuilder:
         for role, p in self.role_to_player.items():
             if role.allegiance() in teams:
                 teams[role.allegiance()].append(p)
-        knight = self.rng.choice(teams["Good"] + teams["Evil"])
+        # Arthur is never the Knight, unless the rules allow it.
+        barred = None if self.rules['Gareth.arthur_knight'] else self.role_to_player.get(arthur)
+        knight = self.rng.choice([p for p in teams["Good"] + teams["Evil"] if p != barred])
         team = "Good" if knight in teams["Good"] else "Evil"
         rival = self.rng.choice(teams["Evil" if team == "Good" else "Good"])
         self[Gareth(team, knight, rival)] = player

@@ -188,7 +188,8 @@ HOST_GROUPS = [
                                  "knight": "only their Knight", "rival": "only their Rival"}),
                   entry('Gareth.lady', "The Lady of the Lake shows Gareth as",
                         choices={"good": "Good, whatever their team",
-                                 "team": "their real team"})]),
+                                 "team": "their real team"}),
+                  entry('Gareth.arthur_knight', "Arthur can be Gareth's Knight")]),
           ('When Gareth is blue (Good)', gareth_team('Good')),
           ('When Gareth is red (Evil)', gareth_team('Evil')),
           note="Careful: a rule that differs between blue and red Gareth tells whoever "

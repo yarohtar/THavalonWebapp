@@ -262,6 +262,15 @@ class GameState:
         # Everyone else, Good or Evil, may play Success or Fail.
         return [Card.SUCCESS, Card.FAIL]
 
+    def assassination_choices(self) -> list[str]:
+        """Players the assassin may name: everyone but the Evil players (they
+        have revealed themselves to each other). An Evil Gareth stays listed
+        when the rules hide them from Evil, so the list gives nothing away."""
+        def hidden_gareth(p):
+            return self.role(p) == "Gareth" and not self.rules.gareth("Evil", "evil_sees")
+        return [p for p in self.seating
+                if self.allegiance(p) != "Evil" or hidden_gareth(p)]
+
     def assassin(self) -> str | None:
         for role_name in ASSASSIN_RANKING:
             found = self.player_with_role(role_name)
@@ -426,8 +435,9 @@ class GameState:
             raise RuleError("Oberon must replace someone on a team without Oberon.")
         prop.team = [oberon if p == replaced else p for p in prop.team]
         self.changeling_used = True
-        self.ready = set()
         self._emit("changeling", oberon=oberon, replaced=replaced, team=prop.team)
+        # Oberon has revealed themselves: nobody else can act in this pause.
+        self._start_quest(prop.leader, prop.team, inquisition=None)
 
     # ------------------------------------------------------------- pauses
     #
@@ -684,6 +694,8 @@ class GameState:
         if kind not in kinds or len(targets) != targets_needed(kind) \
                 or any(t not in self.roles for t in targets):
             raise RuleError(assassination_help(kinds))
+        if any(t not in self.assassination_choices() for t in targets):
+            raise RuleError("You can't name an Evil player.")
         correct = guess_is_correct(kind, [self.role(t) for t in targets], kinds,
                                    lambda role_name: bool(self.player_with_role(role_name)))
         self.assassination = dict(kind=kind, targets=targets, correct=correct)

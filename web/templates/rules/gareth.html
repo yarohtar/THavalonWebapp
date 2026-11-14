@@ -4,13 +4,17 @@
 {% set sight_keys = ['Gareth.Good.merlin_sees', 'Gareth.Good.merlin_knows_role', 'Gareth.Good.evil_sees', 'Gareth.Good.evil_knows_role',
                      'Gareth.Evil.merlin_sees', 'Gareth.Evil.merlin_knows_role', 'Gareth.Evil.evil_sees', 'Gareth.Evil.evil_knows_role'] %}
 {% if not ruleset.changed('Gareth.players') %}
-<p>Gareth can only be in 9-player games (unless the host changes this), where the host may add them like any other role. Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.</p>
+<p>Gareth can only be in 9-player games, where the host may add them like any other role. Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.</p>
 {% else %}
 {% call p(True) %}{% if counts %}Gareth can be dealt {{ counts_phrase(counts) }}, where the host may add them like any other role.{% else %}Gareth is never dealt.{% endif %} Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.{% endcall %}
 {% endif %}
 
 <h2 id="team">Gareth's team</h2>
-<p>When roles are dealt, a random <b class="term-good">Good</b> or <b class="term-evil">Evil</b> player is chosen as Gareth's <b>Knight</b> (never a Neutral role). Gareth is on the Knight's team. Then a random player of the other team is chosen as Gareth's <b>Rival</b>.</p>
+{% if not ruleset['Gareth.arthur_knight'] %}
+<p>When roles are dealt, a random <b class="term-good">Good</b> or <b class="term-evil">Evil</b> player is chosen as Gareth's <b>Knight</b> (never [[Arthur]] or a Neutral role). Gareth is on the Knight's team. Then a random player of the other team is chosen as Gareth's <b>Rival</b>.</p>
+{% else %}
+{% call p(True) %}When roles are dealt, a random <b class="term-good">Good</b> or <b class="term-evil">Evil</b> player is chosen as Gareth's <b>Knight</b> ([[Arthur]] included, never a Neutral role). Gareth is on the Knight's team. Then a random player of the other team is chosen as Gareth's <b>Rival</b>.{% endcall %}
+{% endif %}
 <ul>
     {% if knows == 'both' %}
     <li>Gareth is told who their Knight and their Rival are, but not their roles, and not Gareth's own team.</li>

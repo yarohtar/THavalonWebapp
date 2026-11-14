@@ -215,6 +215,8 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         add(Note(("gareth",), "[[Gareth]] is told only who their "
                  f"{'Knight' if knows == 'knight' else 'Rival'} is, not their "
                  f"{'Rival' if knows == 'knight' else 'Knight'}."))
+    if rules.changed("Gareth.arthur_knight"):
+        add(Note(("gareth", "arthur"), "[[Arthur]] can be chosen as [[Gareth]]'s Knight."))
     if rules.changed("Gareth.lady"):
         add(Note(("gareth", "lady-of-the-lake"),
                  "The [[Lady of the Lake]] shows [[Gareth]]'s real team."))
