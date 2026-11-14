@@ -4,6 +4,12 @@
 <section class="game-section now">
     {% include "game/_now.html" %}
 </section>
+{% if ability_ready %}
+<section class="game-section ability-notice">
+    <p>You can use your ability now - go to role page.</p>
+    <button type="button" data-goto-tab="role">Open Role tab</button>
+</section>
+{% endif %}
 {% if host_vote %}
 <section class="game-section host-vote">
     {{ host_vote_result(host_vote) }}

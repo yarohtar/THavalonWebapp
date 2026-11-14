@@ -6,6 +6,9 @@ from flask import render_template
 
 from web.games import AvalonGame
 
+# Actions whose buttons are on the Role tab (under the role, out of sight).
+ABILITY_ACTIONS = ("sorceress", "changeling", "gawain", "betray", "proclaim")
+
 
 def role_page(game : AvalonGame, uuid : str) -> str:
     """The player's whole page: their role's template with the live panels."""
@@ -29,6 +32,7 @@ def panels(game : AvalonGame, uuid : str | None) -> dict:
     view = ctl.view(name)
     hv = game.host_vote.view(name) if game.host_vote else None
     ctx = dict(view = view, me = name, game_rules = game.rules,
+               ability_ready = ability_ready(view),
                ruleset = game.game_ruleset, host_vote = hv,
                undo_label = ctl.undo_label() if uuid is None else None)
     if uuid is None:
@@ -39,6 +43,11 @@ def panels(game : AvalonGame, uuid : str | None) -> dict:
                 abilities = render_template('game/abilities.html', **ctx),
                 vote = render_template('game/vote.html', vote_key = key,
                                        vote_pending = pending, **ctx))
+
+
+def ability_ready(view : dict) -> bool:
+    """This player can use an ability now (its button is on the Role tab)."""
+    return any(a in (view.get('actions') or {}) for a in ABILITY_ACTIONS)
 
 
 def vote_status(view : dict, host_vote : dict | None) -> tuple[str, bool]:

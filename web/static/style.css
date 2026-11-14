@@ -940,6 +940,12 @@ button.secondary {
     text-align: left;
 }
 .ability h3 { font-size: 1.15rem; margin: 0 0 0.3rem; }
+.game-section.ability-notice {
+    padding: 0.8rem;
+    border: 1px solid var(--gold-line);
+    border-radius: 10px;
+}
+.ability-notice button { width: 100%; margin-top: 0.4rem; }
 .host-controls form { margin-top: 0.4rem; }
 
 /* Vote tab */
