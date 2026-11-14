@@ -37,13 +37,14 @@ def default_quests(n : int) -> dict:
                 double_fail = default_double_fail_quest(n) or 0)
 
 
-def evils_key(n : int, gareth_plays : bool) -> str:
-    return f'{n}+gareth' if gareth_plays else str(n)
+def evils_key(n : int, extras : int | bool) -> str:
+    """Saved Evil counts are kept apart for games with Gareth or Balin."""
+    return f'{n}+gareth' if extras else str(n)
 
 
-def pref_evils(n : int, gareth_plays : bool) -> int:
-    return _prefs().get('evils', {}).get(evils_key(n, gareth_plays),
-                                         default_num_evils(n, gareth_plays))
+def pref_evils(n : int, extras : int | bool) -> int:
+    return _prefs().get('evils', {}).get(evils_key(n, extras),
+                                         default_num_evils(n, extras))
 
 
 def pref_quests(n : int, evils : int) -> dict:
@@ -73,7 +74,7 @@ def save_prefs(roles : list[str], rules_used : dict):
     prefs['roles'] = roles
     prefs['gareth_offered'] = True
     prefs['lady'] = rules_used['lady']
-    prefs.setdefault('evils', {})[evils_key(n, rules_used['gareth'])] = evils
+    prefs.setdefault('evils', {})[evils_key(n, rules_used.get('extras', rules_used.get('gareth')))] = evils
     prefs.setdefault('quests', {})[f'{n}-{evils}'] = dict(
         sizes = rules_used['team_sizes'], double_fail = rules_used['double_fail'] or 0)
     session['host_prefs'] = prefs
@@ -152,14 +153,19 @@ HOST_GROUPS = [
           ('Merlin sees as Evil', sees('Merlin', MERLIN_SEES))),
     group('Percival', 'good', ['Percival'],
           (None, [players('Percival'), lonely('Percival')]),
-          ('Percival sees (as Merlin or Morgana)', sees('Percival', PERCIVAL_SEES))),
+          ('Percival sees (as Merlin or Morgana)', sees('Percival', PERCIVAL_SEES)),
+          ('Galahad', [entry('Galahad.sees_gareth', "Galahad's Evil roles include Gareth, "
+                             "when Gareth is red")])),
     group('The Lovers', 'good', ['Tristan', 'Iseult'],
           (None, [players('Tristan', "Tristan: player counts"),
                   players('Iseult', "Iseult: player counts"), lonely('Lovers')])),
     group('Arthur', 'good', ['Arthur'],
           (None, [players('Arthur'),
                   entry('Arthur.proclaim_after', "Can Proclaim after",
-                        choices={1: "1 failed Quest", 2: "2 failed Quests"})])),
+                        choices={1: "1 failed Quest", 2: "2 failed Quests"}),
+                  entry('Arthur.sees_balin', "Arthur's Good roles include Balin"),
+                  entry('Arthur.sees_gareth', "Arthur's Good roles include Gareth, "
+                        "when Gareth is blue")])),
     group('Lancelot', 'good', ['Lancelot'],
           (None, [players('Lancelot'), entry('Lancelot.reversal', "May play Reversal")])),
     group('Guinevere', 'good', ['Guinevere'],
@@ -167,7 +173,15 @@ HOST_GROUPS = [
           ('Guinevere sees', sees('Guinevere', GUINEVERE_SEES))),
     group('Gawain', 'good', ['Gawain'], (None, [players('Gawain')])),
     group('Balin the Savage', 'good', ['Balin the Savage'],
-          (None, [players('Balin the Savage')])),
+          (None, [players('Balin the Savage'),
+                  entry('Balin.must_fail', "Must have played a Fail to win (with Good)"),
+                  entry('Balin.evil_sees', "Evil players see Balin as one of them"),
+                  entry('Balin.agravaine_knows', "Agravaine is told which player is Balin",
+                        "Agravaine then doesn't see Balin among the Evil players."),
+                  entry('Balin.or_gareth', "Only one of Balin and Gareth is dealt (at random) "
+                        "when both could be",
+                        "Otherwise both are dealt: Gareth takes an Evil player's place, "
+                        "Balin a Good player's.")])),
     group('Mordred', 'evil', ['Mordred'], (None, [players('Mordred')])),
     group('Morgana', 'evil', ['Morgana'], (None, [players('Morgana')])),
     group('Maelegant', 'evil', ['Maelegant'],

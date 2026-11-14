@@ -6,11 +6,11 @@ import flask
 from flask import Blueprint, g, request, session, url_for
 from flask.views import MethodView
 
-from thavalon.dealing import DEFAULT_TEAM_SIZES, default_num_evils
-from thavalon.roles import gareth
+from thavalon.dealing import DEFAULT_TEAM_SIZES, default_num_evils, num_extras
+from thavalon.roles import balin, gareth, roles_named
 from thavalon.ruleset import SETTINGS
 from web import events, host_settings as prefs, panels
-from web.games import GameSettings
+from web.games import GameSettings, extras_label
 from web.lobbies import LOBBIES, LOBBIES_CHANNEL, Lobby, close_lobby, random_game_name
 from web.routes.common import change_game
 from web.visitor import hosted_game_lobby, my_lobby
@@ -37,7 +37,8 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
                ruleset = ruleset,
                saved = saved,
                rule_defaults = {k: s.to_json(s.default) for k, s in SETTINGS.items()},
-               gareth_possible = gareth.can_appear(n, ruleset),
+               # Gareth / Balin could play at this size (if selected).
+               extras_possible = [r.name for r in (gareth, balin) if r.can_appear(n, ruleset)],
                game_rules = lobby.current_game.rules,
                current_ruleset = lobby.current_game.game_ruleset,
                term_ruleset = (lobby.current_game.game_ruleset
@@ -53,10 +54,11 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
         ctx['active_roles'] = prefs.pref_roles()
         ctx['lady'] = prefs.pref_lady()
     if ctx['valid_count']:
-        gareth_plays = gareth.can_appear(n, ruleset) and str(gareth) in ctx['active_roles']
-        evil_options = list(range(1, min(5, n - 1 - gareth_plays) + 1))
+        selected = [r for r in ctx['active_roles'] if r in (gareth.name, balin.name)]
+        extras = num_extras(n, roles_named(selected), ruleset)
+        evil_options = list(range(1, min(5, n - 1 - extras) + 1))
         quests = {e: prefs.pref_quests(n, e) for e in range(1, 6)}
-        evils = prefs.pref_evils(n, gareth_plays)
+        evils = prefs.pref_evils(n, extras)
         shown = quests.get(evils, prefs.default_quests(n))
         if form is not None:
             evils = form.get('evils', type=int, default=evils)
@@ -66,13 +68,14 @@ def render_host(lobby : Lobby, error = None, form = None, rename_error = None,
                    evils = evils,
                    shown = shown,
                    quest_prefs = quests,
-                   gareth_plays = gareth_plays,
-                   # Evil count to switch to when Gareth is toggled.
-                   gareth_evils = {'on': prefs.pref_evils(n, True),
-                                   'off': prefs.pref_evils(n, False)},
-                   defaults = dict(evils = default_num_evils(n, gareth_plays),
-                                   evils_with_gareth = default_num_evils(n, True),
-                                   evils_without_gareth = default_num_evils(n, False),
+                   extra_label = extras_label(n, roles_named(selected), ruleset),
+                   extras_count = extras,
+                   # Evil count to switch to when Gareth / Balin are toggled.
+                   extra_evils = {'on': prefs.pref_evils(n, True),
+                                  'off': prefs.pref_evils(n, False)},
+                   defaults = dict(evils = default_num_evils(n, extras),
+                                   evils_with_extra = default_num_evils(n, True),
+                                   evils_without_extra = default_num_evils(n, False),
                                    **prefs.default_quests(n)))
     if lobby.current_game.controller is not None:
         ctx['host_panel'] = panels.panels(lobby.current_game, None)['host']

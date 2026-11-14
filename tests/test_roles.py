@@ -98,11 +98,10 @@ def test_gawain_with_too_few_players_sees_no_one():
                 "a")["seen"] == []
 
 
-def test_balin_and_agravaine_know_each_other():
+def test_agravaine_is_told_who_balin_is_and_balin_nothing():
     b = deal({**SEVEN, "c": "Balin the Savage", "g": "Agravaine"})
-    assert info(b, "c")["agravaine"] == "g" and info(b, "g")["balin"] == "c"
-    alone = deal({**SEVEN, "c": "Balin the Savage"})
-    assert "agravaine" not in info(alone, "c")
+    assert info(b, "c") == {"allegiance": "Good"}
+    assert info(b, "g")["balin"] == "c" and "c" not in info(b, "g")["other_evils"]
 
 
 def test_evil_see_each_other_but_not_oberon_and_are_told_oberon_lurks():
@@ -154,7 +153,7 @@ def test_string_to_role_knows_every_role():
 def test_default_evil_counts_and_everyone_gets_a_role(n, evils):
     assert default_num_evils(n) == evils
     for seed in range(10):
-        b = build(n, [r for r in T.all_roles if r != T.gareth], seed=seed)
+        b = build(n, [r for r in T.all_roles if r not in (T.gareth, T.balin)], seed=seed)
         assert sorted(b.role_to_player.values()) == sorted(b.players)
         assert sum(r.allegiance() == "Evil" for r in b) == evils
 
@@ -177,11 +176,14 @@ def test_generic_roles_fill_the_table():
     assert sum(isinstance(r, T.MoM) for r in b) == 3
 
 
-def test_balin_is_always_dealt_when_possible_and_takes_a_good_place():
+def test_balin_is_always_dealt_when_possible():
     for seed in range(10):
-        b = build(6, [T.balin, T.merlin, T.mordred], seed=seed)
-        assert T.balin in b and sum(r.allegiance() == "Good" for r in b) == 4
-    assert T.balin not in build(7, [T.balin])
+        b = build(9, [T.balin, T.merlin, T.mordred], seed=seed)
+        assert T.balin in b
+        assert [r.allegiance() for r in b].count("Evil") == 3     # Balin takes an Evil place
+    assert T.balin not in build(6, [T.balin])                     # 9 players only by default
+    for n in (5, 7, 8, 10):
+        assert T.balin not in build(n, [T.balin])
 
 
 def test_pellinore_and_beast_take_two_good_places_at_nine():

@@ -10,5 +10,10 @@
 {% endif %}
 <ul>
     <li>Knows which Evil roles are in the game, but not who has them.</li>
+    {% if not ruleset['Galahad.sees_gareth'] %}
+    <li>The list never includes [[Gareth]], even when Gareth is Evil.</li>
+    {% else %}
+    {% call li(True) %}The list includes [[Gareth]] when Gareth is Evil.{% endcall %}
+    {% endif %}
     {{ target_line(ruleset, 'galahad', 'Galahad') }}
 </ul>

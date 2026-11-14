@@ -8,6 +8,11 @@
 {% else %}
 {% call p(True) %}{% if counts %}Gareth can be dealt {{ counts_phrase(counts) }}, where the host may add them like any other role.{% else %}Gareth is never dealt.{% endif %} Gareth plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Gareth and 5 Good.{% endcall %}
 {% endif %}
+{% if ruleset['Balin.or_gareth'] %}
+<p>When [[Balin the Savage|Balin]] could be dealt too, only one of Gareth and Balin is in the game, chosen at random.</p>
+{% else %}
+{% call p(True) %}Gareth and [[Balin the Savage|Balin]] can both be in the game.{% endcall %}
+{% endif %}
 
 <h2 id="team">Gareth's team</h2>
 {% if not ruleset['Gareth.arthur_knight'] %}
@@ -46,7 +51,22 @@
 {% else %}
 {% call p(True) %}The [[Lady of the Lake]] shows Gareth's real team.{% endcall %}
 {% endif %}
-<p>Other roles that learn about a team, such as [[Galahad]], [[Arthur]], [[Uther]] and [[Ygraine]], treat Gareth as a member of their real team.</p>
+<p>[[Uther]] and [[Ygraine]] treat Gareth as a member of their real team.</p>
+<ul>
+    {% if not ruleset['Arthur.sees_gareth'] %}
+    <li>[[Arthur]]'s list of Good roles never includes Gareth, even when Gareth is Good.</li>
+    {% else %}
+    {% call li(True) %}[[Arthur]]'s list of Good roles includes Gareth when Gareth is Good.{% endcall %}
+    {% endif %}
+    {% if not ruleset['Galahad.sees_gareth'] %}
+    <li>[[Galahad]]'s list of Evil roles never includes Gareth, even when Gareth is Evil.</li>
+    {% else %}
+    {% call li(True) %}[[Galahad]]'s list of Evil roles includes Gareth when Gareth is Evil.{% endcall %}
+    {% endif %}
+</ul>
+{% if ruleset['Balin.evil_sees'] and ruleset.gareth('Evil', 'evil_sees') %}
+<p>The Evil players see [[Balin the Savage|Balin]] among them too, so an Evil player who sees one player too many can't tell an Evil Gareth from Balin. Only [[Agravaine]] (who is told who Balin is) and [[Colgrevance]] (who sees roles) can.</p>
+{% endif %}
 
 <h2 id="assassination">Assassination</h2>
 {% if ruleset.assassination_on %}

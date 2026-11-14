@@ -134,6 +134,10 @@
     {% if o.gareth %}
     <p>[[Gareth]] ({{ o.gareth.player }}) was <b class="term-{{ o.gareth.team|lower }}">{{ o.gareth.team }}</b>.</p>
     {% endif %}
+    {% if o.balin %}
+    <p>[[Balin the Savage|Balin]] ({{ o.balin.player }}) {{ 'played' if o.balin.played_fail else 'never played' }} a [[Fail]]:
+        {{ 'wins' if o.balin.won else 'loses' }}.</p>
+    {% endif %}
     {% if o.neutrals %}
     <p>[[Pellinore]] ({{ o.neutrals.Pellinore.player }}): sanity {{ o.neutrals.Pellinore.sanity }},
         {{ 'wins' if o.neutrals.Pellinore.won else 'loses' }}.

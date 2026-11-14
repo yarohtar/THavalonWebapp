@@ -2,6 +2,16 @@
 {% set n = ruleset['Arthur.proclaim_after'] %}
 <ul>
     <li>Knows which Good roles are in the game, but not who has them.</li>
+    {% if ruleset['Arthur.sees_balin'] %}
+    <li>The list includes [[Balin the Savage|Balin]], if Balin is in the game.</li>
+    {% else %}
+    {% call li(True) %}The list never includes [[Balin the Savage|Balin]].{% endcall %}
+    {% endif %}
+    {% if not ruleset['Arthur.sees_gareth'] %}
+    <li>The list never includes [[Gareth]], even when Gareth is Good.</li>
+    {% else %}
+    {% call li(True) %}The list includes [[Gareth]] when Gareth is Good.{% endcall %}
+    {% endif %}
     {{ seen_by(ruleset, [('Guinevere', 'Guinevere.sees.Arthur')]) }}
     {{ target_line(ruleset, 'arthur', 'Arthur') }}
 </ul>

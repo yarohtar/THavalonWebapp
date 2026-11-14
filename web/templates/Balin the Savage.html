@@ -1,8 +1,12 @@
 {% extends "role.html" %}
 {% block content %}
-{% if 'agravaine' in info %}
-<p>Beware of {{ info['agravaine'] }}, the traitor [[Agravaine]].</p>
+{% if ruleset['Balin.must_fail'] %}
+<p>You are Good, but you win only if Good wins <b>and</b> you have played at least one [[Fail]] during the game.
+   The Quest doesn't have to fail.</p>
 {% else %}
-<p>[[Agravaine]] is not in the game.</p>
+<p>You win when Good wins.</p>
+{% endif %}
+{% if ruleset['Balin.evil_sees'] %}
+<p>The Evil players see you as one of them.{% if ruleset['Balin.agravaine_knows'] %} [[Agravaine]] knows who you are.{% endif %}</p>
 {% endif %}
 {% endblock %}

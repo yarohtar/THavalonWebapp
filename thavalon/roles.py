@@ -149,7 +149,8 @@ class Galahad(GoodRole):
 
     def get_info(self, deal : AvalonBuilder) -> dict:
         info = super().get_info(deal)
-        info['evil_roles'] = [role for role in deal if role.allegiance() == "Evil"]
+        info['evil_roles'] = [role for role in deal if role.allegiance() == "Evil" and (
+            not isinstance(role, Gareth) or deal.rules['Galahad.sees_gareth'])]
         return info
 
     def is_base_role(self) -> bool:
@@ -208,7 +209,11 @@ class Arthur(GoodRole):
 
     def get_info(self, deal : AvalonBuilder) -> dict:
         info = super().get_info(deal)
-        info['good_roles'] = [role for role in deal if role.allegiance() == "Good"]
+        rules = deal.rules
+        info['good_roles'] = [
+            role for role in deal if role.allegiance() == "Good"
+            and (not isinstance(role, Gareth) or rules['Arthur.sees_gareth'])
+            and (role != balin or rules['Arthur.sees_balin'])]
         return info
 
 
@@ -265,13 +270,9 @@ class Gawain(GoodRole):
 
 
 class Balin(GoodRole):
+    """Good, but wins only if they played at least one Fail (by default).
+    Evil see Balin as one of them; Agravaine is told who Balin is."""
     name = "Balin the Savage"
-
-    def get_info(self, deal : AvalonBuilder) -> dict:
-        info = super().get_info(deal)
-        if agravaine in deal:
-            info['agravaine'] = deal[agravaine]
-        return info
 
 
 # ---------------------------------------------------------------- Evil
@@ -314,7 +315,7 @@ class Agravaine(EvilRole):
 
     def get_info(self, deal : AvalonBuilder) -> dict:
         info = super().get_info(deal)
-        if balin in deal:
+        if balin in deal and deal.rules['Balin.agravaine_knows']:
             info['balin'] = deal[balin]
         return info
 
@@ -328,7 +329,8 @@ class Colgrevance(EvilRole):
         info['evil_roles'] = {
             deal[role]: role for role in deal if role != colgrevance and (
                 role.allegiance() == "Evil" and not isinstance(role, Gareth)
-                or isinstance(role, Gareth) and deal.rules.gareth(role.team, 'evil_sees'))}
+                or isinstance(role, Gareth) and deal.rules.gareth(role.team, 'evil_sees')
+                or role == balin and deal.rules['Balin.evil_sees'])}
         return info
 
 
@@ -355,6 +357,11 @@ def visible_evil_roles(deal : AvalonBuilder, viewer : Role) -> list[Role]:
             continue
         if isinstance(role, Gareth):
             if rules.gareth(role.team, 'evil_sees'):
+                seen.append(role)
+        elif role == balin:
+            # Agravaine, told who Balin is, isn't fooled.
+            if rules['Balin.evil_sees'] and not (viewer == agravaine
+                                                 and rules['Balin.agravaine_knows']):
                 seen.append(role)
         elif role.allegiance() == "Evil" and (role != oberon or rules['Oberon.seen_by_evil']):
             seen.append(role)

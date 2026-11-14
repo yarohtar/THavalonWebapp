@@ -158,6 +158,7 @@ class Scenario:
     lady : bool = False
     group : str = "Game flow"
     rules : dict | None = None          # rule changes (see ruleset.SETTINGS)
+    also_possible : tuple = ()          # selected roles that weren't dealt (e.g. "Gareth")
 
     @property
     def players(self) -> list[str]:
@@ -194,6 +195,11 @@ OBERON_SEVEN = ["Merlin", "Percival", "Servant of Camelot", "Servant of Camelot"
                 "Mordred", "Morgana", "Oberon"]
 GARETH_NINE = ["Merlin", "Percival", "Tristan", "Iseult", "Servant of Camelot",
                "Mordred", "Morgana", "Maelegant"]       # + Gareth as Ivy
+
+# Merlin, Arthur, Balin (Cat), Tristan, Iseult, Percival; Mordred (Gus),
+# Morgana (Hal), Agravaine (Ivy).
+BALIN_NINE = ["Merlin", "Arthur", "Balin the Savage", "Tristan", "Iseult", "Percival",
+              "Mordred", "Morgana", "Agravaine"]
 
 GOOD_WINS_SEVEN = lambda d: (d.quest(P(0, 1)), d.quest(P(0, 1, 2)), d.quest(P(0, 1, 2)))
 
@@ -291,13 +297,25 @@ SCENARIOS = [
              ["Merlin", "Percival", "Tristan", "Iseult", "Gawain", "Arthur", "Mordred",
               "Colgrevance", "Oberon", "Morgana"],
              view="Hal", group="Role info"),
-    Scenario("balin-agravaine", "Balin and Agravaine",
-             "Start of a 9-player game: Cat is Balin the Savage, Hal is Agravaine.",
-             "Cat (Balin) is told Hal is Agravaine; Hal (Agravaine) is told Cat is Balin. "
-             "Ann (Merlin) sees Cat as Evil along with Gus, Hal and Ivy (not Fay, Mordred).",
-             ["Merlin", "Percival", "Balin the Savage", "Tristan", "Iseult", "Mordred",
-              "Morgana", "Agravaine", "Maelegant"],
-             view="Cat", group="Role info"),
+    Scenario("balin", "Balin: who sees whom",
+             "Start of a 9-player game, Gareth or Balin: Balin was dealt. Cat is Balin the "
+             "Savage, Ivy is Agravaine, Gus Mordred, Hal Morgana, Bob Arthur.",
+             "Cat (Balin) is told only to play a Fail to win. Gus and Hal see Cat among the "
+             "Evil players (with each other and Ivy); under \"What you can work out\" they're "
+             "told one of them is either an Evil Gareth or Balin. Ivy (Agravaine) sees Gus and "
+             "Hal, is told Cat is Balin, and works out Gareth isn't in the game. Ann (Merlin) "
+             "sees Cat, Hal and Ivy (not Gus, Mordred). Bob (Arthur) has Balin in his list, so "
+             "no Gareth; Cat also works out there's no Gareth. 5 proposals a round.",
+             BALIN_NINE, view="Cat", group="Role info", also_possible=("Gareth",)),
+    Scenario("gareth-or-balin", "Gareth or Balin: Gareth dealt",
+             "Start of a 9-player game, Gareth or Balin: Gareth (Ivy) was dealt, on Good. "
+             "Bob is Arthur, Fay Mordred, Gus Morgana, Hal Agravaine.",
+             "Under \"What you can work out\": Bob (Arthur, no Balin in his list) - Gareth is "
+             "in the game, team unknown; Balin isn't. Fay, Gus, Hal see no extra player - "
+             "Gareth is Good, Balin isn't. Ivy (Gareth) - Balin isn't in the game.",
+             ["Merlin", "Arthur", "Percival", "Tristan", "Iseult", "Mordred", "Morgana",
+              "Agravaine", "Gareth (Good)"],
+             view="Bob", group="Role info", also_possible=("Balin the Savage",)),
 
     # ------------------------------------------------------------ Abilities
     Scenario("hammer", "Hammer and Changeling",
@@ -529,6 +547,16 @@ SCENARIOS = [
              lambda d: (GOOD_WINS_SEVEN(d), d.act("Eve", "assassinate", kind="lovers",
                                                   targets=["Cat", "Dan"])),
              view="Ann", group="End of game"),
+    Scenario("balin-wins", "Balin's win",
+             "9 players, 3 Evil + Balin (Cat). Cat played Fail on quest 1 (it failed); Good "
+             "won the next 3. Gus (Mordred) named Cat as Merlin: wrong.",
+             "Game-over screen: Good wins, and \"Balin (Cat) played a Fail: wins\". Had Cat "
+             "never played a Fail, Balin would lose though Good won.",
+             BALIN_NINE,
+             lambda d: (d.quest(P(0, 1, 2), fails=P(2)), d.quest(P(0, 1, 3, 4)),
+                        d.quest(P(0, 1, 3, 4)), d.quest(P(0, 1, 3, 4, 5)),
+                        d.act("Gus", "assassinate", kind="merlin", targets=["Cat"])),
+             view="Cat", group="End of game"),
     Scenario("evil-wins", "Evil wins",
              "Three quests failed: the game is over.",
              "Game-over screen: Evil wins by failing 3 quests; no Assassination; roles "
@@ -744,14 +772,15 @@ def init_app(app, registration_exempt : list[str]):
             lobby.current_game.game_number = old.current_game.game_number
         ruleset = RuleSet(sc.rules)
         roles = [r for r in make_builder(sc.players, sc.roles)]
+        pool = roles + T.roles_named(list(sc.also_possible))
         settings = GameSettings()
         settings.num_evils = sum(r.allegiance() == "Evil" and str(r) != "Gareth" for r in roles)
         settings.team_sizes = sc.sizes
         settings.double_fail = sc.double_fail
         settings.lady = sc.lady
-        rules = settings.resolve(len(players), roles, ruleset)
+        rules = settings.resolve(len(players), pool, ruleset)
         builder = make_builder(sc.players, sc.roles, ruleset)
-        lobby.current_game.install(builder, roles, players, rules)
+        lobby.current_game.install(builder, pool, players, rules)
         sc.setup(Drive(lobby.current_game.controller))
         LOBBIES.add(lobby)
         events.publish(lobby.id, "new-game")

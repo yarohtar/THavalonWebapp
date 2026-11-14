@@ -1,6 +1,9 @@
 {% from "rules/_lines.html" import li %}
 <ul>
     <li>Knows exactly which role every other Evil player has, [[Oberon]] included.</li>
+    {% if ruleset['Balin.evil_sees'] %}
+    <li>Also sees [[Balin the Savage|Balin]], and knows that player is Balin.</li>
+    {% endif %}
     {% if not ruleset.merlin_sees('Colgrevance') %}
     {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
     {% endif %}

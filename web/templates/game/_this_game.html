@@ -15,8 +15,15 @@
         <li>[[Weak Inquisition]]: the first time the second proposal is approved,
             or the first proposal once Strong Inquisition has been used.</li>
         {% endif %}
-        {% if game_rules.gareth %}
+        {% set extra = game_rules.extra_label or ('Gareth' if game_rules.gareth else '') %}
+        {% if extra == 'Gareth' %}
         <li>[[Gareth]] is in the game, and doesn't know their own team.</li>
+        {% elif extra == 'Balin' %}
+        <li>[[Balin the Savage|Balin]] is in the game.</li>
+        {% elif extra == 'Gareth or Balin' %}
+        <li>Either [[Gareth]] or [[Balin the Savage|Balin]] is in the game (one of them, at random).</li>
+        {% elif extra %}
+        <li>[[Gareth]] and [[Balin the Savage|Balin]] are in the game.</li>
         {% endif %}
         {% if game_rules.lady %}
         <li>Played with the [[Lady of the Lake]].</li>

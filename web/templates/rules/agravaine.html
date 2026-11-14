@@ -5,6 +5,11 @@
     {% else %}
     {% call li(True) %}Doesn't have to play [[Fail]]: may play [[Success]] or Fail like everyone else.{% endcall %}
     {% endif %}
+    {% if ruleset['Balin.agravaine_knows'] %}
+    {% call li(not ruleset['Balin.evil_sees']) %}Is told which player is [[Balin the Savage|Balin]], if Balin is in the game{% if ruleset['Balin.evil_sees'] %}, so isn't fooled into thinking Balin is Evil{% endif %}.{% endcall %}
+    {% else %}
+    {% call li(True) %}Isn't told who [[Balin the Savage|Balin]] is{% if ruleset['Balin.evil_sees'] %}: sees Balin among the Evil players like the others{% endif %}.{% endcall %}
+    {% endif %}
     {% if not ruleset.merlin_sees('Agravaine') %}
     {% call li(True) %}Hidden from [[Merlin]].{% endcall %}
     {% endif %}

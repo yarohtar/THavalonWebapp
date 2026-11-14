@@ -136,9 +136,7 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
     # ---- Merlin's sight
     merlin_changed = [r for r in MERLIN_SEES if rules.changed(f"Merlin.sees.{r}")]
     if merlin_changed:
-        # Balin isn't played: leave them out unless their rule changed.
-        listed = [r for r in MERLIN_SEES
-                  if r != "Balin the Savage" or r in merlin_changed]
+        listed = list(MERLIN_SEES)
         seen = [role_link(r) for r in listed if rules.merlin_sees(r)]
         hidden = [role_link(r) for r in listed if not rules.merlin_sees(r)]
         text = (f"[[Merlin]] sees these roles as Evil: {and_list(seen)}."
@@ -208,6 +206,30 @@ def game_notes(rules : RuleSet | None) -> list[Note]:
         n = rules["Arthur.proclaim_after"]
         add(Note(("arthur",), f"[[Arthur]] may use [[Proclamation]] once "
                  f"{'one Quest has' if n == 1 else f'{n} Quests have'} failed."))
+
+    # ---- Balin
+    if not rules["Balin.must_fail"]:
+        add(Note(("balin",), "[[Balin the Savage|Balin]] doesn't have to play a [[Fail]]: "
+                 "Balin wins whenever Good wins."))
+    if not rules["Balin.evil_sees"]:
+        add(Note(("balin", "overview"), "Evil players don't see [[Balin the Savage|Balin]]."))
+    if not rules["Balin.agravaine_knows"]:
+        add(Note(("balin", "agravaine"), "[[Agravaine]] isn't told who "
+                 "[[Balin the Savage|Balin]] is"
+                 + (", and sees Balin among the Evil players like everyone else."
+                    if rules["Balin.evil_sees"] else ".")))
+    if not rules["Balin.or_gareth"]:
+        add(Note(("balin", "gareth"), "[[Balin the Savage|Balin]] and [[Gareth]] can both be "
+                 "in the game: Gareth takes an Evil player's place, Balin a Good player's."))
+    if not rules["Arthur.sees_balin"]:
+        add(Note(("arthur", "balin"), "[[Arthur]] isn't told whether "
+                 "[[Balin the Savage|Balin]] is in the game."))
+    if rules["Arthur.sees_gareth"]:
+        add(Note(("arthur", "gareth"), "[[Arthur]]'s list of Good roles includes "
+                 "[[Gareth]] when Gareth is Good."))
+    if rules["Galahad.sees_gareth"]:
+        add(Note(("galahad", "gareth"), "[[Galahad]]'s list of Evil roles includes "
+                 "[[Gareth]] when Gareth is Evil."))
 
     # ---- Gareth
     if rules.changed("Gareth.knows"):

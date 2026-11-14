@@ -30,49 +30,62 @@ def default_double_fail_quest(num_players : int) -> int | None:
 
 
 def has_gareth(num_players : int, roles : list[Role], rules : RuleSet | None = None) -> bool:
-    """Gareth plays when the host selected them and the player count allows (9 by default)."""
+    """Gareth can be dealt: the host selected them and the player count allows
+    (9 by default). With Balin also possible, only one of them may be dealt."""
     return gareth in roles and gareth.can_appear(num_players, rules)
 
 
-def default_num_evils(num_players : int, gareth_plays : bool = False) -> int:
-    """Evil players, not counting Gareth. Gareth takes the place of one."""
+def possible_extras(num_players : int, roles : list[Role],
+                    rules : RuleSet | None = None) -> list[Role]:
+    """Gareth and Balin, those that can be dealt in this game. They play on
+    top of the Evil players the host chooses (see default_num_evils)."""
+    return [r for r in (gareth, balin) if r in roles and r.can_appear(num_players, rules)]
+
+
+def num_extras(num_players : int, roles : list[Role], rules : RuleSet | None = None) -> int:
+    """How many of Gareth and Balin will be dealt: when both could be, only
+    one of them is (at random), unless the rules say both."""
+    extras = possible_extras(num_players, roles, rules)
+    if len(extras) == 2 and (rules or DEFAULT_RULES)['Balin.or_gareth']:
+        return 1
+    return len(extras)
+
+
+def default_num_evils(num_players : int, extras : int | bool = 0) -> int:
+    """Evil players, not counting Gareth or Balin. If either plays, they take
+    the place of one Evil player, unless that would leave fewer than 2."""
     evils = (2 if num_players <= 6
              else 3 if num_players <= 8
              else 4 if num_players <= 11
              else 5)
-    return evils - 1 if gareth_plays else evils
+    return evils - 1 if extras and evils > 2 else evils
 
 
 def generate_roles(num_players : int, base_roles : list[Role],
                    num_evils : int | None = None,
                    rules : RuleSet | None = None, rng=random) -> list[Role]:
     """The roles dealt in a game, in random order, chosen from the host's
-    selection `base_roles`. Gareth, Pellinore with the Beast, and Balin are
-    always dealt when possible; the rest of each team is drawn from the
-    selected roles, filled up with Servants and Minions."""
-    gareth_plays = has_gareth(num_players, base_roles, rules)
+    selection `base_roles`. Gareth or Balin (see num_extras), and Pellinore
+    with the Beast, are always dealt when possible; the rest of each team is
+    drawn from the selected roles, filled up with Servants and Minions."""
+    extras = possible_extras(num_players, base_roles, rules)
+    if len(extras) > num_extras(num_players, base_roles, rules):
+        extras = [rng.choice(extras)]
     base_roles = [role for role in base_roles
-                  if role.is_base_role() and role != gareth]
+                  if role.is_base_role() and role not in (gareth, balin)]
     possible_roles = [role for role in base_roles if role.can_appear(num_players, rules)]
     goods = [role for role in possible_roles if role.allegiance() == "Good"]
     evils = [role for role in possible_roles if role.allegiance() == "Evil"]
 
     if num_evils is None:
-        num_evils = default_num_evils(num_players, gareth_plays)
-    num_goods = num_players - num_evils
+        num_evils = default_num_evils(num_players, len(extras))
+    num_goods = num_players - num_evils - len(extras)
 
-    roles_in_play : list[Role] = []
-    if gareth_plays:
-        num_goods -= 1
-        roles_in_play.append(gareth)
+    roles_in_play : list[Role] = list(extras)
     if pellinore in possible_roles and beast in possible_roles:
         num_goods -= 2
         roles_in_play.append(pellinore)
         roles_in_play.append(beast)
-    if balin in possible_roles:
-        num_goods -= 1
-        roles_in_play.append(balin)
-        goods.remove(balin)  # already placed; don't deal it a second time
 
     if num_evils < 1 or num_goods < 1:
         raise ValueError(f"{num_evils} Evil players doesn't work with "

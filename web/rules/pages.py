@@ -154,7 +154,8 @@ TERMS: list[Term] = [
          "A plain Good role with no information.", players="5–10 players",
          aliases=("Servant", "Servants of Camelot")),
     role("balin", "Balin the Savage", "good",
-         "Not currently played.", aliases=("Balin",), retired=True),
+         "Good, but must play a Fail to win. Evil see Balin as one of them.",
+         aliases=("Balin",)),
 
     # ---- Evil ----
     role("mordred", "Mordred", "evil", "Hidden from Merlin."),

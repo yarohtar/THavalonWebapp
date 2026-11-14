@@ -5,10 +5,11 @@
     <li><b class="term-good">Good</b> wins if 3 [[Quests]] succeed, unless Evil then wins the [[Assassination]].</li>
     <li><b class="term-evil">Evil</b> wins if 3 Quests fail, or with a correct Assassination.</li>
     <li>[[Gareth]] (9 players only) is on a random team and doesn't learn which until the Assassination.</li>
+    <li>[[Balin the Savage|Balin]] (9 players only, instead of Gareth when both could be dealt) is Good, but wins only after playing at least one [[Fail]].</li>
     <li><b class="term-neutral">Neutral</b> roles ([[Pellinore]] and [[The Questing Beast]], 9 players only) have their own goals.</li>
 </ul>
 <ul>
-    <li>Evil players see each other, except [[Oberon]]. They are told if Oberon is in the game. An Evil [[Gareth]] is seen by the other Evil players but doesn't see them.</li>
+    <li>Evil players see each other, except [[Oberon]]. They are told if Oberon is in the game. An Evil [[Gareth]] is seen by the other Evil players but doesn't see them. [[Balin the Savage|Balin]] is seen by the Evil players as one of them.</li>
     <li>Good players are told who [[Nilrem]] is, if Nilrem is in the game.</li>
 </ul>
 
@@ -30,10 +31,10 @@
     <tr><th>Players</th><th>Evil</th><th>Proposals</th><th>Inquisition</th></tr>
     <tr><td>5–6</td><td>2</td><td>3</td><td>none</td></tr>
     <tr><td>7–8</td><td>3</td><td>4</td><td>Weak</td></tr>
-    <tr><td>9</td><td>3 + [[Gareth]] (4 without)</td><td>5</td><td>Strong + Weak</td></tr>
+    <tr><td>9</td><td>3 + [[Gareth]] or [[Balin the Savage|Balin]] (4 without)</td><td>5</td><td>Strong + Weak</td></tr>
     <tr><td>10</td><td>4</td><td>5</td><td>Strong + Weak</td></tr>
 </table>
-<p>Gareth counts as Evil for proposals and Inquisition, whichever team they are on. Default team sizes for 9 players are 3 · 4 · 4 · 5* · 5, where the fourth Quest needs 2 Fails.</p>
+<p>Gareth and Balin count as Evil for proposals and Inquisition (Gareth whichever team they are on). Default team sizes for 9 players are 3 · 4 · 4 · 5* · 5, where the fourth Quest needs 2 Fails.</p>
 <p>For example, a 9-player game can also be played as 2 Evil + Gareth v 6 others (4 proposals, Weak Inquisition only).</p>
 
 <h2 id="roles">Roles</h2>
@@ -47,5 +48,8 @@
 <h3 class="term-neutral">Neutral</h3>
 <ul class="chips">{% for t in listed if t.team == 'neutral' %}<li>{{ term(t.title) }}</li>{% endfor %}</ul>
 <p>Some roles change when their partners are missing: see [[Lonely Roles]].</p>
+{% set retired = terms|selectattr('retired')|list %}
+{% if retired %}
 <p class="rules-note">Not currently played:
-{% for t in terms if t.retired %}{{ term(t.title) }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+{% for t in retired %}{{ term(t.title) }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+{% endif %}

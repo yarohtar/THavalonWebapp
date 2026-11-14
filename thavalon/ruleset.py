@@ -77,7 +77,7 @@ class Setting:
 DEFAULT_PLAYERS : dict[str, frozenset[int]] = {
     "Merlin": ALL_COUNTS, "Percival": ALL_COUNTS, "Tristan": ALL_COUNTS,
     "Iseult": ALL_COUNTS, "Arthur": ALL_COUNTS, "Lancelot": ALL_COUNTS,
-    "Guinevere": _from(7), "Gawain": _from(10), "Balin the Savage": frozenset({6, 9}),
+    "Guinevere": _from(7), "Gawain": _from(10), "Balin the Savage": frozenset({9}),
     "Mordred": ALL_COUNTS, "Morgana": ALL_COUNTS, "Maelegant": ALL_COUNTS,
     "Agravaine": _from(7), "Colgrevance": _from(10), "Oberon": ALL_COUNTS,
     "Gareth": frozenset({9}),
@@ -149,6 +149,14 @@ def _settings() -> list[Setting]:
     add(Setting("Lancelot.reversal", "bool", True))
     add(Setting("Maelegant.reversal", "bool", True))
     add(Setting("Arthur.proclaim_after", "choice", 2, choices=(1, 2)))   # failed Quests
+    add(Setting("Arthur.sees_balin", "bool", True))     # Balin is among Arthur's Good roles
+    add(Setting("Arthur.sees_gareth", "bool", False))   # a blue Gareth is among them
+    add(Setting("Galahad.sees_gareth", "bool", False))  # a red Gareth is among Galahad's Evil roles
+
+    add(Setting("Balin.must_fail", "bool", True))       # Balin wins only having played a Fail
+    add(Setting("Balin.evil_sees", "bool", True))       # Evil see Balin as one of them
+    add(Setting("Balin.agravaine_knows", "bool", True)) # Agravaine is told which player is Balin
+    add(Setting("Balin.or_gareth", "bool", True))       # only one of Balin and Gareth is dealt
 
     add(Setting("Gareth.knows", "choice", "both", choices=("both", "knight", "rival")))
     add(Setting("Gareth.lady", "choice", "good", choices=("good", "team")))  # what she shows

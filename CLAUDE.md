@@ -27,7 +27,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
 | `web/visitor.py` | This browser's lobby/game: `joined_lobby`, `join`, `my_lobby`, `playing_lobby`, `viewer_game`. |
 | `web/host_settings.py` | Host preferences in the cookie (`pref_*`, `save_*`) and the rules editor: `HOST_GROUPS` lists every setting once under its role with its wording (`entry()`), `ruleset_from_form`. |
 | `web/host_votes.py` | `HostVote`: votes the host starts by hand as a fallback when the game flow breaks. Never touch `GameState`. |
-| `web/rules/` | `pages.py`: the term registry (`TERMS`, one per role/rule; each term's page), `[[Term]]` link markup and `expand()`; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages (also the preview sheet's JSON); `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab); `wording.py`: shared phrasing helpers. |
+| `web/rules/` | `pages.py`: the term registry (`TERMS`, one per role/rule; each term's page), `[[Term]]` link markup and `expand()`; `notes.py`: a `RuleSet`'s changes as sentences tagged with rules pages (also the preview sheet's JSON); `role_text.py`: helpers for role rules templates rendered under a game's `RuleSet` (Role tab); `wording.py`: shared phrasing helpers; `deductions.py`: the Role tab's "What you can work out" (what a player's info implies about Gareth/Balin, by checking which possible deals match it). |
 | `web/store.py` | Redis connection + `Store` (pickled objects, optimistic `WATCH` transactions); `MOVED` maps old pickled class homes. |
 | `web/events.py` | Live updates: Server-Sent Events over Redis Streams (`events.publish(channel, event)`). |
 | `web/dev.py` | Dev-site-only features: test scenarios, "view as" switching, Access login check, feedback emails. |
@@ -118,7 +118,7 @@ for friends and playtests alone with bots (`tools/bots.py`).
   gets their own copies, so testers never share games.
 - `make_builder` deals roles exactly as listed (no lonely transformations), so pick valid
   combos. Gareth is listed as `"Gareth (Good)"`/`"Gareth (Evil)"`: Knight = first player of
-  that team, Rival = first of the other. Player-count limits: Guinevere 7+, Gareth / Pellinore / Questing Beast exactly 9,
+  that team, Rival = first of the other. Player-count limits: Guinevere 7+, Gareth / Balin / Pellinore / Questing Beast exactly 9,
   Gawain 10. Inquisition depends on Evil count (proposals = Evil + 1: 4 → weak, 5 → strong).
 - Access: Cloudflare Access decides who gets in (the owner adds playtesters in the Access
   policy). The app additionally verifies the Access JWT for this application's audience, and
@@ -189,6 +189,9 @@ for friends and playtests alone with bots (`tools/bots.py`).
 
 ## Recent history (newest first)
 
+- Balin reworked: Good, must play a Fail to win; Evil see Balin as one of them, Agravaine is
+  told who Balin is. Balin and Gareth share a place ("extras", `dealing.num_extras`): only one
+  is dealt when both could be. Arthur/Galahad no longer see Gareth. All host-changeable.
 - Web app moved into the `web/` package (routes as blueprints; no behaviour change).
 - Engine moved into the `thavalon/` package (no behaviour change; golden test, more engine tests).
 - Admin pages (`/admin`); hosts create lobbies explicitly and can close them.

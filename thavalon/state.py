@@ -147,9 +147,10 @@ class GameState:
         self.possible_roles = {str(r) for r in (role_pool or all_roles)
                                if r.can_appear(n, self.rules)}
         self.possible_roles |= {str(r) for r in roles.values()}
-        # Gareth counts as Evil here whichever team they're on, so the number
-        # of proposals doesn't give their team away.
-        self.num_evils = sum(r.allegiance() == "Evil" or str(r) == "Gareth"
+        # Gareth (whichever team they're on) and Balin count as Evil here, so
+        # the number of proposals gives nothing away (Gareth's team, or which
+        # of Gareth and Balin is in the game).
+        self.num_evils = sum(r.allegiance() == "Evil" or str(r) in ("Gareth", "Balin the Savage")
                              for r in roles.values())
         self.proposals_per_round = self.num_evils + 1
 
@@ -709,6 +710,11 @@ class GameState:
         gareth = self.player_with_role("Gareth")
         if gareth:
             outcome["gareth"] = dict(player=gareth, team=self.allegiance(gareth))
+        balin = self.player_with_role("Balin the Savage")
+        if balin:
+            failed = any(q.cards.get(balin) == Card.FAIL for q in self.quests)
+            outcome["balin"] = dict(player=balin, played_fail=failed,
+                                    won=good_won and (failed or not self.rules["Balin.must_fail"]))
         pellinore = self.player_with_role("Pellinore")
         beast = self.player_with_role("The Questing Beast")
         if pellinore and beast:

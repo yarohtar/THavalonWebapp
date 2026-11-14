@@ -5,6 +5,7 @@ from __future__ import annotations
 from flask import render_template
 
 from web.games import AvalonGame
+from web.rules.deductions import deductions, setup_of
 
 # Actions whose buttons are on the Role tab (under the role, out of sight).
 ABILITY_ACTIONS = ("sorceress", "changeling", "gawain", "betray", "proclaim")
@@ -21,6 +22,8 @@ def role_page(game : AvalonGame, uuid : str) -> str:
                            term_ruleset = game.game_ruleset,
                            image = 'round_table.jpg',
                            num_players = len(game.player_info),
+                           deductions = deductions(player_info['role'], player_info.info,
+                                                   game.game_ruleset, setup_of(game)),
                            panels = panels(game, uuid))
 
 

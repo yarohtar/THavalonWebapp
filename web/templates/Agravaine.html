@@ -1,6 +1,6 @@
 {% extends "role.html" %}
 {% block content %}
 {% if 'balin' in info %}
-<p>Beware of {{ info['balin'] }}, [[Balin the Savage]].</p>
+<p>{{ info['balin'] }} is [[Balin the Savage]]: Good, {% if ruleset['Balin.evil_sees'] %}though the other Evil players see Balin as one of them{% else %}and hidden from the other Evil players{% endif %}.</p>
 {% endif %}
 {% endblock %}

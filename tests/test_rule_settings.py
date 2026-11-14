@@ -33,9 +33,9 @@ def rs(**changes):
 
 # ---------------------------------------------------------------- the RuleSet
 
-OLD_CAN_APPEAR = {    # the hard-coded rules before settings existed
+OLD_CAN_APPEAR = {    # the hard-coded rules before settings existed (Balin: since the rework)
     "Guinevere": range(7, 11), "Gawain": [10], "Nilrem": range(7, 11),
-    "Balin the Savage": [6, 9], "Agravaine": range(7, 11), "Colgrevance": [10],
+    "Balin the Savage": [9], "Agravaine": range(7, 11), "Colgrevance": [10],
     "Gareth": [9], "Pellinore": [9], "The Questing Beast": [9],
 }
 
@@ -666,3 +666,21 @@ def test_role_rules_text_under_any_rules(web):
                      frozenset({5}) if s.kind == "counts" else
                      next(v for v in s.choices if v != s.default))
             assert "rule-changed" in render(page, RuleSet({key: value})), key
+
+
+def test_host_page_with_balin_and_gareth(web):
+    host, lobby_id, _ = lobby_with_players(web, 9)
+    form = host_form(host.get("/host").get_data(as_text=True))
+    form.setlist("items", form.getlist("items") + ["Balin the Savage"])
+    page = host.post("/host/save", data=form).get_data(as_text=True)
+    assert "3 Evil + Gareth or Balin v 5" in page
+    form = host_form(page)
+    assert host.post("/restart", data=form).status_code == 302
+    game = web.LOBBIES.get(lobby_id).current_game
+    dealt = {str(r) for r in game.controller.state.roles.values()}
+    assert len(dealt & {"Gareth", "Balin the Savage"}) == 1
+    assert game.rules["extra_label"] == "Gareth or Balin" and game.rules["proposals"] == 5
+    assert game.controller.state.proposals_per_round == 5
+    form.setlist("rule:Balin.or_gareth", [])                      # untick: both play
+    page = host.post("/host/save", data=form).get_data(as_text=True)
+    assert "3 Evil + Gareth + Balin v 4" in page

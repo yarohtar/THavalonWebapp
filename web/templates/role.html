@@ -54,6 +54,13 @@
             {% block content %}
             {% endblock %}
 
+            {% if deductions %}
+            <div class="deductions">
+                <h3>What you can work out</h3>
+                <ul>{% for d in deductions %}<li>{{ d }}</li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+
 
                 <div data-panel="abilities">{{ panels.abilities|safe }}</div>
 

@@ -626,15 +626,18 @@ def test_lady_never_returns_to_an_earlier_holder():
 
 # ---------------------------------------------------------------- Gareth
 
+NO_BALIN = [r for r in T.all_roles if r != T.balin]   # with Balin, Gareth may not be dealt
+
+
 @pytest.mark.parametrize("n", range(5, 11))
 def test_gareth_only_in_nine_player_games_when_selected(n):
-    assert (T.gareth in build(n, T.all_roles)) == (n == 9)
+    assert (T.gareth in build(n, NO_BALIN)) == (n == 9)
     assert (T.gareth in build(n, [T.gareth, T.merlin])) == (n == 9)
     assert T.gareth not in build(n, [r for r in T.all_roles if r != T.gareth])
 
 
 def test_gareth_takes_an_evil_place_by_default():
-    assert default_num_evils(9, gareth_plays=True) == 3
+    assert default_num_evils(9, 1) == 3
     assert default_num_evils(9) == 4
     b = build(9, [T.merlin])
     assert sum(r.allegiance() == "Evil" for r in b) == 4
@@ -655,7 +658,7 @@ def test_gareth_default_nine_player_game():
 def test_gareth_knight_rival_and_what_people_see():
     seen_evil = seen_good = False
     for seed in range(100):
-        b = build(9, T.all_roles, seed=seed)
+        b = build(9, NO_BALIN, seed=seed)
         g = next(r for r in b if r == T.gareth)
         player = b[g]
         team_of = {p: r.allegiance() for r, p in b.role_to_player.items()}

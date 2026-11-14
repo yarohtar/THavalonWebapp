@@ -151,8 +151,8 @@
         {% if saved %}<p class="setting-note">Saved. These roles and rules are remembered for next time.</p>{% endif %}
 
         <h2>Game Settings</h2>
-        {% if gareth_possible %}
-        <p class="setting-note">[[Gareth]] plays on top of the Evil players chosen below.</p>
+        {% if extras_possible %}
+        <p class="setting-note">{% if extras_possible|length == 2 %}[[Gareth]] and [[Balin the Savage|Balin]] play{% elif extras_possible[0] == 'Gareth' %}[[Gareth]] plays{% else %}[[Balin the Savage|Balin]] plays{% endif %} on top of the Evil players chosen below.</p>
         {% endif %}
         {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
         {% if valid_count %}
@@ -161,7 +161,7 @@
             <select name="evils" id="evils">
                 {% for k in evil_options %}
                 <option value="{{ k }}" {% if k == evils %}selected{% endif %}>
-                    {{ k }} Evil{% if gareth_plays %} + Gareth{% endif %} v {{ num_players - k - (1 if gareth_plays else 0) }}{% if k == defaults.evils %} (default){% endif %}
+                    {{ k }} Evil{% if extra_label %} + {{ extra_label }}{% endif %} v {{ num_players - k - extras_count }}{% if k == defaults.evils %} (default){% endif %}
                 </option>
                 {% endfor %}
             </select>
@@ -212,38 +212,51 @@
     const PREFS = {{ quest_prefs|tojson }};   // per Evil count: {sizes, double_fail}
     const DEFAULTS = {{ defaults|tojson }};
     const N = {{ num_players }};
-    const GARETH_EVILS = {{ gareth_evils|tojson }};   // remembered count with/without Gareth
+    const EXTRA_EVILS = {{ extra_evils|tojson }};   // remembered count with/without Gareth or Balin
     const evils = document.getElementById('evils');
-    const garethBox = {{ 'true' if gareth_possible else 'false' }} && document.getElementById('Gareth');
-    function garethPlays() {
-        const here = document.querySelector('input[name="rule:Gareth.players"][value="' + N + '"]');
-        return !!(garethBox && garethBox.checked && here && here.checked);
+    // Gareth and Balin play on top of the Evil players (see dealing.num_extras).
+    const EXTRAS = [['Gareth', 'Gareth'], ['Balin', 'Balin the Savage']];
+    function extras() {
+        const names = EXTRAS.filter(function (e) {
+            const box = document.getElementById(e[1]);
+            const here = document.querySelector('input[name="rule:' + e[1] + '.players"][value="' + N + '"]');
+            return !!(box && box.checked && here && here.checked);
+        }).map(function (e) { return e[0]; });
+        const oneOf = document.querySelector('input[name="rule:Balin.or_gareth"]');
+        if (names.length === 2 && oneOf && oneOf.checked) return {count: 1, label: names.join(' or ')};
+        return {count: names.length, label: names.join(' + ')};
     }
     function defaultEvils() {
-        return garethPlays() ? DEFAULTS.evils_with_gareth : DEFAULTS.evils_without_gareth;
+        return extras().count ? DEFAULTS.evils_with_extra : DEFAULTS.evils_without_extra;
     }
-    // Rebuild the Evil options: Gareth takes one of the other players' places.
+    // Rebuild the Evil options: Gareth / Balin take other players' places.
     function labelOptions(selected) {
-        const g = garethPlays() ? 1 : 0;
+        const x = extras();
         evils.innerHTML = '';
-        for (let k = 1; k <= Math.min(5, N - 1 - g); k++) {
+        for (let k = 1; k <= Math.min(5, N - 1 - x.count); k++) {
             const o = document.createElement('option');
             o.value = k;
-            o.textContent = k + ' Evil' + (g ? ' + Gareth' : '') + ' v ' + (N - k - g)
+            o.textContent = k + ' Evil' + (x.label ? ' + ' + x.label : '') + ' v ' + (N - k - x.count)
                 + (k === defaultEvils() ? ' (default)' : '');
             evils.appendChild(o);
         }
-        evils.value = Math.min(selected, N - 1 - g);
+        evils.value = Math.min(selected, N - 1 - x.count);
     }
-    let garethWas = garethPlays();
-    function garethChanged() {
-        if (garethPlays() === garethWas) return;
-        garethWas = garethPlays();
-        labelOptions(GARETH_EVILS[garethPlays() ? 'on' : 'off']);
+    let extrasWas = JSON.stringify(extras());
+    function extrasChanged() {
+        const now = extras();
+        if (JSON.stringify(now) === extrasWas) return;
+        const hadAny = JSON.parse(extrasWas).count > 0;
+        extrasWas = JSON.stringify(now);
+        labelOptions(hadAny === (now.count > 0) ? Number(evils.value)
+                     : EXTRA_EVILS[now.count ? 'on' : 'off']);
         fill(PREFS[evils.value]);
     }
-    if (garethBox) garethBox.addEventListener('change', garethChanged);
-    document.getElementById('start-form').addEventListener('rules-changed', garethChanged);
+    EXTRAS.forEach(function (e) {
+        const box = document.getElementById(e[1]);
+        if (box) box.addEventListener('change', extrasChanged);
+    });
+    document.getElementById('start-form').addEventListener('rules-changed', extrasChanged);
     function fill(q) {
         for (let i = 1; i <= 5; i++) {
             document.getElementById('size' + i).value = q.sizes[i - 1];

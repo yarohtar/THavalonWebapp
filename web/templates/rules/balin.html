@@ -1,2 +1,53 @@
-<p>Balin is not currently played because the rules are still being worked out, so don't select it when hosting.</p>
-<p>In the app, [[Merlin]] {{ 'sees Balin as Evil' if ruleset.merlin_sees('Balin the Savage') else "doesn't see Balin" }}, and Balin and [[Agravaine]] are told about each other.</p>
+{% from "rules/_lines.html" import li, p %}
+{% set counts = ruleset['Balin the Savage.players'] %}
+{% if not ruleset.changed('Balin the Savage.players') %}
+<p>Balin can only be in 9-player games, where the host may add them like any other role. Like [[Gareth]], Balin plays on top of the Evil players the host chooses: the usual 9-player game is 3 Evil, Balin and 5 Good.</p>
+{% else %}
+{% call p(True) %}{% if counts %}Balin can be dealt {{ counts_phrase(counts) }}, where the host may add them like any other role.{% else %}Balin is never dealt.{% endif %} Balin plays on top of the Evil players the host chooses, in place of an Evil player (or of a Good player, if there would be fewer than 2 Evil players otherwise).{% endcall %}
+{% endif %}
+{% if ruleset['Balin.or_gareth'] %}
+<p>When [[Gareth]] could be dealt too, only one of Balin and Gareth is in the game, chosen at random. Otherwise, a selected Balin is always dealt.</p>
+{% else %}
+{% call p(True) %}Balin and [[Gareth]] can both be in the game: Gareth then takes an Evil player's place and Balin a Good player's.{% endcall %}
+{% endif %}
+
+<h2 id="goal">Winning</h2>
+{% if ruleset['Balin.must_fail'] %}
+<p>Balin is <b class="term-good">Good</b>, but wins only if Good wins <b>and</b> Balin has played at least one [[Fail]] during the game.</p>
+<ul>
+    <li>The Quest Balin fails on doesn't have to fail: the Fail just has to be played.</li>
+    <li>A Fail that a [[Strong Inquisition]] removes still counts as played.</li>
+    <li>If Evil wins, Balin loses with the rest of Good.</li>
+</ul>
+{% else %}
+{% call p(True) %}Balin is <b class="term-good">Good</b> and wins whenever Good wins. Balin may play [[Fail]], like any Good player.{% endcall %}
+{% endif %}
+
+<h2 id="seen">Who sees Balin</h2>
+<ul>
+    <li>Balin is told nothing beyond what every Good player is told.</li>
+    {% if ruleset['Balin.evil_sees'] %}
+    <li>The Evil players see Balin among the Evil players, without being told which of them is Balin. An Evil player who sees one player too many can't tell whether it's Balin or an Evil [[Gareth]]. [[Colgrevance]] sees Balin's role.</li>
+    {% else %}
+    {% call li(True) %}The Evil players don't see Balin.{% endcall %}
+    {% endif %}
+    {% if ruleset['Balin.agravaine_knows'] %}
+    {% call li(not ruleset['Balin.evil_sees']) %}[[Agravaine]] is told which player is Balin{% if ruleset['Balin.evil_sees'] %}, so isn't fooled{% endif %}.{% endcall %}
+    {% else %}
+    {% call li(True) %}[[Agravaine]] isn't told who Balin is{% if ruleset['Balin.evil_sees'] %}, and sees Balin among the Evil players like the others{% endif %}.{% endcall %}
+    {% endif %}
+    {% if ruleset.merlin_sees('Balin the Savage') %}
+    <li>[[Merlin]] sees Balin as Evil.</li>
+    {% else %}
+    {% call li(True) %}[[Merlin]] doesn't see Balin.{% endcall %}
+    {% endif %}
+    {% if ruleset['Arthur.sees_balin'] %}
+    <li>[[Arthur]] is told that Balin is in the game (not who it is), like any other Good role.</li>
+    {% else %}
+    {% call li(True) %}[[Arthur]] isn't told whether Balin is in the game.{% endcall %}
+    {% endif %}
+    <li>The [[Lady of the Lake]] shows Balin as Good.</li>
+</ul>
+
+<h2 id="proposals">Proposals</h2>
+<p>For the number of [[Proposals]] and the [[Inquisition]], Balin counts as an Evil player, like Gareth. With 3 Evil and Balin, each round has 5 proposals, with Strong and Weak Inquisition: the same as with Gareth, so the count doesn't tell which of them is in the game.</p>

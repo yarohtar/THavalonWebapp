@@ -10,11 +10,19 @@ from __future__ import annotations
 
 from thavalon import GameController, GameState, RuleError
 from thavalon.dealing import (AvalonBuilder, DEFAULT_TEAM_SIZES, default_double_fail_quest,
-                              default_num_evils, has_gareth)
+                              default_num_evils, num_extras, possible_extras)
 from thavalon.roles import Role, all_roles
 from thavalon.ruleset import RuleSet, DEFAULT as DEFAULT_RULES
 from web import host_votes
 from web.host_votes import HostVote
+
+
+def extras_label(num_players : int, roles : list[Role], ruleset : RuleSet | None = None) -> str:
+    """Who plays on top of the Evil players: 'Gareth', 'Balin', 'Gareth or
+    Balin' (one of them, at random), 'Gareth + Balin', or ''."""
+    names = [r.name.split()[0] for r in possible_extras(num_players, roles, ruleset)]
+    joiner = " or " if num_extras(num_players, roles, ruleset) < len(names) else " + "
+    return joiner.join(names)
 
 
 class GameSettings:
@@ -51,21 +59,22 @@ class GameSettings:
         n = num_players
         if n not in DEFAULT_TEAM_SIZES:
             raise ValueError("A game needs 5 to 10 players.")
-        gareth = has_gareth(n, roles, ruleset)
-        evils = self.num_evils if self.num_evils is not None else default_num_evils(n, gareth)
+        extras = num_extras(n, roles, ruleset)
+        evils = self.num_evils if self.num_evils is not None else default_num_evils(n, extras)
         sizes = self.team_sizes or DEFAULT_TEAM_SIZES[n]
         if any(not 2 <= k <= n for k in sizes):
             raise ValueError(f"Team sizes must be between 2 and {n} for {n} players.")
         double_fail = (self.double_fail if self.double_fail is not None
                        else default_double_fail_quest(n))
-        if evils < 1 or n - evils - gareth < 1:
+        if evils < 1 or n - evils - extras < 1:
             raise ValueError(f"{evils} Evil players doesn't work with {n} players.")
-        # Gareth counts towards proposals as if Evil (see GameState.num_evils).
-        proposals = evils + gareth + 1
+        # Gareth and Balin count towards proposals as if Evil (see GameState.num_evils).
+        proposals = evils + extras + 1
         return dict(num_players = n,
                     num_evils = evils,
-                    gareth = gareth,
-                    num_others = n - evils - gareth,
+                    extras = extras,                    # Gareth and/or Balin
+                    extra_label = extras_label(n, roles, ruleset),
+                    num_others = n - evils - extras,
                     team_sizes = sizes,
                     double_fail = double_fail or None,
                     proposals = proposals,

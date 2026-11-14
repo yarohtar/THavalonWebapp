@@ -257,7 +257,7 @@ def init_app(app, registration_exempt : list[str]):
         n, evils = rules["num_players"], rules["num_evils"]
         return dict(roles=[str(r) for r in game.roles_in_game], gareth_offered=True,
                     lady=rules["lady"], rules=game.game_ruleset.to_json(),
-                    evils={evils_key(n, rules["gareth"]): evils},
+                    evils={evils_key(n, rules.get("extras", rules.get("gareth"))): evils},
                     quests={f"{n}-{evils}": dict(sizes=rules["team_sizes"],
                                                  double_fail=rules["double_fail"] or 0)})
 

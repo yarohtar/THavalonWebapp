@@ -114,7 +114,9 @@ def test_every_scenario_starts_in_its_situation():
             'lonely-roles': ('first_round_proposing', 'Ann', 'propose_first_round'),
             'guinevere-court': ('first_round_proposing', 'Ann', 'propose_first_round'),
             'colgrevance-oberon': ('first_round_proposing', 'Ann', 'propose_first_round'),
-            'balin-agravaine': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'balin': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'gareth-or-balin': ('first_round_proposing', 'Ann', 'propose_first_round'),
+            'balin-wins': ('game_over', None, None),
             'sorceress-reversed': ('proposing', 'Fay', 'propose'),
             'changeling-used': ('quest', 'Ann', 'play_card'),
             'strong-remove-reversal': ('inquisition', 'Cat', 'inquisition'),
@@ -288,10 +290,33 @@ def test_scenarios_lead_where_they_say():
             {'Gus': 'Mordred', 'Ivy': 'Oberon', 'Jon': 'Morgana'}
         assert 'Ivy' not in info['Mordred']['other_evils'] and info['Mordred']['oberon']
 
-        fresh('balin-agravaine')
-        info = info_of('balin-agravaine')
-        assert info['Balin the Savage']['agravaine'] == 'Hal' and info['Agravaine']['balin'] == 'Cat'
-        assert 'Cat' in info['Merlin']['seen']
+        ctl, s = fresh('balin')
+        info = info_of('balin')
+        assert info['Agravaine']['balin'] == 'Cat'
+        assert sorted(info['Agravaine']['other_evils']) == ['Gus', 'Hal']
+        assert sorted(info['Mordred']['other_evils']) == ['Cat', 'Hal', 'Ivy']
+        assert sorted(info['Merlin']['seen']) == ['Cat', 'Hal', 'Ivy']
+        assert 'Balin the Savage' in [str(r) for r in info['Arthur']['good_roles']]
+        assert s.proposals_per_round == 5
+
+        import html as _h, re as _re
+        def worked_out(slug, who):
+            t = c.get(f'/dev/{slug}/as/{who}', follow_redirects=True).get_data(as_text=True)
+            m = _re.search(r'class="deductions">(.*?)</div>', t, _re.S)
+            return _h.unescape(_re.sub(r'<[^>]+>', '', m.group(1))) if m else ''
+        assert 'either an Evil Gareth or Balin' in worked_out('balin', 'Gus')
+        assert "Gareth isn't in this game" in worked_out('balin', 'Ivy')
+        assert "Gareth isn't in this game" in worked_out('balin', 'Bob')
+        assert "Gareth isn't in this game" in worked_out('balin', 'Cat')
+        assert "can't tell which team" in worked_out('gareth-or-balin', 'Bob')
+        assert 'is Good (blue)' in worked_out('gareth-or-balin', 'Fay')
+        assert 'is Good (blue)' in worked_out('gareth-or-balin', 'Hal')
+        assert "Balin isn't in this game" in worked_out('gareth-or-balin', 'Ivy')
+        assert worked_out('gareth-or-balin', 'Ann') == ''
+
+        ctl, s = fresh('balin-wins')
+        assert s.outcome['winner'] == 'Good'
+        assert s.outcome['balin'] == dict(player='Cat', played_fail=True, won=True)
 
         ctl, s = fresh('host-pause')
         assert ctl.undo_label() == 'Jon pressed ready'

@@ -7,13 +7,14 @@
     {% call li(rules_changed(ruleset, 'Merlin.sees.Mordred', 'Merlin.sees.Morgana', 'Merlin.sees.Maelegant',
                              'Merlin.sees.Agravaine', 'Merlin.sees.Colgrevance', 'Merlin.sees.Oberon',
                              'Merlin.sees.Minion of Mordred')) %}{{ merlin_evil_sight(ruleset) }}{% endcall %}
-    {% if ruleset.merlin_sees('Lancelot') %}
-    <li>Also sees [[Lancelot]] as Evil.</li>
+    {% set lancelot, balin = ruleset.merlin_sees('Lancelot'), ruleset.merlin_sees('Balin the Savage') %}
+    {% if lancelot and balin %}
+    <li>Also sees [[Lancelot]] and [[Balin the Savage|Balin]] as Evil, though they are Good.</li>
     {% else %}
-    {% call li(True) %}Doesn't see [[Lancelot]].{% endcall %}
-    {% endif %}
-    {% if ruleset.changed('Merlin.sees.Balin the Savage') %}
-    {% call li(True) %}Doesn't see [[Balin the Savage]].{% endcall %}
+    {% if lancelot %}{% call li(True) %}Also sees [[Lancelot]] as Evil, though Lancelot is Good.{% endcall %}
+    {% else %}{% call li(True) %}Doesn't see [[Lancelot]].{% endcall %}{% endif %}
+    {% if balin %}{% call li(True) %}Also sees [[Balin the Savage|Balin]] as Evil, though Balin is Good.{% endcall %}
+    {% else %}{% call li(True) %}Doesn't see [[Balin the Savage|Balin]].{% endcall %}{% endif %}
     {% endif %}
     {% if rules_changed(ruleset, *gareth_keys) %}
     {% call li(True) %}{{ gareth_sight(ruleset, 'merlin') }}{% endcall %}
