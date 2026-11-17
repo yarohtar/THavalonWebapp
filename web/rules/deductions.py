@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from markupsafe import Markup
 
 from thavalon.dealing import num_extras, possible_extras
+from thavalon.roles import string_to_role
 from thavalon.ruleset import RuleSet
 from web.rules.pages import expand
 
@@ -54,6 +55,12 @@ def _red_sees_balin(rules : RuleSet, w : World, role : str) -> bool:
         role == "Agravaine" and rules["Balin.agravaine_knows"])
 
 
+def _is_evil(role : str) -> bool:
+    if role == "Minion of Mordred":         # numbered, not in string_to_role
+        return True
+    return role in string_to_role and string_to_role[role].allegiance() == "Evil"
+
+
 def observation(role : str, rules : RuleSet, w : World):
     """What `role` would be told about Gareth and Balin in world `w`
     (anything hashable; only compared between worlds)."""
@@ -74,6 +81,8 @@ def observation(role : str, rules : RuleSet, w : World):
     if role == "Agravaine":
         extra = int(_evil_sees_gareth(rules, w)) + int(_red_sees_balin(rules, w, role))
         return (extra, w.balin and rules["Balin.agravaine_knows"], told_gareth("evil"))
+    if not _is_evil(role):
+        return None      # every other role is told nothing about Gareth or Balin
     # Other Evil players: how many extra players they see among the Evil.
     extra = int(_evil_sees_gareth(rules, w)) + int(_red_sees_balin(rules, w, role))
     return (extra, told_gareth("evil"))

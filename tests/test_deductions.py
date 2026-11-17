@@ -47,26 +47,63 @@ def told(role, i, rules, setup, b):
         if name == "Agravaine":
             return (extra, "balin" in i, "gareth" in i)
         return (extra, "gareth" in i)
+    # Every other role is told nothing about Gareth or Balin.
+    assert not {"gareth", "balin", "evil_roles", "good_roles", "other_evils"} & set(i), name
     return None
 
 
-def test_observation_matches_the_real_role_info():
-    rng = random.Random(1)
-    pool = [T.gareth, T.balin, T.arthur, T.merlin, T.mordred, T.morgana, T.agravaine,
-            T.colgrevance, T.oberon, T.percival]
+def check_observations(pool, seeds, rng):
     checked = set()
-    for seed in range(400):
+    for seed in seeds:
         rules = RuleSet({k: rng.random() < 0.5 for k in KEYS} |
                         {"Colgrevance.players": [9], "Oberon.sees_evil": True})
         b = build(9, pool, seed=seed, rules=rules)
         setup = setup_of_deal(b, pool, rules)
         for role in b:
-            want = told(role, role.get_info(b), rules, setup, b)
-            if want is None or str(role) in (GARETH, BALIN):
+            if str(role) in (GARETH, BALIN):
                 continue
+            want = told(role, role.get_info(b), rules, setup, b)
+            # The same in every world: a role told nothing can't tell worlds apart.
+            if want is None:
+                assert all(observation(str(role), rules, w) is None
+                           for w in [World(t, x) for t in ("Good", "Evil", None)
+                                     for x in (True, False)]), str(role)
             assert observation(str(role), rules, setup.actual) == want, (str(role), rules)
             checked.add(str(role))
+    return checked
+
+
+def test_observation_matches_the_real_role_info():
+    pool = [T.gareth, T.balin, T.arthur, T.merlin, T.mordred, T.morgana, T.agravaine,
+            T.colgrevance, T.oberon, T.percival]
+    checked = check_observations(pool, range(400), random.Random(1))
     assert {"Arthur", "Merlin", "Colgrevance", "Agravaine", "Mordred", "Oberon"} <= checked
+
+
+def test_every_role_sees_only_its_own_info():
+    """Random deals from every role: each role's observation is what its
+    real role info says (nothing, for roles told nothing about Gareth/Balin)."""
+    checked = check_observations(list(T.all_roles), range(1500), random.Random(2))
+    # Gawain plays only at 10, Gareth/Balin only at 9 (Gawain: see the next test).
+    everyone = {str(r) for r in T.all_roles} - {GARETH, BALIN, "Gawain"}
+    assert everyone <= checked, everyone - checked
+    # A small pool: the rest are Servants and Minions.
+    checked = check_observations([T.gareth, T.balin, T.merlin, T.mordred], range(100),
+                                 random.Random(3))
+    assert {"Servant of Camelot", "Minion of Mordred"} <= checked
+
+
+def test_blue_roles_without_gareth_info_learn_nothing():
+    """Regression: Percival, Tristan, ... were told Gareth's team (they were
+    treated like Evil players counting the Evil they see)."""
+    for role in ("Percival", "Tristan", "Iseult", "Uther", "Lancelot", "Guinevere",
+                 "Ygraine", "Gawain", "Nilrem", "Servant of Camelot", "Pellinore",
+                 "The Questing Beast"):
+        for possible in ([GARETH], BOTH):
+            for team in ("Good", "Evil"):
+                out = notes(role, {"allegiance": "Good"},
+                            Setup(possible, True, 3, World(team, False)))
+                assert out == [], (role, possible, team, out)
 
 
 @pytest.fixture(autouse=True)
