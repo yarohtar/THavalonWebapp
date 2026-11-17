@@ -6,6 +6,7 @@ from thavalon.assassination import assassination_help
 from thavalon.cards import quest_succeeds
 from thavalon.controller import MAX_UNDO
 from thavalon.errors import NotAllowed, RuleError
+from thavalon.ruleset import RuleSet
 from thavalon.state import Phase
 from helpers import (F, Q, R, S, approve_and_play, everyone, finish_pauses, make_game,
                      play_cards, play_first_round)
@@ -151,7 +152,7 @@ def test_inquisition_target_must_be_on_the_team():
     with pytest.raises(RuleError):
         ctl.act("p2", "inquisition", target="p5")
     ctl.act("p2", "inquisition", target="p1")
-    assert state.current_quest.revealed == {"p1": S}
+    assert state.quests[-1].revealed == {"p1": S}
 
 
 # ---------------------------------------------------------------- Inquisition grants
@@ -228,8 +229,8 @@ def test_gawain_limits():
 
 def test_betrayal_needs_agravaine_on_a_successful_quest():
     names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Servant"]
-    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4), double_fail=4)
-    play_first_round(ctl, team=("p0", "p1"))
+    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4), double_fail=1)
+    play_first_round(ctl, team=("p0", "p3"), cards={"p3": F})    # 1 Fail of 2 needed
     assert state.phase == Phase.RESULT                           # Agravaine possible
     assert "betray" not in ctl.available_actions("p4")          # not on the team
     with pytest.raises(RuleError):
@@ -247,6 +248,47 @@ def test_declared_agravaine_off_the_team_means_no_result_pause():
     finish_pauses(ctl)
     approve_and_play(ctl, ["p0", "p1", "p2"])
     assert state.phase == Phase.PROPOSING and state.round == 3   # no RESULT pause
+
+
+def test_no_result_pause_when_every_card_shown_is_a_success():
+    """Agravaine must play Fail: all Successes shown means Agravaine wasn't
+    on the quest, so there's nothing to wait for."""
+    names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Servant"]
+    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4))
+    play_first_round(ctl, team=("p0", "p1"))
+    assert state.successes == 1 and state.phase == Phase.PROPOSING
+
+
+def test_result_pause_kept_when_agravaine_may_play_success():
+    names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Servant"]
+    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4),
+                           rules=RuleSet({"Agravaine.must_fail": False}))
+    play_first_round(ctl, team=("p0", "p4"))
+    assert state.phase == Phase.RESULT
+    ctl.act("p4", "betray")
+    assert state.failures == 1
+
+
+def test_result_pause_kept_when_strong_inquisition_removed_a_card():
+    """The removed card could have been Agravaine's Fail."""
+    names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Morgana",
+             "Servant", "Servant"]                                # 4 Evil: Strong
+    state, ctl = make_game(names, sizes=(2, 4, 4, 5, 5))
+    to_round_2(ctl)
+    ctl.act("p2", "propose", team=["p0", "p1", "p2", "p4"]); everyone(ctl, "vote", approve=True)
+    assert state.current_quest.inquisition == "strong"
+    play_cards(ctl)                                              # p4 plays Fail
+    ctl.act("p2", "inquisition", target="p4", remove=True)
+    assert state.current_quest.succeeded and state.phase == Phase.RESULT
+    assert "betray" in ctl.available_actions("p4")
+
+
+def test_no_result_pause_when_agravaine_not_selected():
+    names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Servant"]
+    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4), double_fail=1)
+    state.possible_roles.discard("Agravaine")
+    play_first_round(ctl, team=("p0", "p3"), cards={"p3": F})    # 1 Fail of 2 needed
+    assert state.successes == 1 and state.phase == Phase.PROPOSING
 
 
 def test_arthur_cannot_proclaim_before_or_after_the_game():
@@ -435,19 +477,19 @@ def test_proposal_views():
 
 def test_quest_view_and_ready():
     names = ["Merlin", "Servant", "Servant", "Mordred", "Agravaine", "Minion", "Servant"]
-    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4), double_fail=4)
-    play_first_round(ctl, team=("p0", "p1"))
-    ctl.act("p0", "ready")
-    v = ctl.view("p1")
-    assert v["ready"] == ["p0"] and v["phase"] == "result"
-    assert v["waiting_for"] == ["p1", "p2", "p3", "p4", "p5", "p6"]
+    state, ctl = make_game(names, sizes=(2, 3, 3, 4, 4), double_fail=1)
+    play_first_round(ctl, team=("p0", "p3"), cards={"p3": F})    # 1 Fail of 2 needed
+    ctl.act("p1", "ready")
+    v = ctl.view("p0")
+    assert v["ready"] == ["p1"] and v["phase"] == "result"
+    assert v["waiting_for"] == ["p0", "p2", "p3", "p4", "p5", "p6"]
     q = v["latest_quest"]
-    assert q["played"] == ["Success", "Success"] and q["succeeded"] is True
-    assert q["chosen"] == ["p0", "p1"] and q["qbwh_counts_as"] == "Fail"
+    assert sorted(q["played"]) == ["Fail", "Success"] and q["succeeded"] is True
+    assert q["chosen"] == ["p0", "p3"] and q["qbwh_counts_as"] == "Fail"
     assert v["you"]["card"] == "Success" and v["actions"] == {"ready": {}}
     ctl.skip_pause()
     assert state.phase == Phase.PROPOSING and ctl.view()["ready"] == []
-    assert ctl.view("p1")["you"]["card"] is None                 # new round
+    assert ctl.view("p0")["you"]["card"] is None                 # new round
 
 
 def test_everyone_sees_declarations_once_in_order():

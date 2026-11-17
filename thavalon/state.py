@@ -468,7 +468,13 @@ class GameState:
     def _betrayal_pause_needed(self) -> bool:
         q = self.current_quest
         agravaine = self._declared("Agravaine")
+        # Agravaine must play Fail (by default): if every card is shown
+        # (none removed by Strong Inquisition) and none is a Fail,
+        # Agravaine wasn't on the quest.
+        no_agravaine_card = (self.rules["Agravaine.must_fail"] and q.removed is None
+                             and Card.FAIL not in q.played)
         return ("Agravaine" in self.possible_roles and q.succeeded
+                and not no_agravaine_card
                 and not (agravaine is not None and agravaine not in q.team))
 
     def _to_reveal(self):

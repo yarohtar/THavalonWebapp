@@ -383,7 +383,7 @@ def test_changeling_pause_only_if_oberon_possible():
 def test_reveal_pause_follows_gawain():
     state, ctl = ten_player_game()
     play_first_round(ctl, team=("p0", "p1", "p5"))
-    assert state.phase == Phase.RESULT          # round 1: no Gawain; success: Agravaine pause
+    assert state.phase == Phase.PROPOSING       # round 1: no Gawain; all Successes: no Agravaine
     everyone(ctl, "ready")
     ctl.act("p2", "propose", team=["p0", "p1", "p3", "p5"]); everyone(ctl, "vote", approve=False)
     ctl.act("p3", "propose", team=["p0", "p1", "p3", "p5"]); everyone(ctl, "vote", approve=True)
@@ -392,8 +392,7 @@ def test_reveal_pause_follows_gawain():
     assert state.phase == Phase.REVEAL          # Gawain possible
     ctl.act("p2", "gawain", target="p0")        # Success -> exiled
     everyone(ctl, "ready")
-    assert state.phase == Phase.RESULT
-    everyone(ctl, "ready")
+    assert state.phase == Phase.PROPOSING       # all Successes shown: no Agravaine pause
     ctl.act(state.leader, "propose", team=["p0", "p1", "p5", "p8"]); everyone(ctl, "vote", approve=True)
     play_cards(ctl, {"p0": S})
     if state.phase == Phase.INQUISITION:
